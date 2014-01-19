@@ -287,23 +287,27 @@ func (s *Scanner) read_oct(n uint) rune {
 	}
 }
 
-// Scan an escape sequence. The parapeter STR indicates if we are processing a
+// Scan an escape sequence. The parameter STR indicates if we are processing a
 // string (or a rune) literal. Return the decoded rune in R. If the escape
 // sequence was a two-digit hexadecimal sequence of three-digit octal sequence,
 // return true in the return B. This case needs to be distinguished when
 // processing string literals.
-func (s *Scanner) scan_escape(str bool) (r rune, b bool) {
+func (s *Scanner) scan_escape(str bool) (r rune, b bool, ok bool) {
 	ch := s.peek_char()
 
 	if is_oct_digit(ch) {
-		return s.read_oct(3), true
+		b = true
+		r = s.read_oct(3)
+		ok = r != utf8.RuneError
+		return
 	}
 
 	s.next_char()
-	b = false
+	b, ok = false, true
 	switch {
 	case ch == 'x':
 		r, b = s.read_hex(2), true
+		ok = r != utf8.RuneError
 	case ch == 'u':
 		r = s.read_hex(4)
 	case ch == 'U':
@@ -330,7 +334,7 @@ func (s *Scanner) scan_escape(str bool) (r rune, b bool) {
 		r = '\x22'
 	default:
 		s.error("Invalid escape sequence")
-		return utf8.RuneError, false
+		return utf8.RuneError, false, false
 	}
 
 	return
@@ -354,10 +358,11 @@ func (s *Scanner) scan_rune() (uint, string) {
 	var r rune
 	if ch == '\\' {
 		s.next_char()
-		r, _ = s.scan_escape(false)
-		if r == utf8.RuneError {
+		rr, _, ok := s.scan_escape(false)
+		if !ok {
 			return ERROR, ""
 		}
+		r = rr
 	} else {
 		r = s.next()
 	}
@@ -379,8 +384,8 @@ func (s *Scanner) scan_string() (uint, string) {
 	for ch, _ = s.peek(); ch != '"' && ch != EOF && ch != NL; ch, _ = s.peek() {
 		s.next()
 		if ch == '\\' {
-			c, b := s.scan_escape(true)
-			if c == utf8.RuneError {
+			c, b, ok := s.scan_escape(true)
+			if !ok {
 				return ERROR, ""
 			}
 			if b {

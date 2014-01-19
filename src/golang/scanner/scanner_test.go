@@ -511,3 +511,16 @@ func TestIdent(t *testing.T) {
 	tok := s.Get()
 	expect_token(t, tok, EOF)
 }
+
+func TestRegression20140119143717(t *testing.T) {
+	input := `'\uFFFD'` // correctly encoded RuneError
+
+	s := New("regression20140119", input)
+	tok := s.Get()
+	if !expect_token(t, tok, RUNE) {
+		t.Log(s.Err)
+	}
+
+	tok = s.Get()
+	expect_token(t, tok, EOF)
+}
