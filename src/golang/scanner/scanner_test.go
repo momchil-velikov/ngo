@@ -8,7 +8,7 @@ import (
 
 func expect_token(t *testing.T, tok uint, exp uint) bool {
 	if tok != exp {
-		t.Errorf("Expected %s, got %s", token_names[exp], token_names[tok])
+		t.Errorf("Expected %s, got %s", TokenNames[exp], TokenNames[tok])
 		return false
 	} else {
 		return true
@@ -167,9 +167,9 @@ func TestBlockComment6(t *testing.T) {
 // 	s := New("basic tokens", tokens)
 // 	for i, tok := 0, s.Get(); tok != EOF; i++ {
 // 		if i >= len(expect) {
-// 			t.Errorf("EOF not found, found token %s instead", token_names[tok])
+// 			t.Errorf("EOF not found, found token %s instead", TokenNames[tok])
 // 		} else if tok != expect[i] {
-// 			t.Errorf("failed to recognize token '%s'", token_names[expect[i]])
+// 			t.Errorf("failed to recognize token '%s'", TokenNames[expect[i]])
 // 		}
 // 		tok = s.Get()
 // 	}
@@ -213,12 +213,12 @@ func test_string(t *testing.T, input string, value string) {
 	s := New("strings", input)
 	tok := s.Get()
 	if tok != STRING {
-		t.Errorf("Expected string, got %s", token_names[tok])
+		t.Errorf("Expected string, got %s", TokenNames[tok])
 	}
 	str := s.Value
 	tok = s.Get()
 	if tok != EOF {
-		t.Errorf("Expected EOF, got %s", token_names[tok])
+		t.Errorf("Expected EOF, got %s", TokenNames[tok])
 	}
 
 	if str != value {
@@ -262,7 +262,7 @@ func test_runes(t *testing.T, runes string, values []string) {
 		}
 
 		if tok != RUNE {
-			t.Errorf("Expected rune, got %s", token_names[tok])
+			t.Errorf("Expected rune, got %s", TokenNames[tok])
 			if tok == ERROR {
 				t.Errorf("error is: %s", s.Err)
 			}

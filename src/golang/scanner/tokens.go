@@ -121,7 +121,7 @@ var keywords = map[string]uint{
 	"var":         VAR,
 }
 
-var token_names = map[uint]string{
+var TokenNames = map[uint]string{
 	EOF:      "<eof>",
 	PLUS:     "+",
 	MINUS:    "-",
