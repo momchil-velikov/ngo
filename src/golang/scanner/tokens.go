@@ -133,7 +133,7 @@ var TokenNames = map[uint]string{
 	BITXOR:   "^",
 	LT:       "<",
 	GT:       ">",
-	ASSIGN:   ":",
+	ASSIGN:   "=",
 	NOT:      "!",
 	LPAREN:   "(",
 	RPAREN:   ")",
