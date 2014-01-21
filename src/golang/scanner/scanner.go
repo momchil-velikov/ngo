@@ -109,15 +109,15 @@ func (s *Scanner) skip_line_comment() rune {
 func (s *Scanner) skip_block_comment() rune {
 	line := s.line
 
-	r := s.next()
-	for r != EOF {
+	var r rune
+	for r = s.next(); r != EOF; r = s.next() {
 		if r == '*' {
-			r = s.next()
-			if r == EOF || r == '/' {
+			r, _ = s.peek()
+			if r == '/' {
+				s.next_char()
 				break
 			}
 		}
-		r = s.next()
 	}
 
 	if r == EOF {

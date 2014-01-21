@@ -512,6 +512,8 @@ func TestIdent(t *testing.T) {
 	expect_token(t, tok, EOF)
 }
 
+// String and rune literals may contain Unicode replacement char, a.k.a
+// RuneError
 func TestRegression20140119143717(t *testing.T) {
 	input := `'\uFFFD'` // correctly encoded RuneError
 
@@ -522,5 +524,12 @@ func TestRegression20140119143717(t *testing.T) {
 	}
 
 	tok = s.Get()
+	expect_token(t, tok, EOF)
+}
+
+func TestRegession20140119165305(t *testing.T) {
+	input := `/***/`
+	s := New("regression20140119", input)
+	tok := s.Get()
 	expect_token(t, tok, EOF)
 }
