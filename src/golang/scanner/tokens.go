@@ -152,7 +152,7 @@ var TokenNames = map[uint]string{
 	PLUS_ASSIGN:  "+=",
 	MINUS_ASSIGN: "-=",
 	MUL_ASSIGN:   "*=",
-	DIV_ASSIGN:   "/*",
+	DIV_ASSIGN:   "/=",
 	REM_ASSIGN:   "%=",
 	AND_ASSIGN:   "&=",
 	OR_ASSIGN:    "|=",
