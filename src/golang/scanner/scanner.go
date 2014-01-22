@@ -702,6 +702,7 @@ L:
 		s.Value = v
 		return t
 	} else {
+		s.next()
 		msg := fmt.Sprintf("Invalid character: |%c|", r)
 		return s.error(msg)
 	}

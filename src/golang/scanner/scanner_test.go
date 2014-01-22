@@ -533,3 +533,15 @@ func TestRegession20140119165305(t *testing.T) {
 	tok := s.Get()
 	expect_token(t, tok, EOF)
 }
+
+func TestRegression20140121222305(t *testing.T) {
+	input := `x⊛y`
+	s := New("regression20140121", input)
+	tok := s.Get()
+	expect_token(t, tok, ID)
+
+	tok = s.Get()
+	if expect_token(t, tok, ERROR) {
+		t.Log(s.Err)
+	}
+}
