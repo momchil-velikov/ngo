@@ -19,7 +19,16 @@ type Scanner struct {
 }
 
 func New(name string, src string) *Scanner {
-	return &Scanner{Name: name, src: src, line: 1, pos: 1}
+	s := &Scanner{}
+	s.Init(name, src)
+	return s
+}
+
+func (s *Scanner) Init(name string, src string) {
+	s.Name = name
+	s.src = src
+	s.line = 1
+	s.pos = 1
 }
 
 func (s *Scanner) error(msg string) uint {
