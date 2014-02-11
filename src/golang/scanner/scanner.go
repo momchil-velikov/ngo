@@ -443,15 +443,20 @@ func (s *Scanner) Get() uint {
 	s.Err = nil
 
 L:
+	need_semicolon := s.need_semicolon
 
 	if s.off == len(s.src) {
-		return EOF
+		if need_semicolon {
+			s.need_semicolon = false
+			return ';'
+		} else {
+			return EOF
+		}
 	}
 
 	r, _ := s.peek()
 
 	s.TOff, s.TLine, s.TPos = s.off, s.line, s.pos
-	need_semicolon := s.need_semicolon
 	if is_whitespace(r) {
 		s.next()
 		if r == NL {
