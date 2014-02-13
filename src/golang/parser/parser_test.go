@@ -20,6 +20,30 @@ package foo`
 	}
 }
 
+func TestPackageError1(tst *testing.T) {
+	src := `
+foo`
+	_, e := Parse("package-error1.go", src)
+
+	if e == nil {
+		tst.Error("Unexpected lack of error")
+	} else {
+		tst.Log(e)
+	}
+}
+
+func TestPackageError2(tst *testing.T) {
+	src := `
+package`
+	_, e := Parse("package-error2.go", src)
+
+	if e == nil {
+		tst.Error("Unexpected lack of error")
+	} else {
+		tst.Log(e)
+	}
+}
+
 func TestImportSingle(tst *testing.T) {
 	src := `
 package foo
@@ -46,7 +70,9 @@ func TestImportMultiple(tst *testing.T) {
 package foo
 
 import  ( "fmt"; . "foo"
-	s "bar" 
+    .
+    "bar"
+	s "baz"
 	)
 `
 	t, e := Parse("import-single.go", src)
@@ -59,7 +85,7 @@ import  ( "fmt"; . "foo"
 		tst.Errorf("Unexpected package name `%s`", t.PackageName)
 	}
 
-	if len(t.Imports) != 3 {
+	if len(t.Imports) != 4 {
 		tst.Error("Expected exactly three imports")
 	}
 
@@ -68,12 +94,29 @@ import  ( "fmt"; . "foo"
 import (
     "fmt"
     . "foo"
-    s "bar"
+    . "bar"
+    s "baz"
 )
 
 `
 	f := t.Format()
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestImportError(tst *testing.T) {
+	src := `package foo
+import ( "foo"
+    .
+    s "bar"
+    t
+`
+	t, e := Parse("import-error.go", src)
+	f := t.Format()
+	if e == nil {
+		tst.Log(f)
+	} else {
+		tst.Log(e)
 	}
 }
