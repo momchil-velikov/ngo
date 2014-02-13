@@ -146,7 +146,11 @@ func (p *parser) parse_import_decls() (imports []ast.Import, ok bool) {
 				} else {
 					p.skip_until(';')
 				}
-				p.match(';')
+				if p.token != ')' {
+					// Spec does not say semicolon heres optional, Google Go
+					// allows it to be missing.
+					p.match(';')
+				}
 			}
 			p.match(')')
 		} else {
