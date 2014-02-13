@@ -81,6 +81,13 @@ func (p *parser) match_valued(token uint) (value string, ok bool) {
 	return
 }
 
+// Skip tokens, until given TOKEN found.
+func (p *parser) skip_until(token uint) {
+	for p.token != s.EOF && p.token != token {
+		p.next()
+	}
+}
+
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 func (p *parser) parse_file() *ast.File {
 	// Parse package name
@@ -136,15 +143,23 @@ func (p *parser) parse_import_decls() (imports []ast.Import, ok bool) {
 
 	if p.token == '(' {
 		p.next()
-		for p.token != ')' {
-			name, path := p.parse_import_spec()
-			imports = append(imports, ast.Import{name, path})
+		for p.token != s.EOF && p.token != ')' {
+			name, path, ok := p.parse_import_spec()
+			if ok {
+				imports = append(imports, ast.Import{name, path})
+			} else {
+				p.skip_until(';')
+			}
 			p.match(';')
 		}
-		p.next()
+		p.match(')')
 	} else {
-		name, path := p.parse_import_spec()
-		imports = append(imports, ast.Import{name, path})
+		name, path, ok := p.parse_import_spec()
+		if ok {
+			imports = append(imports, ast.Import{name, path})
+		} else {
+			p.skip_until(';')
+		}
 		p.match(';')
 	}
 	return
@@ -154,7 +169,7 @@ func (p *parser) parse_import_decls() (imports []ast.Import, ok bool) {
 //
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-func (p *parser) parse_import_spec() (name string, path string) {
+func (p *parser) parse_import_spec() (name string, path string, ok bool) {
 	if p.token == '.' {
 		name = "."
 		p.next()
@@ -163,7 +178,7 @@ func (p *parser) parse_import_spec() (name string, path string) {
 	} else {
 		name = ""
 	}
-	path, _ = p.match_valued(s.STRING)
+	path, ok = p.match_valued(s.STRING)
 	return
 }
 
