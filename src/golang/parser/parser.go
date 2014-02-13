@@ -135,30 +135,27 @@ func (p *parser) parse_import_decls() (imports []ast.Import, ok bool) {
 	imports = nil
 	ok = true
 
-	if p.token != s.IMPORT {
-		return
-	}
-
-	p.match(s.IMPORT)
-
-	if p.token == '(' {
-		p.next()
-		for p.token != s.EOF && p.token != ')' {
+	for p.token == s.IMPORT {
+		p.match(s.IMPORT)
+		if p.token == '(' {
+			p.next()
+			for p.token != s.EOF && p.token != ')' {
+				name, path, ok := p.parse_import_spec()
+				if ok {
+					imports = append(imports, ast.Import{name, path})
+				} else {
+					p.skip_until(';')
+				}
+				p.match(';')
+			}
+			p.match(')')
+		} else {
 			name, path, ok := p.parse_import_spec()
 			if ok {
 				imports = append(imports, ast.Import{name, path})
 			} else {
 				p.skip_until(';')
 			}
-			p.match(';')
-		}
-		p.match(')')
-	} else {
-		name, path, ok := p.parse_import_spec()
-		if ok {
-			imports = append(imports, ast.Import{name, path})
-		} else {
-			p.skip_until(';')
 		}
 		p.match(';')
 	}

@@ -105,6 +105,34 @@ import (
 	}
 }
 
+func TestImportSeq(tst *testing.T) {
+	src := `
+package foo
+import "bar"
+import ( "baz"; "xyzzy" ; ) ; import "qux"
+`
+	t, e := Parse("import-seq.go", src)
+
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+import (
+    "bar"
+    "baz"
+    "xyzzy"
+    "qux"
+)
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
 func TestImportError(tst *testing.T) {
 	src := `package foo
 import ( "foo"
