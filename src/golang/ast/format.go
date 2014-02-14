@@ -46,3 +46,45 @@ func (i *Import) format(n uint) (s string) {
 	s += `"` + i.Path + `"`
 	return s
 }
+
+// Output a formatted type declaration.
+func (t *TypeDecl) format(n uint) (s string) {
+	s = "type " + t.Name + " "
+	s += t.Type.format(n) + "\n\n"
+	return
+}
+
+// Output a formatted type.
+func (t *BaseType) format(n uint) (s string) {
+	s = nspaces(4 * n)
+	if len(t.Pkg) > 0 {
+		s += t.Pkg + "."
+	}
+	s += t.Id
+	return
+}
+
+func (t *ArrayType) format(n uint) (s string) {
+	s = nspaces(4 * n)
+	s += "[" + t.Dim.format(0) + "]" + t.EltType.format(0)
+	return
+}
+
+func (t *SliceType) format(n uint) (s string) {
+	s = nspaces(4 * n)
+	s += "[]" + t.EltType.format(0)
+	return
+}
+
+func (t *PtrType) format(n uint) string {
+	return "*" + t.Base.format(0)
+}
+
+func (t *MapType) format(n uint) string {
+	return "map[" + t.KeyType.format(0) + "]" + t.EltType.format(0)
+}
+
+// Output a formatted expression
+func (e *Expr) format(n uint) string {
+	return e.Const
+}

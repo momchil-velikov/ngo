@@ -188,3 +188,150 @@ import ( "baz"; s )
 		tst.Log(e)
 	}
 }
+
+func TestBaseType1(tst *testing.T) {
+	src := `
+package foo
+type a int
+type ( b int; c bar.Z; )
+type (
+    d uint
+    e float64
+)
+`
+	t, e := Parse("base-type-1.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+type a int
+
+type b int
+
+type c bar.Z
+
+type d uint
+
+type e float64
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestArrayType1(tst *testing.T) {
+	src := `
+package foo
+type a [3]int
+type ( b [][3]bar.T )
+
+`
+	t, e := Parse("array-type-1.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+type a [3]int
+
+type b [][3]bar.T
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestPtrType(tst *testing.T) {
+	src := `
+package foo
+type a *int
+type b [3]*int
+type ( b []*[3]bar.T )
+
+`
+	t, e := Parse("ptr-type.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+type a *int
+
+type b [3]*int
+
+type b []*[3]bar.T
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestMapType(tst *testing.T) {
+	src := `
+package foo
+type a map[int]int
+type b map[string][3]*int
+type ( b []*[3]map[*int]bar.T )
+
+`
+	t, e := Parse("map-type.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+type a map[int]int
+
+type b map[string][3]*int
+
+type b []*[3]map[*int]bar.T
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestTypeError1(tst *testing.T) {
+	src := `package foo
+type a uint
+type b
+type c [string
+
+`
+	t, e := Parse("type-error-1.go", src)
+	f := t.Format()
+	tst.Log(f)
+	if e == nil {
+		tst.Error("Unexpected lack of error")
+	} else {
+		tst.Log(e)
+	}
+}
+
+func TestTypeError2(tst *testing.T) {
+	src := `package foo
+type ( a uint; b[] ; c float64 )
+
+`
+	t, e := Parse("type-error-2.go", src)
+	f := t.Format()
+	tst.Log(f)
+	if e == nil {
+		tst.Error("Unexpected lack of error")
+	} else {
+		tst.Log(e)
+	}
+}

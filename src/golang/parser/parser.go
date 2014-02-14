@@ -45,6 +45,7 @@ func (p *parser) expect_error(exp, act uint) {
 // Get the next token from the scannrt.
 func (p *parser) next() {
 	p.token = p.scan.Get()
+	// fmt.Println("***" + s.TokenNames[p.token])
 }
 
 // Check the next token is TOKEN. Return true if so, otherwise emit an error and
@@ -101,16 +102,12 @@ func (p *parser) parse_file() *ast.File {
 	}
 
 	// Parse import declaration(s)
-	imports, ok := p.parse_import_decls()
-	if !ok {
-		return nil
-	}
+	imports := p.parse_import_decls()
 
 	// Parse toplevel declarations.
-	decls, ok := p.parse_toplevel_decls()
-	if !ok {
-		return nil
-	}
+	decls := p.parse_toplevel_decls()
+
+	p.match(s.EOF)
 
 	return &ast.File{package_name, imports, decls}
 }
@@ -131,10 +128,7 @@ func (p *parser) parse_package_clause() (id string, ok bool) {
 // Parse import declarations(s).
 //
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
-func (p *parser) parse_import_decls() (imports []ast.Import, ok bool) {
-	imports = nil
-	ok = true
-
+func (p *parser) parse_import_decls() (imports []ast.Import) {
 	for p.token == s.IMPORT {
 		p.match(s.IMPORT)
 		if p.token == '(' {
@@ -187,7 +181,187 @@ func (p *parser) parse_import_spec() (name string, path string, ok bool) {
 //
 // Declaration   = ConstDecl | TypeDecl | VarDecl .
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
-func (p *parser) parse_toplevel_decls() (decls []ast.XDecl, ok bool) {
-	ok = true
+func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
+	for {
+		err := false
+		switch p.token {
+		case s.TYPE:
+			ds, ok := p.parse_type_decls()
+			if ds != nil {
+				dcls = append(dcls, ds...)
+			}
+			if !ok {
+				err = true
+				p.skip_until_decl()
+			}
+		default:
+			return
+		}
+		if !err {
+			p.match(';')
+		}
+	}
+}
+
+// Skip tokens, until beginning of a toplevel declaration found
+func (p *parser) skip_until_decl() {
+	for {
+		switch p.token {
+		case s.CONST, s.TYPE, s.VAR, s.FUNC, s.EOF:
+			return
+		default:
+			p.next()
+		}
+	}
+}
+
+// Parse type declaration
+//
+// TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
+func (p *parser) parse_type_decls() (ts []ast.Decl, fine bool) {
+	fine = true
+	p.match(s.TYPE)
+
+	if p.token == '(' {
+		p.next()
+		for p.token != s.EOF && p.token != ')' {
+			id, t, ok := p.parse_type_spec()
+			if ok {
+				ts = append(ts, &ast.TypeDecl{id, t})
+			} else {
+				fine = false
+				p.skip_until(';')
+			}
+			if p.token != ')' {
+				p.match(';')
+			}
+		}
+		p.match(')')
+	} else {
+		id, t, ok := p.parse_type_spec()
+		if ok {
+			ts = append(ts, &ast.TypeDecl{id, t})
+		} else {
+			fine = false
+			p.skip_until(';')
+		}
+	}
 	return
+}
+
+// TypeSpec = identifier Type .
+func (p *parser) parse_type_spec() (id string, t ast.TypeSpec, ok bool) {
+	id, ok = p.match_valued(s.ID)
+	if ok {
+		t, ok = p.parse_type()
+	}
+	return
+}
+
+// Type     = TypeName | TypeLit | "(" Type ")" .
+// TypeName = identifier | QualifiedIdent .
+// TypeLit  = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
+//            SliceType | MapType | ChannelType .
+
+func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
+	switch p.token {
+	case s.ID:
+		pkg, _ := p.match_valued(s.ID)
+		if p.token == '.' {
+			p.next()
+			id, ok := p.match_valued(s.ID)
+			if ok {
+				return &ast.BaseType{pkg, id}, true
+			}
+		} else {
+			return &ast.BaseType{"", pkg}, true
+		}
+	case '[':
+		p.next()
+		if p.token == ']' {
+			// Parse slice type
+			//
+			// SliceType = "[" "]" ElementType .
+			p.next()
+			t, ok := p.parse_type()
+			if ok {
+				return &ast.SliceType{t}, true
+			}
+		} else {
+			// Parse array type
+			//
+			// ArrayType   = "[" ArrayLength "]" ElementType .
+			// ArrayLength = Expression .
+			// ElementType = Type .
+			e, ok := p.parse_expr()
+			if ok && p.match(']') {
+				t, ok := p.parse_type()
+				if ok {
+					return &ast.ArrayType{e, t}, true
+				}
+			}
+		}
+
+	case '*':
+		// Parse pointer type
+		// PointerType = "*" BaseType .
+		//
+		// BaseType = Type .
+		p.next()
+		if t, ok := p.parse_type(); ok {
+			return &ast.PtrType{t}, true
+		}
+
+	case s.MAP:
+		// Parse map type
+		//
+		// MapType     = "map" "[" KeyType "]" ElementType .
+		// KeyType     = Type .
+		p.next()
+		if p.match('[') {
+			if k, ok := p.parse_type(); ok && p.match(']') {
+				if t, ok := p.parse_type(); ok {
+					return &ast.MapType{k, t}, true
+				}
+			}
+		}
+	default:
+		p.error("expected typespec")
+		return nil, false
+	}
+
+	return nil, false
+}
+
+// StructType     = "struct" "{" { FieldDecl ";" } "}" .
+// FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
+// AnonymousField = [ "*" ] TypeName .
+// Tag            = string_lit .
+
+// FunctionType   = "func" Signature .
+// Signature      = Parameters [ Result ] .
+// Result         = Parameters | Type .
+// Parameters     = "(" [ ParameterList [ "," ] ] ")" .
+// ParameterList  = ParameterDecl { "," ParameterDecl } .
+// ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
+
+// InterfaceType      = "interface" "{" { MethodSpec ";" } "}" .
+// MethodSpec         = MethodName Signature | InterfaceTypeName .
+// MethodName         = identifier .
+// InterfaceTypeName  = TypeName .
+
+// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
+
+// ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
+// ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .
+// IdentifierList = identifier { "," identifier } .
+// ExpressionList = Expression { "," Expression } .
+
+func (p *parser) parse_expr() (*ast.Expr, bool) {
+	cst, ok := p.match_valued(s.INTEGER)
+	if ok {
+		return &ast.Expr{cst}, true
+	} else {
+		return nil, false
+	}
 }
