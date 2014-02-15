@@ -325,6 +325,25 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 				}
 			}
 		}
+
+	// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
+	case s.RECV:
+		p.next()
+		if p.match(s.CHAN) {
+			if t, ok := p.parse_type(); ok {
+				return &ast.ChanType{Send: false, Recv: true, EltType: t}, true
+			}
+		}
+	case s.CHAN:
+		p.next()
+		send, recv := true, true
+		if p.token == s.RECV {
+			p.next()
+			send, recv = true, false
+		}
+		if t, ok := p.parse_type(); ok {
+			return &ast.ChanType{Send: send, Recv: recv, EltType: t}, true
+		}
 	default:
 		p.error("expected typespec")
 		return nil, false

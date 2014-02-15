@@ -304,6 +304,39 @@ type b []*[3]map[*int]bar.T
 	}
 }
 
+func TestChanType(tst *testing.T) {
+	src := `
+package foo
+type a chan int
+type b <-chan uint
+type c chan<- float32
+type d chan<- chan uint
+type e <-chan chan map[uint][]float64
+`
+	t, e := Parse("chan-type.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	exp := `package foo
+
+type a chan int
+
+type b <-chan uint
+
+type c chan<- float32
+
+type d chan<-chan uint
+
+type e <-chan chan map[uint][]float64
+
+`
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
 func TestTypeError1(tst *testing.T) {
 	src := `package foo
 type a uint

@@ -84,6 +84,20 @@ func (t *MapType) format(n uint) string {
 	return "map[" + t.KeyType.format(0) + "]" + t.EltType.format(0)
 }
 
+func (t *ChanType) format(n uint) (s string) {
+	if !t.Send {
+		s += "<-"
+	}
+	s += "chan"
+	if !t.Recv {
+		s += "<- "
+	} else {
+		s += " "
+	}
+	s += t.EltType.format(0)
+	return
+}
+
 // Output a formatted expression
 func (e *Expr) format(n uint) string {
 	return e.Const

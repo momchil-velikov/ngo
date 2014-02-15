@@ -59,3 +59,10 @@ type MapType struct {
 }
 
 func (t MapType) typeSpec() {}
+
+type ChanType struct {
+	Send, Recv bool
+	EltType    TypeSpec
+}
+
+func (t ChanType) typeSpec() {}
