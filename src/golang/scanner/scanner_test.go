@@ -118,28 +118,22 @@ func TestBlockComment4(t *testing.T) {
     alala */ b`
 
 	s := New("block comments", input)
-	tok := s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, '+')
-	tok = s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, EOF)
+	tokens := [...]uint{ID, '+', ID, ';', EOF}
+	for _, exp := range tokens {
+		tok := s.Get()
+		expect_token(t, tok, exp)
+	}
 }
 
 func TestBlockComment5(t *testing.T) {
 	input := `a + /* allalaaalala */ b`
 
 	s := New("block comments", input)
-	tok := s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, '+')
-	tok = s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, EOF)
+	tokens := [...]uint{ID, '+', ID, ';', EOF}
+	for _, exp := range tokens {
+		tok := s.Get()
+		expect_token(t, tok, exp)
+	}
 }
 
 func TestBlockComment6(t *testing.T) {
@@ -147,14 +141,11 @@ func TestBlockComment6(t *testing.T) {
     alala */ b`
 
 	s := New("block comments", input)
-	tok := s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, ';')
-	tok = s.Get()
-	expect_token(t, tok, ID)
-	tok = s.Get()
-	expect_token(t, tok, EOF)
+	tokens := [...]uint{ID, ';', ID, ';', EOF}
+	for _, exp := range tokens {
+		tok := s.Get()
+		expect_token(t, tok, exp)
+	}
 }
 
 func TestSemicolon1(t *testing.T) {
@@ -199,6 +190,10 @@ func test_string(t *testing.T, input string, value string) {
 	}
 	str := s.Value
 	tok = s.Get()
+	if tok != ';' {
+		t.Errorf("Expected ';', got %s", TokenNames[tok])
+	}
+	tok = s.Get()
 	if tok != EOF {
 		t.Errorf("Expected EOF, got %s", TokenNames[tok])
 	}
@@ -238,19 +233,16 @@ func TestStringErrors(t *testing.T) {
 func test_runes(t *testing.T, runes string, values []string) {
 	s := New("runes", runes)
 
-	for i, tok := 0, s.Get(); tok != EOF; i++ {
-		if i >= len(values) {
-			t.Fatalf("EOF not found, list of values exhausted")
-		}
-
+	tok := s.Get()
+	for _, val := range values {
 		if tok != RUNE {
 			t.Errorf("Expected rune, got %s", TokenNames[tok])
 			if tok == ERROR {
 				t.Errorf("error is: %s", s.Err)
 			}
 		} else {
-			if s.Value != values[i] {
-				t.Errorf("Expected value |%s|, got |%s|", values[i], s.Value)
+			if s.Value != val {
+				t.Errorf("Expected value |%s|, got |%s|", val, s.Value)
 			}
 		}
 
@@ -324,7 +316,11 @@ func TestIntLiterals1(t *testing.T) {
 	}
 
 	tok = s.Get()
+	expect_token(t, tok, ';')
+
+	tok = s.Get()
 	expect_token(t, tok, EOF)
+
 }
 
 func TestIntLiterals2(t *testing.T) {
@@ -359,6 +355,9 @@ func TestIntLiterals2(t *testing.T) {
 	}
 
 	tok = s.Get()
+	expect_token(t, tok, ';')
+
+	tok = s.Get()
 	expect_token(t, tok, EOF)
 }
 
@@ -375,6 +374,9 @@ func TestIntLiterals3(t *testing.T) {
 
 	tok = s.Get()
 	expect_token(t, tok, ID)
+
+	tok = s.Get()
+	expect_token(t, tok, ';')
 
 	tok = s.Get()
 	expect_token(t, tok, EOF)
@@ -395,6 +397,9 @@ func TestFloatLiterals(t *testing.T) {
 	}
 
 	tok := s.Get()
+	expect_token(t, tok, ';')
+
+	tok = s.Get()
 	expect_token(t, tok, EOF)
 }
 
@@ -402,8 +407,11 @@ func TestFloatLiteralErrors(t *testing.T) {
 	input := ".1eΣ"
 
 	s := New("float", input)
-	for tok := s.Get(); tok != EOF; tok = s.Get() {
-		if expect_token(t, tok, ERROR) {
+	tokens := [...]uint{ERROR, ID, ';', EOF}
+	for _, exp := range tokens {
+		tok := s.Get()
+		expect_token(t, tok, exp)
+		if tok == ERROR {
 			t.Log(s.Err)
 		}
 	}
@@ -424,6 +432,9 @@ func TestImaginaryLiterals(t *testing.T) {
 	}
 
 	tok := s.Get()
+	expect_token(t, tok, ';')
+
+	tok = s.Get()
 	expect_token(t, tok, EOF)
 }
 
@@ -491,6 +502,9 @@ func TestIdent(t *testing.T) {
 	}
 
 	tok := s.Get()
+	expect_token(t, tok, ';')
+
+	tok = s.Get()
 	expect_token(t, tok, EOF)
 }
 
@@ -504,6 +518,9 @@ func TestRegression20140119143717(t *testing.T) {
 	if !expect_token(t, tok, RUNE) {
 		t.Log(s.Err)
 	}
+
+	tok = s.Get()
+	expect_token(t, tok, ';')
 
 	tok = s.Get()
 	expect_token(t, tok, EOF)
