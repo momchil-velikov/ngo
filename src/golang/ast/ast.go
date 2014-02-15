@@ -1,68 +1,68 @@
 package ast
 
 type Decl interface {
-	Formatter
+    Formatter
 }
 
 type File struct {
-	PackageName string
-	Imports     []Import
-	Decls       []Decl
+    PackageName string
+    Imports     []Import
+    Decls       []Decl
 }
 
 type Import struct {
-	Name string
-	Path string
+    Name string
+    Path string
 }
 
 type TypeSpec interface {
-	Formatter
-	typeSpec()
+    Formatter
+    typeSpec()
 }
 
 type TypeDecl struct {
-	Name string
-	Type TypeSpec
+    Name string
+    Type TypeSpec
 }
 
 type Expr struct {
-	Const string
+    Const string
 }
 
 type BaseType struct {
-	Pkg, Id string
+    Pkg, Id string
 }
 
 func (t BaseType) typeSpec() {}
 
 type ArrayType struct {
-	Dim     *Expr
-	EltType TypeSpec
+    Dim     *Expr
+    EltType TypeSpec
 }
 
 func (t ArrayType) typeSpec() {}
 
 type SliceType struct {
-	EltType TypeSpec
+    EltType TypeSpec
 }
 
 func (t SliceType) typeSpec() {}
 
 type PtrType struct {
-	Base TypeSpec
+    Base TypeSpec
 }
 
 func (t PtrType) typeSpec() {}
 
 type MapType struct {
-	KeyType, EltType TypeSpec
+    KeyType, EltType TypeSpec
 }
 
 func (t MapType) typeSpec() {}
 
 type ChanType struct {
-	Send, Recv bool
-	EltType    TypeSpec
+    Send, Recv bool
+    EltType    TypeSpec
 }
 
 func (t ChanType) typeSpec() {}

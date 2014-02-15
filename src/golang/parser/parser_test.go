@@ -72,8 +72,8 @@ package foo
 import  ( "fmt"; . "foo"
     .
     "bar"
-	s "baz"
-	)
+    s "baz"
+    )
 `
 	t, e := Parse("import-single.go", src)
 
@@ -326,11 +326,12 @@ type b <-chan uint
 
 type c chan<- float32
 
-type d chan<-chan uint
+type d chan<- chan uint
 
 type e <-chan chan map[uint][]float64
 
 `
+
 	f := t.Format()
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)

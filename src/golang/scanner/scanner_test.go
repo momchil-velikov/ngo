@@ -157,24 +157,6 @@ func TestBlockComment6(t *testing.T) {
 	expect_token(t, tok, EOF)
 }
 
-// func TestBasicTokens1(t *testing.T) {
-// 	// const tokens = `> <- ßeta _
-// 	//    ;`
-// 	const tokens = `> <- ßeta _
-//     ;`
-// 	var expect = []uint{GT, RECV, ID, ID, ';', ';'}
-
-// 	s := New("basic tokens", tokens)
-// 	for i, tok := 0, s.Get(); tok != EOF; i++ {
-// 		if i >= len(expect) {
-// 			t.Errorf("EOF not found, found token %s instead", TokenNames[tok])
-// 		} else if tok != expect[i] {
-// 			t.Errorf("failed to recognize token '%s'", TokenNames[expect[i]])
-// 		}
-// 		tok = s.Get()
-// 	}
-// }
-
 func TestSemicolon1(t *testing.T) {
 	const tokens = `a
     +
