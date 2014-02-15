@@ -262,9 +262,10 @@ func (p *parser) parse_type_spec() (id string, t ast.TypeSpec, ok bool) {
 // TypeName = identifier | QualifiedIdent .
 // TypeLit  = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
 //            SliceType | MapType | ChannelType .
-
 func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 	switch p.token {
+
+	// TypeName = identifier | QualifiedIdent .
 	case s.ID:
 		pkg, _ := p.match_valued(s.ID)
 		if p.token == '.' {
@@ -276,23 +277,20 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 		} else {
 			return &ast.BaseType{"", pkg}, true
 		}
+
+	// ArrayType   = "[" ArrayLength "]" ElementType .
+	// ArrayLength = Expression .
+	// ElementType = Type .
+	// SliceType = "[" "]" ElementType .
 	case '[':
 		p.next()
 		if p.token == ']' {
-			// Parse slice type
-			//
-			// SliceType = "[" "]" ElementType .
 			p.next()
 			t, ok := p.parse_type()
 			if ok {
 				return &ast.SliceType{t}, true
 			}
 		} else {
-			// Parse array type
-			//
-			// ArrayType   = "[" ArrayLength "]" ElementType .
-			// ArrayLength = Expression .
-			// ElementType = Type .
 			e, ok := p.parse_expr()
 			if ok && p.match(']') {
 				t, ok := p.parse_type()
@@ -302,21 +300,17 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 			}
 		}
 
+	// PointerType = "*" BaseType .
+	// BaseType = Type .
 	case '*':
-		// Parse pointer type
-		// PointerType = "*" BaseType .
-		//
-		// BaseType = Type .
 		p.next()
 		if t, ok := p.parse_type(); ok {
 			return &ast.PtrType{t}, true
 		}
 
+	// MapType     = "map" "[" KeyType "]" ElementType .
+	// KeyType     = Type .
 	case s.MAP:
-		// Parse map type
-		//
-		// MapType     = "map" "[" KeyType "]" ElementType .
-		// KeyType     = Type .
 		p.next()
 		if p.match('[') {
 			if k, ok := p.parse_type(); ok && p.match(']') {
