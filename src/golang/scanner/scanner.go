@@ -192,7 +192,6 @@ func (s *Scanner) scan_fract(start int) (uint, string) {
             s.scan_dec()
             ch = s.peek_char()
         } else {
-            s.next()
             return s.error("Invalid exponent"), ""
         }
     }
