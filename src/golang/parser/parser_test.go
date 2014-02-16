@@ -369,3 +369,86 @@ type ( a uint; b[] ; c float64 )
         tst.Log(e)
     }
 }
+
+func TestStructType(tst *testing.T) {
+    src := `package foo
+    type S struct { a uint; b, c *float64 "field1" 
+                    bar.Z ; S "foo"; *T "bar" ;
+                    c <-chan string; e, f string
+                    g []struct { x, y float64; z struct {zn, zf float32} }
+                    h struct {}
+    }
+`
+    exp := `package foo
+
+type S struct {
+    a uint
+    b *float64 "field1"
+    c *float64 "field1"
+    bar.Z
+    S "foo"
+    *T "bar"
+    c <-chan string
+    e string
+    f string
+    g []struct {
+        x float64
+        y float64
+        z struct {
+            zn float32
+            zf float32
+        }
+    }
+    h struct{}
+}
+
+`
+    t, e := Parse("struct-type-1.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}
+
+func TestStructTypeError(tst *testing.T) {
+    src := `package foo
+type S struct { a uint; b, *float64 "field1" 
+bar.Z ; S "foo"
+ch -chan string; e, f string
+g []struct { x, y float64; z struct zn, zf float32} }
+}
+`
+    exp := `package foo
+
+type S struct {
+    a uint
+    bar.Z
+    S "foo"
+    e string
+    f string
+    g []struct {
+        x float64
+        y float64
+        z struct {
+            zn float32
+            zf float32
+        }
+    }
+}
+
+`
+    t, e := Parse("struct-type-error.go", src)
+    if e != nil {
+        tst.Log(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+
+}

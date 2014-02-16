@@ -66,3 +66,15 @@ type ChanType struct {
 }
 
 func (t ChanType) typeSpec() {}
+
+type FieldDecl struct {
+    Name string
+    Type TypeSpec
+    Tag  string
+}
+
+type StructType struct {
+    Fields []*FieldDecl
+}
+
+func (t StructType) typeSpec() {}

@@ -264,19 +264,8 @@ func (p *parser) parse_type_spec() (id string, t ast.TypeSpec, ok bool) {
 //            SliceType | MapType | ChannelType .
 func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     switch p.token {
-
-    // TypeName = identifier | QualifiedIdent .
     case s.ID:
-        pkg, _ := p.match_valued(s.ID)
-        if p.token == '.' {
-            p.next()
-            id, ok := p.match_valued(s.ID)
-            if ok {
-                return &ast.BaseType{pkg, id}, true
-            }
-        } else {
-            return &ast.BaseType{"", pkg}, true
-        }
+        return p.parse_type_name()
 
     // ArrayType   = "[" ArrayLength "]" ElementType .
     // ArrayLength = Expression .
@@ -338,6 +327,10 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
         if t, ok := p.parse_type(); ok {
             return &ast.ChanType{Send: send, Recv: recv, EltType: t}, true
         }
+
+    case s.STRUCT:
+        return p.parse_struct_type()
+
     default:
         p.error("expected typespec")
         return nil, false
@@ -346,10 +339,114 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     return nil, false
 }
 
+// TypeName = identifier | QualifiedIdent .
+func (p *parser) parse_type_name() (ast.TypeSpec, bool) {
+    pkg, _ := p.match_valued(s.ID)
+    if p.token == '.' {
+        p.next()
+        if id, ok := p.match_valued(s.ID); ok {
+            return &ast.BaseType{pkg, id}, true
+        } else {
+            return nil, false
+        }
+    } else {
+        return &ast.BaseType{"", pkg}, true
+    }
+}
+
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
+func (p *parser) parse_struct_type() (*ast.StructType, bool) {
+    var fs []*ast.FieldDecl = nil
+    p.match(s.STRUCT)
+    p.match('{')
+    for p.token != s.EOF && p.token != '}' {
+        if f, ok := p.parse_field_decl(); ok {
+            fs = append(fs, f...)
+        } else {
+            p.skip_until(';')
+        }
+        if p.token != '}' {
+            p.match(';')
+        }
+    }
+    p.match('}')
+
+    return &ast.StructType{fs}, true
+}
+
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
+func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
+    if p.token == '*' {
+        // Anonymous field.
+        p.next()
+        if t, ok := p.parse_type_name(); ok {
+            t = &ast.PtrType{t}
+            tag := p.parse_tag_opt()
+            fs = append(fs, &ast.FieldDecl{"", t, tag})
+            return fs, ok
+        }
+    } else if p.token == s.ID {
+        // If the field decl begins with a qualified-id, it's parsed as
+        // an anonymous field.
+        pkg, _ := p.match_valued(s.ID)
+        if p.token == '.' {
+            p.next()
+            if id, ok := p.match_valued(s.ID); ok {
+                t := &ast.BaseType{pkg, id}
+                tag := p.parse_tag_opt()
+                fs = append(fs, &ast.FieldDecl{"", t, tag})
+                return fs, true
+            }
+        } else if p.token == s.STRING || p.token == ';' {
+            // If it's only a single identifier, with no separate type
+            // declaration, it's also an anonymous filed.
+            t := &ast.BaseType{"", pkg}
+            tag := p.parse_tag_opt()
+            fs = append(fs, &ast.FieldDecl{"", t, tag})
+            return fs, true
+        } else if ids, ok := p.parse_id_list(pkg); ok {
+            if t, ok := p.parse_type(); ok {
+                tag := p.parse_tag_opt()
+                for _, id := range ids {
+                    fs = append(fs, &ast.FieldDecl{id, t, tag})
+                }
+                return fs, true
+            }
+        }
+    }
+    return nil, false
+}
+
+func (p *parser) parse_tag_opt() (tag string) {
+    if p.token == s.STRING {
+        tag, _ = p.match_valued(s.STRING)
+    } else {
+        tag = ""
+    }
+    return
+}
+
+// IdentifierList = identifier { "," identifier } .
+func (p *parser) parse_id_list(fst string) (ids []string, ok bool) {
+    var id string
+    if len(fst) > 0 {
+        id = fst
+    } else {
+        id, _ = p.match_valued(s.ID)
+    }
+    ids = append(ids, id)
+    for p.token == ',' {
+        p.next()
+        if id, ok := p.match_valued(s.ID); ok {
+            ids = append(ids, id)
+        } else {
+            return nil, false
+        }
+    }
+    return ids, true
+}
 
 // FunctionType   = "func" Signature .
 // Signature      = Parameters [ Result ] .

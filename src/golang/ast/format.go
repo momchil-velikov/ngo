@@ -56,7 +56,6 @@ func (t *TypeDecl) format(n uint) (s string) {
 
 // Output a formatted type.
 func (t *BaseType) format(n uint) (s string) {
-    s = nspaces(4 * n)
     if len(t.Pkg) > 0 {
         s += t.Pkg + "."
     }
@@ -65,23 +64,19 @@ func (t *BaseType) format(n uint) (s string) {
 }
 
 func (t *ArrayType) format(n uint) (s string) {
-    s = nspaces(4 * n)
-    s += "[" + t.Dim.format(0) + "]" + t.EltType.format(0)
-    return
+    return "[" + t.Dim.format(n+1) + "]" + t.EltType.format(n)
 }
 
 func (t *SliceType) format(n uint) (s string) {
-    s = nspaces(4 * n)
-    s += "[]" + t.EltType.format(0)
-    return
+    return "[]" + t.EltType.format(n)
 }
 
 func (t *PtrType) format(n uint) string {
-    return "*" + t.Base.format(0)
+    return "*" + t.Base.format(n)
 }
 
 func (t *MapType) format(n uint) string {
-    return "map[" + t.KeyType.format(0) + "]" + t.EltType.format(0)
+    return "map[" + t.KeyType.format(0) + "]" + t.EltType.format(n)
 }
 
 func (t *ChanType) format(n uint) (s string) {
@@ -94,8 +89,32 @@ func (t *ChanType) format(n uint) (s string) {
     } else {
         s += " "
     }
-    s += t.EltType.format(0)
+    s += t.EltType.format(n)
     return
+}
+
+func (t *StructType) format(n uint) string {
+    if len(t.Fields) == 0 {
+        return "struct{}"
+    }
+    sp := nspaces(4 * n)
+    sp1 := sp + "    "
+    s := "struct {\n"
+    for _, f := range t.Fields {
+        s += sp1
+        if len(f.Name) > 0 {
+            s += f.Name + " "
+        }
+        s += f.Type.format(n + 1)
+        if len(f.Tag) > 0 {
+            s += " \"" + f.Tag +
+                "\""
+        }
+        s += "\n"
+
+    }
+    s += sp + "}"
+    return s
 }
 
 // Output a formatted expression
