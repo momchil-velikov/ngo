@@ -45,7 +45,6 @@ func (p *parser) expect_error(exp, act uint) {
 // Get the next token from the scannrt.
 func (p *parser) next() {
     p.token = p.scan.Get()
-    // fmt.Println("***" + s.TokenNames[p.token])
 }
 
 // Check the next token is TOKEN. Return true if so, otherwise emit an error and
@@ -85,6 +84,20 @@ func (p *parser) match_valued(token uint) (value string, ok bool) {
 // Skip tokens, until given TOKEN found.
 func (p *parser) skip_until(token uint) {
     for p.token != s.EOF && p.token != token {
+        p.next()
+    }
+}
+
+// Skip tokens, until either T0 or T1 token is found.
+func (p *parser) skip_until2(t0, t1 uint) {
+    for p.token != s.EOF && p.token != t0 && p.token != t1 {
+        p.next()
+    }
+}
+
+// Skip tokens, until either T0, T1 ot T2 token is found.
+func (p *parser) skip_until3(t0, t1, t2 uint) {
+    for p.token != s.EOF && p.token != t0 && p.token != t1 && p.token != t2 {
         p.next()
     }
 }
@@ -258,6 +271,16 @@ func (p *parser) parse_type_spec() (id string, t ast.TypeSpec, ok bool) {
     return
 }
 
+// Determine if the given TOKEN could be a beginning of a typespec.
+func is_type_lookahead(token uint) bool {
+    switch token {
+    case s.ID, '[', s.STRUCT, '*', s.FUNC, s.INTERFACE, s.MAP, s.CHAN, s.RECV, '(':
+        return true
+    default:
+        return false
+    }
+}
+
 // Type     = TypeName | TypeLit | "(" Type ")" .
 // TypeName = identifier | QualifiedIdent .
 // TypeLit  = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
@@ -331,6 +354,9 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     case s.STRUCT:
         return p.parse_struct_type()
 
+    case s.FUNC:
+        return p.parse_func_type()
+
     default:
         p.error("expected typespec")
         return nil, false
@@ -363,7 +389,7 @@ func (p *parser) parse_struct_type() (*ast.StructType, bool) {
         if f, ok := p.parse_field_decl(); ok {
             fs = append(fs, f...)
         } else {
-            p.skip_until(';')
+            p.skip_until2(';', '}')
         }
         if p.token != '}' {
             p.match(';')
@@ -442,18 +468,131 @@ func (p *parser) parse_id_list(fst string) (ids []string, ok bool) {
         if id, ok := p.match_valued(s.ID); ok {
             ids = append(ids, id)
         } else {
-            return nil, false
+            return nil, false // FIXME: return what we can, don't give up entirely
         }
     }
     return ids, true
 }
 
-// FunctionType   = "func" Signature .
-// Signature      = Parameters [ Result ] .
-// Result         = Parameters | Type .
-// Parameters     = "(" [ ParameterList [ "," ] ] ")" .
-// ParameterList  = ParameterDecl { "," ParameterDecl } .
-// ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
+// FunctionType = "func" Signature .
+func (p *parser) parse_func_type() (*ast.FuncType, bool) {
+    p.match(s.FUNC)
+    return p.parse_signature()
+}
+
+// Signature = Parameters [ Result ] .
+// Result    = Parameters | Type .
+func (p *parser) parse_signature() (*ast.FuncType, bool) {
+    ps, _ := p.parse_parameters()
+    var rs []*ast.ParamDecl = nil
+    if p.token == '(' {
+        rs, _ = p.parse_parameters()
+    } else if p.token != ';' && p.token != '{' && p.token != ')' {
+        if t, ok := p.parse_type(); ok {
+            rs = []*ast.ParamDecl{&ast.ParamDecl{Type: t}}
+        }
+    }
+    return &ast.FuncType{ps, rs}, true
+}
+
+// Parameters    = "(" [ ParameterList [ "," ] ] ")" .
+// ParameterList = ParameterDecl { "," ParameterDecl } .
+func (p *parser) parse_parameters() (ds []*ast.ParamDecl, ok bool) {
+    p.match('(')
+    if p.token == ')' {
+        p.next()
+        return nil, true
+    }
+    for p.token != s.EOF && p.token != ')' && p.token != ';' {
+        if d, ok := p.parse_param_decl(); ok {
+            ds = append(ds, d...)
+        } else {
+            p.skip_until3(',', ')', ';')
+        }
+        if p.token != ')' {
+            p.match(',')
+        }
+    }
+    p.match(')')
+    return ds, true
+}
+
+// Parse an identifier or a type.  Return a param decl with filled either the
+// parameter name or the parameter type, depending upon what was parsed.
+func (p *parser) parse_id_or_type() (*ast.ParamDecl, bool) {
+    if p.token == s.ID {
+        id, _ := p.match_valued(s.ID)
+        if p.token == '.' {
+            p.next()
+            if name, ok := p.match_valued(s.ID); ok {
+                return &ast.ParamDecl{Type: &ast.BaseType{id, name}}, true
+            }
+            // Fallthrough as if the dot wasn't there.
+        }
+        return &ast.ParamDecl{Name: id}, true
+    } else {
+        v := false
+        if p.token == s.DOTS {
+            p.next()
+            v = true
+        }
+        if t, ok := p.parse_type(); ok { // FIXME: parenthesized types not allowed
+            return &ast.ParamDecl{Type: t, Variadic: v}, true
+        } else {
+            return nil, false
+        }
+    }
+}
+
+// Parse a list of (qualified) identifiers or types.
+func (p *parser) parse_id_or_type_list() (ps []*ast.ParamDecl, ok bool) {
+    for {
+        if dcl, ok := p.parse_id_or_type(); ok {
+            ps = append(ps, dcl)
+        } else {
+            p.skip_until2(',', ')')
+        }
+        if p.token != ',' {
+            break
+        }
+        p.next()
+    }
+    return ps, true
+}
+
+// ParameterDecl = [ IdentifierList ] [ "..." ] Type .
+func (p *parser) parse_param_decl() (ps []*ast.ParamDecl, ok bool) {
+    ps, ok = p.parse_id_or_type_list()
+    if p.token == ')' || /* missing closing paren */ p.token == ';' || p.token == '{' {
+        // No type follows, then all the decls must be types.
+        for _, dcl := range ps {
+            if dcl.Type == nil {
+                dcl.Type = &ast.BaseType{"", dcl.Name}
+                dcl.Name = ""
+            }
+        }
+        return ps, true
+    }
+    // Otherwise, all the list elements must be identifiers, followed by a type.
+    v := false
+    if p.token == s.DOTS {
+        p.next()
+        v = true
+    }
+    if t, ok := p.parse_type(); ok {
+        for _, dcl := range ps {
+            if dcl.Type == nil {
+                dcl.Type = t
+                dcl.Variadic = v
+            } else {
+                p.error("Invalid parameter list") // FIXME: more specific message
+            }
+        }
+        return ps, true
+    } else {
+        return nil, false
+    }
+}
 
 // InterfaceType      = "interface" "{" { MethodSpec ";" } "}" .
 // MethodSpec         = MethodName Signature | InterfaceTypeName .

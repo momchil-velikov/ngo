@@ -117,6 +117,48 @@ func (t *StructType) format(n uint) string {
     return s
 }
 
+func (t *FuncType) format(n uint) string {
+    return "func" + format_signature(t, n)
+}
+
+func format_signature(t *FuncType, n uint) (s string) {
+    k := len(t.Params)
+    if k == 0 {
+        s = "()"
+    } else {
+        s = "(" + format_params(t.Params, n) + ")"
+    }
+
+    k = len(t.Returns)
+    if k == 1 && len(t.Returns[0].Name) == 0 {
+        s += " " + t.Returns[0].Type.format(n+1)
+    } else if k > 0 {
+        s += " (" + format_params(t.Returns, n) + ")"
+    }
+    return
+}
+
+func format_params(p []*ParamDecl, n uint) (s string) {
+    if len(p[0].Name) > 0 {
+        s += p[0].Name + " "
+    }
+    if p[0].Variadic {
+        s += "..."
+    }
+    s += p[0].Type.format(n + 1)
+    for i, k := 1, len(p); i < k; i++ {
+        s += ", "
+        if len(p[i].Name) > 0 {
+            s += p[i].Name + " "
+        }
+        if p[i].Variadic {
+            s += "..."
+        }
+        s += p[i].Type.format(n + 1)
+    }
+    return
+}
+
 // Output a formatted expression
 func (e *Expr) format(n uint) string {
     return e.Const

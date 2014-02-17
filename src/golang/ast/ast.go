@@ -78,3 +78,16 @@ type StructType struct {
 }
 
 func (t StructType) typeSpec() {}
+
+type ParamDecl struct {
+    Name     string
+    Type     TypeSpec
+    Variadic bool
+}
+
+type FuncType struct {
+    Params  []*ParamDecl
+    Returns []*ParamDecl
+}
+
+func (f FuncType) typeSpec() {}

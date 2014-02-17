@@ -457,3 +457,80 @@ type S struct {
     }
 
 }
+
+func TestFuncType(tst *testing.T) {
+    src := `package foo
+type T2 func()
+type T3 func(x int) int
+type T4 func(a, _ int, z float32) bool
+type T5 func(a, b int, z float32) (bool)
+type T6 func(prefix string, values ...int)
+type T7 func(a, b int, z float64, opt ...struct{}) (success bool)
+type T8 func(int, int, float64) (float64, *[]int)
+type T9 func(n int) func(p *T)
+`
+    exp := `package foo
+
+type T2 func()
+
+type T3 func(x int) int
+
+type T4 func(a int, _ int, z float32) bool
+
+type T5 func(a int, b int, z float32) bool
+
+type T6 func(prefix string, values ...int)
+
+type T7 func(a int, b int, z float64, opt ...struct{}) (success bool)
+
+type T8 func(int, int, float64) (float64, *[]int)
+
+type T9 func(n int) func(p *T)
+
+`
+    t, e := Parse("func-type-1.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}
+
+func TestFuncTypeError(tst *testing.T) {
+    src := `package foo
+type T1 func(uint
+type T2 func (P.t, a func), )
+type T3 func (struct  a uint; b } , ... struct{})
+type T4 func (a, b [4]*, c uint)
+type T5 func (a, [4]*, c uint, d.)
+`
+    exp := `package foo
+
+type T1 func(uint)
+
+type T2 func(P.t, a func())
+
+type T3 func(struct {
+        a uint
+        b
+    }, ...struct{})
+
+type T4 func(c uint)
+
+type T5 func(a uint, c uint, d)
+
+`
+    t, e := Parse("func-type-error.go", src)
+    if e != nil {
+        tst.Log(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+
+}
