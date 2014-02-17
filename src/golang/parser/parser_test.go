@@ -378,6 +378,7 @@ func TestStructType(tst *testing.T) {
                     g []struct { x, y float64; z struct {zn, zf float32} }
                     h struct {}
     }
+    type T struct { S }
 `
     exp := `package foo
 
@@ -400,6 +401,10 @@ type S struct {
         }
     }
     h struct{}
+}
+
+type T struct {
+    S
 }
 
 `

@@ -399,7 +399,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
                 fs = append(fs, &ast.FieldDecl{"", t, tag})
                 return fs, true
             }
-        } else if p.token == s.STRING || p.token == ';' {
+        } else if p.token == s.STRING || p.token == ';' || p.token == '}' {
             // If it's only a single identifier, with no separate type
             // declaration, it's also an anonymous filed.
             t := &ast.BaseType{"", pkg}
