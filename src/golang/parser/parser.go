@@ -487,7 +487,7 @@ func (p *parser) parse_signature() (*ast.FuncType, bool) {
     var rs []*ast.ParamDecl = nil
     if p.token == '(' {
         rs, _ = p.parse_parameters()
-    } else if p.token != ';' && p.token != '{' && p.token != ')' {
+    } else if is_type_lookahead(p.token) {
         if t, ok := p.parse_type(); ok {
             rs = []*ast.ParamDecl{&ast.ParamDecl{Type: t}}
         }
