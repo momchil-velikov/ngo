@@ -55,7 +55,7 @@ func (t *TypeDecl) format(n uint) (s string) {
 }
 
 // Output a formatted type.
-func (t *BaseType) format(n uint) (s string) {
+func (t *TypeName) format(n uint) (s string) {
     if len(t.Pkg) > 0 {
         s += t.Pkg + "."
     }

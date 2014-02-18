@@ -29,11 +29,11 @@ type Expr struct {
     Const string
 }
 
-type BaseType struct {
+type TypeName struct {
     Pkg, Id string
 }
 
-func (t BaseType) typeSpec() {}
+func (t TypeName) typeSpec() {}
 
 type ArrayType struct {
     Dim     *Expr

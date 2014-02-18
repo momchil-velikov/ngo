@@ -371,12 +371,12 @@ func (p *parser) parse_type_name() (ast.TypeSpec, bool) {
     if p.token == '.' {
         p.next()
         if id, ok := p.match_valued(s.ID); ok {
-            return &ast.BaseType{pkg, id}, true
+            return &ast.TypeName{pkg, id}, true
         } else {
             return nil, false
         }
     } else {
-        return &ast.BaseType{"", pkg}, true
+        return &ast.TypeName{"", pkg}, true
     }
 }
 
@@ -420,7 +420,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
         if p.token == '.' {
             p.next()
             if id, ok := p.match_valued(s.ID); ok {
-                t := &ast.BaseType{pkg, id}
+                t := &ast.TypeName{pkg, id}
                 tag := p.parse_tag_opt()
                 fs = append(fs, &ast.FieldDecl{"", t, tag})
                 return fs, true
@@ -428,7 +428,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
         } else if p.token == s.STRING || p.token == ';' || p.token == '}' {
             // If it's only a single identifier, with no separate type
             // declaration, it's also an anonymous filed.
-            t := &ast.BaseType{"", pkg}
+            t := &ast.TypeName{"", pkg}
             tag := p.parse_tag_opt()
             fs = append(fs, &ast.FieldDecl{"", t, tag})
             return fs, true
@@ -525,7 +525,7 @@ func (p *parser) parse_id_or_type() (*ast.ParamDecl, bool) {
         if p.token == '.' {
             p.next()
             if name, ok := p.match_valued(s.ID); ok {
-                return &ast.ParamDecl{Type: &ast.BaseType{id, name}}, true
+                return &ast.ParamDecl{Type: &ast.TypeName{id, name}}, true
             }
             // Fallthrough as if the dot wasn't there.
         }
@@ -567,7 +567,7 @@ func (p *parser) parse_param_decl() (ps []*ast.ParamDecl, ok bool) {
         // No type follows, then all the decls must be types.
         for _, dcl := range ps {
             if dcl.Type == nil {
-                dcl.Type = &ast.BaseType{"", dcl.Name}
+                dcl.Type = &ast.TypeName{"", dcl.Name}
                 dcl.Name = ""
             }
         }

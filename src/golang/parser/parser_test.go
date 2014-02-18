@@ -189,7 +189,7 @@ import ( "baz"; s )
     }
 }
 
-func TestBaseType1(tst *testing.T) {
+func TestTypeName(tst *testing.T) {
     src := `
 package foo
 type a int
@@ -199,7 +199,7 @@ type (
     e float64
 )
 `
-    t, e := Parse("base-type-1.go", src)
+    t, e := Parse("type-name-1.go", src)
     if e != nil {
         tst.Error(e)
     }
