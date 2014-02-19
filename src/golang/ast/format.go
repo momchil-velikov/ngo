@@ -159,6 +159,22 @@ func format_params(p []*ParamDecl, n uint) (s string) {
     return
 }
 
+func (t *InterfaceType) format(n uint) string {
+    if len(t.Embed) == 0 && len(t.Methods) == 0 {
+        return "interface{}"
+    }
+    s := "interface {\n"
+    indent := nspaces(4 * (n + 1))
+    for _, e := range t.Embed {
+        s += indent + e.format(n+1) + "\n"
+    }
+    for _, m := range t.Methods {
+        s += indent + m.Name + format_signature(m.Sig, n+1) + "\n"
+    }
+    s += nspaces(4*n) + "}"
+    return s
+}
+
 // Output a formatted expression
 func (e *Expr) format(n uint) string {
     return e.Const

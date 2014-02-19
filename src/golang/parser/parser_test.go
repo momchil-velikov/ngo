@@ -535,3 +535,44 @@ type T5 func(a uint, c uint, d)
     }
 
 }
+
+func TestInterfaceType(tst *testing.T) {
+    src := `package foo
+type (
+    T3 interface{}
+    T4 interface {T3; Foo();  Bar(a interface{});  }
+    T5 interface {
+        Baz (T3, T4) (r foo.T5)
+        foo.T3
+        T4
+    }
+)
+
+`
+    exp := `package foo
+
+type T3 interface{}
+
+type T4 interface {
+    T3
+    Foo()
+    Bar(a interface{})
+}
+
+type T5 interface {
+    foo.T3
+    T4
+    Baz(T3, T4) (r foo.T5)
+}
+
+`
+    t, e := Parse("interface-type-1.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}

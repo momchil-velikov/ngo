@@ -357,6 +357,9 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     case s.FUNC:
         return p.parse_func_type()
 
+    case s.INTERFACE:
+        return p.parse_interface_type()
+
     default:
         p.error("expected typespec")
         return nil, false
@@ -600,6 +603,33 @@ func (p *parser) parse_param_decl() (ps []*ast.ParamDecl, ok bool) {
 // MethodSpec         = MethodName Signature | InterfaceTypeName .
 // MethodName         = identifier .
 // InterfaceTypeName  = TypeName .
+func (p *parser) parse_interface_type() (*ast.InterfaceType, bool) {
+    p.match(s.INTERFACE)
+    p.match('{')
+    emb := []*ast.TypeName(nil)
+    meth := []*ast.MethodSpec(nil)
+    for p.token != s.EOF && p.token != '}' {
+        if id, ok := p.match_valued(s.ID); ok {
+            if p.token == '.' {
+                p.next()
+                if name, ok := p.match_valued(s.ID); ok {
+                    emb = append(emb, &ast.TypeName{Pkg: id, Id: name})
+                }
+            } else if p.token == '(' {
+                if sig, ok := p.parse_signature(); ok {
+                    meth = append(meth, &ast.MethodSpec{Name: id, Sig: sig})
+                }
+            } else {
+                emb = append(emb, &ast.TypeName{Pkg: "", Id: id})
+            }
+        }
+        if p.token != '}' {
+            p.match(';')
+        }
+    }
+    p.match('}')
+    return &ast.InterfaceType{Embed: emb, Methods: meth}, true
+}
 
 // ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
 

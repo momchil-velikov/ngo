@@ -91,3 +91,15 @@ type FuncType struct {
 }
 
 func (f FuncType) typeSpec() {}
+
+type MethodSpec struct {
+    Name string
+    Sig  *FuncType
+}
+
+type InterfaceType struct {
+    Embed   []*TypeName
+    Methods []*MethodSpec
+}
+
+func (t InterfaceType) typeSpec() {}
