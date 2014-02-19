@@ -467,11 +467,13 @@ func (p *parser) parse_id_list(fst string) (ids []string, ok bool) {
         p.next()
         if id, ok := p.match_valued(s.ID); ok {
             ids = append(ids, id)
-        } else {
-            return nil, false // FIXME: return what we can, don't give up entirely
         }
     }
-    return ids, true
+    if len(ids) > 0 {
+        return ids, true
+    } else {
+        return nil, false
+    }
 }
 
 // FunctionType = "func" Signature .

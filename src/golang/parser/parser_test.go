@@ -431,6 +431,7 @@ g []struct { x, y float64; z struct zn, zf float32} }
 
 type S struct {
     a uint
+    b *float64 "field1"
     bar.Z
     S "foo"
     e string
