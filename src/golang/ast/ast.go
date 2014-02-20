@@ -42,6 +42,20 @@ type ConstGroup struct {
 
 func (d ConstGroup) decl() {}
 
+type VarDecl struct {
+    Names []string
+    Type  TypeSpec
+    Init  []*Expr
+}
+
+func (v VarDecl) decl() {}
+
+type VarGroup struct {
+    Decls []*VarDecl
+}
+
+func (d VarGroup) decl() {}
+
 type Expr struct {
     Const string
 }

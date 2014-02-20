@@ -660,3 +660,86 @@ const (
     }
 
 }
+
+func TestVarDecl(tst *testing.T) {
+    src := `package foo
+
+var a = 1
+var a, b = 2
+var a float32 = 4; var a, b float64 = 2, 5
+var c
+var (
+    a = 1
+    a, b = 2
+    a float32 = 4; a, b float64 = 2, 5
+    c; d
+)
+var()
+`
+    exp := `package foo
+
+var a = 1
+var a, b = 2
+var a float32 = 4
+var a, b float64 = 2, 5
+var c
+var (
+    a = 1
+    a, b = 2
+    a float32 = 4
+    a, b float64 = 2, 5
+    c
+    d
+)
+`
+    t, e := Parse("var-decl.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}
+
+func TestVarDeclError(tst *testing.T) {
+    src := `package foo
+var a = 
+var a,  = 2
+var a float32 = 4; var , b float64 = 2 5
+var c
+var (
+    a = 
+    a,  = 2
+    a float32 = 4; , b float64 = 2 5
+    c; d
+)
+`
+    exp := `package foo
+
+var a
+var a = 2
+var a float32 = 4
+var b float64 = 2
+var c
+var (
+    a
+    a = 2
+    a float32 = 4
+    b float64 = 2
+    c
+    d
+)
+`
+    t, e := Parse("var-decl-error.go", src)
+    if e != nil {
+        tst.Log(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+
+}

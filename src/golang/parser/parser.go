@@ -198,7 +198,7 @@ func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
     for {
         ok := true
         ds := []ast.Decl(nil)
-        cs := ast.Decl(nil)
+        d := ast.Decl(nil)
         switch p.token {
         case s.TYPE:
             ds, ok = p.parse_type_decls()
@@ -206,9 +206,14 @@ func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
                 dcls = append(dcls, ds...)
             }
         case s.CONST:
-            cs, ok = p.parse_const_decl()
-            if cs != nil {
-                dcls = append(dcls, cs)
+            d, ok = p.parse_const_decl()
+            if d != nil {
+                dcls = append(dcls, d)
+            }
+        case s.VAR:
+            d, ok = p.parse_var_decl()
+            if d != nil {
+                dcls = append(dcls, d)
             }
         default:
             return
@@ -684,6 +689,52 @@ func (p *parser) parse_expr() (*ast.Expr, bool) {
     } else {
         return nil, false
     }
+}
+
+// VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
+func (p *parser) parse_var_decl() (ast.Decl, bool) {
+    p.match(s.VAR)
+    if p.token == '(' {
+        p.next()
+        vs := []*ast.VarDecl(nil)
+        for p.token != s.EOF && p.token != ')' {
+            if v, ok := p.parse_var_spec(); ok {
+                vs = append(vs, v)
+            } else {
+                p.skip_until2(';', ')')
+            }
+            if p.token != ')' {
+                p.match(';')
+            }
+        }
+        p.match(')')
+        if len(vs) > 0 {
+            return &ast.VarGroup{Decls: vs}, true
+        } else {
+            return nil, false
+        }
+    } else {
+        return p.parse_var_spec()
+    }
+}
+
+// VarSpec = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
+func (p *parser) parse_var_spec() (*ast.VarDecl, bool) {
+    if ids, ok := p.parse_id_list(""); ok {
+        var t ast.TypeSpec = nil
+        var es []*ast.Expr = nil
+        if is_type_lookahead(p.token) {
+            if t, ok = p.parse_type(); !ok {
+                p.skip_until2('=', ';')
+            }
+        }
+        if p.token == '=' {
+            p.next()
+            es = p.parse_expr_list()
+        }
+        return &ast.VarDecl{Names: ids, Type: t, Init: es}, true
+    }
+    return nil, false
 }
 
 // ExpressionList = Expression { "," Expression } .

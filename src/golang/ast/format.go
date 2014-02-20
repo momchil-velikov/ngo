@@ -92,6 +92,44 @@ func (c *ConstDecl) format_internal(n uint, top bool) (s string) {
     return s
 }
 
+// Output a formatted variable group declaration
+func (c *VarGroup) format(n uint) string {
+    indent := nspaces(4 * n)
+    s := indent + "var (\n"
+    for _, d := range c.Decls {
+        s += d.format_internal(n+1, false) + "\n"
+    }
+    s += indent + ")\n"
+    return s
+}
+
+// Output a formatted variable declaration.
+func (c *VarDecl) format(n uint) string {
+    return c.format_internal(n, true) + "\n"
+}
+
+func (c *VarDecl) format_internal(n uint, top bool) (s string) {
+    if top {
+        s = "var "
+    } else {
+        s = nspaces(4 * n)
+    }
+    s += c.Names[0]
+    for i := 1; i < len(c.Names); i++ {
+        s += ", " + c.Names[i]
+    }
+    if c.Type != nil {
+        s += " " + c.Type.format(n+1)
+    }
+    if k := len(c.Init); k > 0 {
+        s += " = " + c.Init[0].format(n+1)
+        for i := 1; i < k; i++ {
+            s += ", " + c.Init[i].format(n+1)
+        }
+    }
+    return s
+}
+
 // Output a formatted type.
 func (t *TypeName) format(n uint) (s string) {
     if len(t.Pkg) > 0 {
