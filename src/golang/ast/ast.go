@@ -2,6 +2,7 @@ package ast
 
 type Decl interface {
     Formatter
+    decl()
 }
 
 type File struct {
@@ -24,6 +25,22 @@ type TypeDecl struct {
     Name string
     Type TypeSpec
 }
+
+func (d TypeDecl) decl() {}
+
+type ConstDecl struct {
+    Names  []string
+    Type   TypeSpec
+    Values []*Expr
+}
+
+func (d ConstDecl) decl() {}
+
+type ConstGroup struct {
+    Decls []*ConstDecl
+}
+
+func (d ConstGroup) decl() {}
 
 type Expr struct {
     Const string

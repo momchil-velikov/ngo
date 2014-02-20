@@ -196,22 +196,25 @@ func (p *parser) parse_import_spec() (name string, path string, ok bool) {
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
     for {
-        err := false
+        ok := true
+        ds := []ast.Decl(nil)
+        cs := ast.Decl(nil)
         switch p.token {
         case s.TYPE:
-            ds, ok := p.parse_type_decls()
+            ds, ok = p.parse_type_decls()
             if ds != nil {
                 dcls = append(dcls, ds...)
             }
-            if !ok {
-                err = true
-                p.skip_until_decl()
+        case s.CONST:
+            cs, ok = p.parse_const_decl()
+            if cs != nil {
+                dcls = append(dcls, cs)
             }
         default:
             return
         }
-        if !err {
-            p.match(';')
+        if !(ok && p.match(';')) {
+            p.skip_until_decl()
         }
     }
 }
@@ -458,14 +461,13 @@ func (p *parser) parse_tag_opt() (tag string) {
 }
 
 // IdentifierList = identifier { "," identifier } .
-func (p *parser) parse_id_list(fst string) (ids []string, ok bool) {
-    var id string
-    if len(fst) > 0 {
-        id = fst
-    } else {
+func (p *parser) parse_id_list(id string) (ids []string, ok bool) {
+    if len(id) == 0 {
         id, _ = p.match_valued(s.ID)
     }
-    ids = append(ids, id)
+    if len(id) > 0 {
+        ids = append(ids, id)
+    }
     for p.token == ',' {
         p.next()
         if id, ok := p.match_valued(s.ID); ok {
@@ -631,12 +633,49 @@ func (p *parser) parse_interface_type() (*ast.InterfaceType, bool) {
     return &ast.InterfaceType{Embed: emb, Methods: meth}, true
 }
 
-// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
-
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
+func (p *parser) parse_const_decl() (ast.Decl, bool) {
+    p.match(s.CONST)
+    if p.token == '(' {
+        p.next()
+        cs := []*ast.ConstDecl(nil)
+        for p.token != s.EOF && p.token != ')' {
+            if c, ok := p.parse_const_spec(); ok {
+                cs = append(cs, c)
+            } else {
+                p.skip_until2(';', ')')
+            }
+            if p.token != ')' {
+                p.match(';')
+            }
+        }
+        p.match(')')
+        if len(cs) > 0 {
+            return &ast.ConstGroup{Decls: cs}, true
+        } else {
+            return nil, false
+        }
+    } else {
+        return p.parse_const_spec()
+    }
+}
+
 // ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .
-// IdentifierList = identifier { "," identifier } .
-// ExpressionList = Expression { "," Expression } .
+func (p *parser) parse_const_spec() (*ast.ConstDecl, bool) {
+    if ids, ok := p.parse_id_list(""); ok {
+        var t ast.TypeSpec = nil
+        var es []*ast.Expr = nil
+        if is_type_lookahead(p.token) {
+            t, _ = p.parse_type()
+        }
+        if p.token == '=' {
+            p.next()
+            es = p.parse_expr_list()
+        }
+        return &ast.ConstDecl{Names: ids, Type: t, Values: es}, true
+    }
+    return nil, false
+}
 
 func (p *parser) parse_expr() (*ast.Expr, bool) {
     cst, ok := p.match_valued(s.INTEGER)
@@ -645,4 +684,18 @@ func (p *parser) parse_expr() (*ast.Expr, bool) {
     } else {
         return nil, false
     }
+}
+
+// ExpressionList = Expression { "," Expression } .
+func (p *parser) parse_expr_list() (es []*ast.Expr) {
+    for {
+        if e, ok := p.parse_expr(); ok {
+            es = append(es, e)
+        }
+        if p.token != ',' {
+            break
+        }
+        p.match(',')
+    }
+    return
 }

@@ -576,3 +576,87 @@ type T5 interface {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
 }
+
+func TestConstDecl(tst *testing.T) {
+    src := `package foo
+
+const a = 1
+const a, b = 2
+const a float32 = 4; const a, b float64 = 2, 5
+const c
+const (
+    a = 1
+    a, b = 2
+    a float32 = 4; a, b float64 = 2, 5
+    c; d
+)
+const()
+`
+    exp := `package foo
+
+const a = 1
+const a, b = 2
+const a float32 = 4
+const a, b float64 = 2, 5
+const c
+const (
+    a = 1
+    a, b = 2
+    a float32 = 4
+    a, b float64 = 2, 5
+    c
+    d
+)
+`
+    t, e := Parse("const-decl.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}
+
+func TestConstDeclError(tst *testing.T) {
+    src := `package foo
+const a = 
+const a,  = 2
+const a float32 = 4; const , b float64 = 2 5
+const c
+const (
+    a = 
+    a,  = 2
+    a float32 = 4; , b float64 = 2 5
+    c; d
+)
+
+`
+    exp := `package foo
+
+const a
+const a = 2
+const a float32 = 4
+const b float64 = 2
+const c
+const (
+    a
+    a = 2
+    a float32 = 4
+    b float64 = 2
+    c
+    d
+)
+`
+    t, e := Parse("const-decl-error.go", src)
+    if e != nil {
+        tst.Log(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+
+}
