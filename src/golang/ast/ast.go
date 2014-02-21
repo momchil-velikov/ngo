@@ -16,11 +16,7 @@ type Import struct {
     Path string
 }
 
-type TypeSpec interface {
-    Formatter
-    typeSpec()
-}
-
+// Declarations
 type TypeDecl struct {
     Name string
     Type TypeSpec
@@ -56,8 +52,32 @@ type VarGroup struct {
 
 func (d VarGroup) decl() {}
 
+type Receiver struct {
+    Name string
+    Type TypeSpec
+}
+
+type FuncDecl struct {
+    Name string
+    Recv *Receiver
+    Sig  *FuncType
+    Body *Block
+}
+
+func (d FuncDecl) decl() {}
+
+type Block struct {
+}
+
+// Expressions
 type Expr struct {
     Const string
+}
+
+// Types
+type TypeSpec interface {
+    Formatter
+    typeSpec()
 }
 
 type TypeName struct {

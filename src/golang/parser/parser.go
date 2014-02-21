@@ -215,6 +215,11 @@ func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
             if d != nil {
                 dcls = append(dcls, d)
             }
+        case s.FUNC:
+            d, ok = p.parse_func_decl()
+            if d != nil {
+                dcls = append(dcls, d)
+            }
         default:
             return
         }
@@ -735,6 +740,68 @@ func (p *parser) parse_var_spec() (*ast.VarDecl, bool) {
         return &ast.VarDecl{Names: ids, Type: t, Init: es}, true
     }
     return nil, false
+}
+
+// MethodDecl   = "func" Receiver MethodName ( Function | Signature ) .
+// FunctionDecl = "func" FunctionName ( Function | Signature ) .
+// FunctionName = identifier .
+// Function     = Signature FunctionBody .
+// FunctionBody = Block .
+func (p *parser) parse_func_decl() (ast.Decl, bool) {
+    p.match(s.FUNC)
+    var r *ast.Receiver = nil
+    if p.token == '(' {
+        r = p.parse_receiver()
+    }
+    name, _ := p.match_valued(s.ID)
+    sig, ok := p.parse_signature()
+    if !ok {
+        p.skip_until2('{', ';')
+    }
+    var blk *ast.Block = nil
+    if p.token == '{' {
+        blk = p.parse_block()
+    }
+    if len(name) > 0 {
+        return &ast.FuncDecl{Name: name, Recv: r, Sig: sig, Body: blk}, true
+    } else {
+        return nil, false
+    }
+}
+
+// Receiver     = "(" [ identifier ] [ "*" ] BaseTypeName ")" .
+// BaseTypeName = identifier .
+func (p *parser) parse_receiver() *ast.Receiver {
+    p.match('(')
+    var n string
+    if p.token == s.ID {
+        n, _ = p.match_valued(s.ID)
+    }
+    ptr := false
+    if p.token == '*' {
+        p.next()
+        ptr = true
+    }
+    t, ok := p.match_valued(s.ID)
+    if !ok {
+        p.skip_until2(')', ';')
+        if p.token == ')' {
+            p.next()
+        }
+        return nil
+    }
+    p.match(')')
+    var tp ast.TypeSpec = &ast.TypeName{Id: t}
+    if ptr {
+        tp = &ast.PtrType{Base: tp}
+    }
+    return &ast.Receiver{Name: n, Type: tp}
+}
+
+func (p *parser) parse_block() *ast.Block {
+    p.match('{')
+    p.match('}')
+    return &ast.Block{}
 }
 
 // ExpressionList = Expression { "," Expression } .

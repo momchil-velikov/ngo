@@ -741,5 +741,80 @@ var (
     if f != exp {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
+}
 
+func TestFuncDecl(tst *testing.T) {
+    src := `package foo
+
+func f()
+func g() {}
+func h( a, b uint) bool
+func i( a, b uint) (r0 []*X, r1 bool)
+
+func (r T) f()
+func (r *T) g() {}
+func (*T) h( a, b uint) bool
+func (r *T) i( a, b uint) (r0 []*X, r1 bool) {
+}
+`
+    exp := `package foo
+
+func f()
+func g() {
+}
+func h(a uint, b uint) bool
+func i(a uint, b uint) (r0 []*X, r1 bool)
+func (r T) f()
+func (r *T) g() {
+}
+func (*T) h(a uint, b uint) bool
+func (r *T) i(a uint, b uint) (r0 []*X, r1 bool) {
+}
+`
+    t, e := Parse("func-decl.go", src)
+    if e != nil {
+        tst.Error(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
+}
+
+func TestFuncDeclError(tst *testing.T) {
+    src := `package foo
+
+func ()
+func g() {
+func h( a,  uint) bool
+func i( , b uint) (r0 []*X r1 bool)
+
+func (r T) f
+func (r *T) g() {
+func (*) h( , b uint) bool
+func () i( a,  uint) (r0 []*X r1 bool) 
+}
+`
+    exp := `package foo
+
+func g() {
+}
+func h(a, uint) bool
+func i(b uint) (r0 []*X, r1 bool)
+func (r T) f()
+func (r *T) g() {
+}
+func h(b uint) bool
+func i(a, uint) (r0 []*X, r1 bool)
+`
+    t, e := Parse("func-decl-error.go", src)
+    if e != nil {
+        tst.Log(e)
+    }
+
+    f := t.Format()
+    if f != exp {
+        tst.Errorf("Error output:\n->|%s|<-\n", f)
+    }
 }

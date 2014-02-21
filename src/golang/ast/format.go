@@ -130,6 +130,33 @@ func (c *VarDecl) format_internal(n uint, top bool) (s string) {
     return s
 }
 
+// Output a formatted function declaration.
+func (f *FuncDecl) format(n uint) string {
+    s := "func"
+    if f.Recv != nil {
+        s += " " + f.Recv.format(n+1)
+    }
+    s += " " + f.Name + format_signature(f.Sig, n+1)
+    if f.Body != nil {
+        s += f.Body.format(n + 1)
+    }
+    return s + "\n"
+}
+
+// Output a formatted block
+func (b *Block) format(n uint) string {
+    return " {\n}"
+}
+
+// Output a formatter method receiver.
+func (r *Receiver) format(n uint) string {
+    s := "("
+    if len(r.Name) > 0 {
+        s += r.Name + " "
+    }
+    return s + r.Type.format(n+1) + ")"
+}
+
 // Output a formatted type.
 func (t *TypeName) format(n uint) (s string) {
     if len(t.Pkg) > 0 {
