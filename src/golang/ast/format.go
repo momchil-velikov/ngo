@@ -280,6 +280,6 @@ func (t *InterfaceType) format(n uint) string {
 }
 
 // Output a formatted expression
-func (e *Expr) format(n uint) string {
+func (e *Operand) format(n uint) string {
     return e.Const
 }

@@ -682,7 +682,7 @@ func (p *parser) parse_const_decl() (ast.Decl, bool) {
 func (p *parser) parse_const_spec() (*ast.ConstDecl, bool) {
     if ids, ok := p.parse_id_list(""); ok {
         var t ast.TypeSpec = nil
-        var es []*ast.Expr = nil
+        var es []ast.Expr = nil
         if is_type_lookahead(p.token) {
             t, _ = p.parse_type()
         }
@@ -695,10 +695,10 @@ func (p *parser) parse_const_spec() (*ast.ConstDecl, bool) {
     return nil, false
 }
 
-func (p *parser) parse_expr() (*ast.Expr, bool) {
+func (p *parser) parse_expr() (ast.Expr, bool) {
     cst, ok := p.match_valued(s.INTEGER)
     if ok {
-        return &ast.Expr{cst}, true
+        return &ast.Operand{cst}, true
     } else {
         return nil, false
     }
@@ -735,7 +735,7 @@ func (p *parser) parse_var_decl() (ast.Decl, bool) {
 func (p *parser) parse_var_spec() (*ast.VarDecl, bool) {
     if ids, ok := p.parse_id_list(""); ok {
         var t ast.TypeSpec = nil
-        var es []*ast.Expr = nil
+        var es []ast.Expr = nil
         if is_type_lookahead(p.token) {
             if t, ok = p.parse_type(); !ok {
                 p.skip_until2('=', ';')
@@ -813,7 +813,7 @@ func (p *parser) parse_block() *ast.Block {
 }
 
 // ExpressionList = Expression { "," Expression } .
-func (p *parser) parse_expr_list() (es []*ast.Expr) {
+func (p *parser) parse_expr_list() (es []ast.Expr) {
     for {
         if e, ok := p.parse_expr(); ok {
             es = append(es, e)
@@ -825,3 +825,49 @@ func (p *parser) parse_expr_list() (es []*ast.Expr) {
     }
     return
 }
+
+// Operator precedence:
+// Precedence    Operator
+//     5             *  /  %  <<  >>  &  &^
+//     4             +  -  |  ^
+//     3             ==  !=  <  <=  >  >=
+//     2             &&
+//     1             ||
+
+// binary_op  = "||" | "&&" | rel_op | add_op | mul_op .
+// rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
+// add_op     = "+" | "-" | "|" | "^" .
+// mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
+// unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
+
+// Expression = UnaryExpr | Expression binary_op UnaryExpr .
+// UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+
+// PrimaryExpr =
+//     Operand |
+//     Conversion |
+//     BuiltinCall |
+//     PrimaryExpr Selector |
+//     PrimaryExpr Index |
+//     PrimaryExpr Slice |
+//     PrimaryExpr TypeAssertion |
+//     PrimaryExpr Call .
+
+// Selector       = "." identifier .
+// Index          = "[" Expression "]" .
+// Slice          = "[" ( [ Expression ] ":" [ Expression ] ) |
+//                      ( [ Expression ] ":" Expression ":" Expression )
+//                  "]" .
+// TypeAssertion  = "." "(" Type ")" .
+// Call           = "(" [ ArgumentList [ "," ] ] ")" .
+// ArgumentList   = ExpressionList [ "..." ] .
+
+// Operand    = Literal | OperandName | MethodExpr | "(" Expression ")" .
+// Literal    = BasicLit | CompositeLit | FunctionLit .
+// BasicLit   = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
+// OperandName = identifier | QualifiedIdent.
+
+// Conversion = Type "(" Expression [ "," ] ")" .
+
+// BuiltinCall = identifier "(" [ BuiltinArgs [ "," ] ] ")" .
+// BuiltinArgs = Type [ "," ArgumentList ] | ArgumentList .

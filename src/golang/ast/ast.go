@@ -27,7 +27,7 @@ func (d TypeDecl) decl() {}
 type ConstDecl struct {
     Names  []string
     Type   TypeSpec
-    Values []*Expr
+    Values []Expr
 }
 
 func (d ConstDecl) decl() {}
@@ -41,7 +41,7 @@ func (d ConstGroup) decl() {}
 type VarDecl struct {
     Names []string
     Type  TypeSpec
-    Init  []*Expr
+    Init  []Expr
 }
 
 func (v VarDecl) decl() {}
@@ -70,9 +70,16 @@ type Block struct {
 }
 
 // Expressions
-type Expr struct {
+type Expr interface {
+    Formatter
+    expr()
+}
+
+type Operand struct {
     Const string
 }
+
+func (op *Operand) expr() {}
 
 // Types
 type TypeSpec interface {
@@ -87,7 +94,7 @@ type QualId struct {
 func (t QualId) typeSpec() {}
 
 type ArrayType struct {
-    Dim     *Expr
+    Dim     Expr
     EltType TypeSpec
 }
 
