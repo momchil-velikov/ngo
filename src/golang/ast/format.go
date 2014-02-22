@@ -188,11 +188,12 @@ func (t *ChanType) format(n uint) (s string) {
     }
     s += "chan"
     if !t.Recv {
-        s += "<- "
+        s += "<- " + t.EltType.format(n)
+    } else if ch, ok := t.EltType.(*ChanType); ok && !ch.Send {
+        s += " (" + ch.format(n) + ")"
     } else {
-        s += " "
+        s += " " + t.EltType.format(n)
     }
-    s += t.EltType.format(n)
     return
 }
 

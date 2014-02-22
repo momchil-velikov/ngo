@@ -305,13 +305,14 @@ type b []*[3]map[*int]bar.T
 }
 
 func TestChanType(tst *testing.T) {
-    src := `
-package foo
+    src := `package foo
 type a chan int
 type b <-chan uint
 type c chan<- float32
 type d chan<- chan uint
 type e <-chan chan map[uint][]float64
+type f chan (<-chan uint)
+type g chan<- <-chan uint
 `
     t, e := Parse("chan-type.go", src)
     if e != nil {
@@ -329,6 +330,10 @@ type c chan<- float32
 type d chan<- chan uint
 
 type e <-chan chan map[uint][]float64
+
+type f chan (<-chan uint)
+
+type g chan<- <-chan uint
 
 `
 

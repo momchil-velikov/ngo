@@ -373,6 +373,12 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     case s.INTERFACE:
         return p.parse_interface_type()
 
+    case '(':
+        p.next()
+        t, ok := p.parse_type()
+        p.match(')')
+        return t, ok
+
     default:
         p.error("expected typespec")
         return nil, false
