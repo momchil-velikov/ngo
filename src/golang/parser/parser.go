@@ -301,7 +301,9 @@ func is_type_lookahead(token uint) bool {
 func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     switch p.token {
     case s.ID:
-        return p.parse_qual_id()
+        if t, ok := p.parse_qual_id(); ok {
+            return t, ok // Avoid returning a non-nil interface value
+        }
 
     // ArrayType   = "[" ArrayLength "]" ElementType .
     // ArrayLength = Expression .
@@ -388,7 +390,7 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 }
 
 // TypeName = identifier | QualifiedIdent .
-func (p *parser) parse_qual_id() (ast.TypeSpec, bool) {
+func (p *parser) parse_qual_id() (*ast.QualId, bool) {
     pkg, _ := p.match_valued(s.ID)
     if p.token == '.' {
         p.next()
@@ -430,9 +432,9 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
         // Anonymous field.
         p.next()
         if t, ok := p.parse_qual_id(); ok {
-            t = &ast.PtrType{t}
+            pt := &ast.PtrType{t}
             tag := p.parse_tag_opt()
-            fs = append(fs, &ast.FieldDecl{"", t, tag})
+            fs = append(fs, &ast.FieldDecl{"", pt, tag})
             return fs, ok
         }
     } else if p.token == s.ID {
