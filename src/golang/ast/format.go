@@ -158,7 +158,7 @@ func (r *Receiver) format(n uint) string {
 }
 
 // Output a formatted type.
-func (t *TypeName) format(n uint) (s string) {
+func (t *QualId) format(n uint) (s string) {
     if len(t.Pkg) > 0 {
         s += t.Pkg + "."
     }

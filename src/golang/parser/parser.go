@@ -301,7 +301,7 @@ func is_type_lookahead(token uint) bool {
 func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     switch p.token {
     case s.ID:
-        return p.parse_type_name()
+        return p.parse_qual_id()
 
     // ArrayType   = "[" ArrayLength "]" ElementType .
     // ArrayLength = Expression .
@@ -388,17 +388,17 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
 }
 
 // TypeName = identifier | QualifiedIdent .
-func (p *parser) parse_type_name() (ast.TypeSpec, bool) {
+func (p *parser) parse_qual_id() (ast.TypeSpec, bool) {
     pkg, _ := p.match_valued(s.ID)
     if p.token == '.' {
         p.next()
         if id, ok := p.match_valued(s.ID); ok {
-            return &ast.TypeName{pkg, id}, true
+            return &ast.QualId{pkg, id}, true
         } else {
             return nil, false
         }
     } else {
-        return &ast.TypeName{"", pkg}, true
+        return &ast.QualId{"", pkg}, true
     }
 }
 
@@ -429,7 +429,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
     if p.token == '*' {
         // Anonymous field.
         p.next()
-        if t, ok := p.parse_type_name(); ok {
+        if t, ok := p.parse_qual_id(); ok {
             t = &ast.PtrType{t}
             tag := p.parse_tag_opt()
             fs = append(fs, &ast.FieldDecl{"", t, tag})
@@ -442,7 +442,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
         if p.token == '.' {
             p.next()
             if id, ok := p.match_valued(s.ID); ok {
-                t := &ast.TypeName{pkg, id}
+                t := &ast.QualId{pkg, id}
                 tag := p.parse_tag_opt()
                 fs = append(fs, &ast.FieldDecl{"", t, tag})
                 return fs, true
@@ -450,7 +450,7 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
         } else if p.token == s.STRING || p.token == ';' || p.token == '}' {
             // If it's only a single identifier, with no separate type
             // declaration, it's also an anonymous filed.
-            t := &ast.TypeName{"", pkg}
+            t := &ast.QualId{"", pkg}
             tag := p.parse_tag_opt()
             fs = append(fs, &ast.FieldDecl{"", t, tag})
             return fs, true
@@ -548,7 +548,7 @@ func (p *parser) parse_id_or_type() (*ast.ParamDecl, bool) {
         if p.token == '.' {
             p.next()
             if name, ok := p.match_valued(s.ID); ok {
-                return &ast.ParamDecl{Type: &ast.TypeName{id, name}}, true
+                return &ast.ParamDecl{Type: &ast.QualId{id, name}}, true
             }
             // Fallthrough as if the dot wasn't there.
         }
@@ -590,7 +590,7 @@ func (p *parser) parse_param_decl() (ps []*ast.ParamDecl, ok bool) {
         // No type follows, then all the decls must be types.
         for _, dcl := range ps {
             if dcl.Type == nil {
-                dcl.Type = &ast.TypeName{"", dcl.Name}
+                dcl.Type = &ast.QualId{"", dcl.Name}
                 dcl.Name = ""
             }
         }
@@ -624,21 +624,21 @@ func (p *parser) parse_param_decl() (ps []*ast.ParamDecl, ok bool) {
 func (p *parser) parse_interface_type() (*ast.InterfaceType, bool) {
     p.match(s.INTERFACE)
     p.match('{')
-    emb := []*ast.TypeName(nil)
+    emb := []*ast.QualId(nil)
     meth := []*ast.MethodSpec(nil)
     for p.token != s.EOF && p.token != '}' {
         if id, ok := p.match_valued(s.ID); ok {
             if p.token == '.' {
                 p.next()
                 if name, ok := p.match_valued(s.ID); ok {
-                    emb = append(emb, &ast.TypeName{Pkg: id, Id: name})
+                    emb = append(emb, &ast.QualId{Pkg: id, Id: name})
                 }
             } else if p.token == '(' {
                 if sig, ok := p.parse_signature(); ok {
                     meth = append(meth, &ast.MethodSpec{Name: id, Sig: sig})
                 }
             } else {
-                emb = append(emb, &ast.TypeName{Pkg: "", Id: id})
+                emb = append(emb, &ast.QualId{Pkg: "", Id: id})
             }
         }
         if p.token != '}' {
@@ -797,7 +797,7 @@ func (p *parser) parse_receiver() *ast.Receiver {
         return nil
     }
     p.match(')')
-    var tp ast.TypeSpec = &ast.TypeName{Id: t}
+    var tp ast.TypeSpec = &ast.QualId{Id: t}
     if ptr {
         tp = &ast.PtrType{Base: tp}
     }

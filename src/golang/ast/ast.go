@@ -80,11 +80,11 @@ type TypeSpec interface {
     typeSpec()
 }
 
-type TypeName struct {
+type QualId struct {
     Pkg, Id string
 }
 
-func (t TypeName) typeSpec() {}
+func (t QualId) typeSpec() {}
 
 type ArrayType struct {
     Dim     *Expr
@@ -149,7 +149,7 @@ type MethodSpec struct {
 }
 
 type InterfaceType struct {
-    Embed   []*TypeName
+    Embed   []*QualId
     Methods []*MethodSpec
 }
 
