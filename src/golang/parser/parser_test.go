@@ -228,7 +228,8 @@ func TestArrayType1(tst *testing.T) {
 package foo
 type a [3]int
 type ( b [][3]bar.T )
-
+type ( c [...][3]bar.T )
+type ( d [...][3][...]bar.T )
 `
     t, e := Parse("array-type-1.go", src)
     if e != nil {
@@ -240,6 +241,10 @@ type ( b [][3]bar.T )
 type a [3]int
 
 type b [][3]bar.T
+
+type c [...][3]bar.T
+
+type d [...][3][...]bar.T
 
 `
     f := t.Format()

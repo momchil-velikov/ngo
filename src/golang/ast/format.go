@@ -167,7 +167,13 @@ func (t *QualId) Format(n uint) (s string) {
 }
 
 func (t *ArrayType) Format(n uint) (s string) {
-    return "[" + t.Dim.Format(n+1) + "]" + t.EltType.Format(n)
+    if t.Dim == nil {
+        s = "[...]"
+    } else {
+        s = "[" + t.Dim.Format(n+1) + "]"
+    }
+    s += t.EltType.Format(n)
+    return 
 }
 
 func (t *SliceType) Format(n uint) (s string) {

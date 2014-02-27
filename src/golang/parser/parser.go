@@ -309,6 +309,9 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
     // ArrayLength = Expression .
     // ElementType = Type .
     // SliceType = "[" "]" ElementType .
+    // Allow here an array type of unspecified size, that can be used
+    // only in composite literal expressions.
+    // ArrayLength = Expression | "..." .
     case '[':
         p.next()
         if p.token == ']' {
@@ -317,12 +320,18 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
             if ok {
                 return &ast.SliceType{t}, true
             }
+        } else if p.token == s.DOTS {
+            p.next()
+            p.match(']')
+            if t, ok := p.parse_type(); ok {
+                return &ast.ArrayType{Dim: nil, EltType: t}, true
+            } 
         } else {
             e, ok := p.parse_expr()
             if ok && p.match(']') {
                 t, ok := p.parse_type()
                 if ok {
-                    return &ast.ArrayType{e, t}, true
+                    return &ast.ArrayType{Dim: e, EltType: t}, true
                 }
             }
         }
