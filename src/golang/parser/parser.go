@@ -42,7 +42,7 @@ func (p *parser) expect_error(exp, act uint) {
     p.error(fmt.Sprintf("expected %s, got %s", s.TokenNames[exp], s.TokenNames[act]))
 }
 
-// Get the next token from the scannrt.
+// Get the next token from the scanner.
 func (p *parser) next() {
     p.token = p.scan.Get()
 }
@@ -325,7 +325,7 @@ func (p *parser) parse_type() (typ ast.TypeSpec, ok bool) {
             p.match(']')
             if t, ok := p.parse_type(); ok {
                 return &ast.ArrayType{Dim: nil, EltType: t}, true
-            } 
+            }
         } else {
             e, ok := p.parse_expr()
             if ok && p.match(']') {
@@ -704,15 +704,6 @@ func (p *parser) parse_const_spec() (*ast.ConstDecl, bool) {
     return nil, false
 }
 
-func (p *parser) parse_expr() (ast.Expr, bool) {
-    cst, ok := p.match_valued(s.INTEGER)
-    if ok {
-        return &ast.Operand{cst}, true
-    } else {
-        return nil, false
-    }
-}
-
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 func (p *parser) parse_var_decl() (ast.Decl, bool) {
     p.match(s.VAR)
@@ -835,22 +826,207 @@ func (p *parser) parse_expr_list() (es []ast.Expr) {
     return
 }
 
-// Operator precedence:
-// Precedence    Operator
-//     5             *  /  %  <<  >>  &  &^
-//     4             +  -  |  ^
-//     3             ==  !=  <  <=  >  >=
-//     2             &&
-//     1             ||
+// In certain contexts it may not be possible to disambiguate between Expression
+// or Type based on a single (or even O(1)) tokens(s) of lookahead. Therefore,
+// in such contexts, allow either one to happen and rely on a later typecheck
+// pass to validate the AST.
+func (p *parser) parse_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    return p.parse_or_expr_or_type()
+}
 
-// binary_op  = "||" | "&&" | rel_op | add_op | mul_op .
-// rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
-// add_op     = "+" | "-" | "|" | "^" .
-// mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
-// unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
+func (p *parser) parse_expr() (ast.Expr, bool) {
+    if e, _, ok := p.parse_or_expr_or_type(); ok {
+        if e != nil {
+            return e, true
+        }
+        p.error("Type not allowed in this context")
+    }
+    return nil, false
+}
 
 // Expression = UnaryExpr | Expression binary_op UnaryExpr .
+// `Expression` from the Go Specification is reaplaced by the following
+// ``xxxExpr` productions.
+
+// LogicalOrExpr = LogicalAndExpr { "||" LogicalAndExpr }
+func (p *parser) parse_or_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    a0, t, ok := p.parse_and_expr_or_type()
+    if !ok {
+        return nil, nil, false
+    } else if a0 == nil {
+        return nil, t, true
+    }
+    for p.token == s.OR {
+        p.next()
+        a1, _, ok := p.parse_and_expr_or_type()
+        if !ok || a1 == nil {
+            return nil, nil, false
+        }
+        a0 = &ast.BinaryExpr{Op: s.OR, Arg0: a0, Arg1: a1}
+    }
+    return a0, nil, true
+}
+
+// LogicalAndExpr = CompareExpr { "&&" CompareExpr }
+func (p *parser) parse_and_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    a0, t, ok := p.parse_compare_expr_or_type()
+    if !ok {
+        return nil, nil, false
+    } else if a0 == nil {
+        return nil, t, true
+    }
+    for p.token == s.AND {
+        p.next()
+        a1, _, ok := p.parse_compare_expr_or_type()
+        if !ok || a1 == nil {
+            return nil, nil, false
+        }
+        a0 = &ast.BinaryExpr{Op: s.AND, Arg0: a0, Arg1: a1}
+    }
+    return a0, nil, true
+}
+
+// CompareExpr = AddExpr { rel_op AddExpr }
+func (p *parser) parse_compare_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    a0, t, ok := p.parse_add_expr_or_type()
+    if !ok {
+        return nil, nil, false
+    } else if a0 == nil {
+        return nil, t, true
+    }
+    for is_rel_op(p.token) {
+        op := p.token
+        p.next()
+        a1, _, ok := p.parse_add_expr_or_type()
+        if !ok || a1 == nil {
+            return nil, nil, false
+        }
+        a0 = &ast.BinaryExpr{Op: op, Arg0: a0, Arg1: a1}
+    }
+    return a0, nil, true
+}
+
+// AddExpr = MulExpr { add_op MulExpr}
+func (p *parser) parse_add_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    a0, t, ok := p.parse_mul_expr_or_type()
+    if !ok {
+        return nil, nil, false
+    } else if a0 == nil {
+        return nil, t, true
+    }
+    for is_add_op(p.token) {
+        op := p.token
+        p.next()
+        a1, _, ok := p.parse_mul_expr_or_type()
+        if !ok || a1 == nil {
+            return nil, nil, false
+        }
+        a0 = &ast.BinaryExpr{Op: op, Arg0: a0, Arg1: a1}
+    }
+    return a0, nil, true
+}
+
+// MulExpr = UnaryExpr { mul_op UnaryExpr }
+func (p *parser) parse_mul_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    a0, t, ok := p.parse_unary_expr_or_type()
+    if !ok {
+        return nil, nil, false
+    } else if a0 == nil {
+        return nil, t, ok
+    }
+    for is_mul_op(p.token) {
+        op := p.token
+        p.next()
+        a1, _, ok := p.parse_unary_expr_or_type()
+        if !ok || a1 == nil {
+            return nil, nil, false
+        }
+        a0 = &ast.BinaryExpr{Op: op, Arg0: a0, Arg1: a1}
+    }
+    return a0, nil, true
+}
+
+// binary_op  = "||" | "&&" | rel_op | add_op | mul_op .
+
+// rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
+func is_rel_op(t uint) bool {
+    switch t {
+    case s.EQ, s.NEQ, s.LT, s.LE, s.GT, s.GE:
+        return true
+    default:
+        return false
+    }
+}
+
+// add_op     = "+" | "-" | "|" | "^" .
+func is_add_op(t uint) bool {
+    switch t {
+    case '+', '-', '|', '^':
+        return true
+    default:
+        return false
+    }
+}
+
+// mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
+func is_mul_op(t uint) bool {
+    switch t {
+    case '*', '/', '%', s.SHL, s.SHR, '&', s.ANDN:
+        return true
+    default:
+        return false
+    }
+}
+
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+// unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
+func (p *parser) parse_unary_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    switch p.token {
+    case '+', '-', '!', '^', '&':
+        op := p.token
+        p.next()
+        a, _, ok := p.parse_unary_expr_or_type()
+        if !ok || a == nil {
+            return nil, nil, false
+        }
+        return &ast.UnaryExpr{Op: op, Arg: a}, nil, true
+    case '*':
+        p.next()
+        if a, t, ok := p.parse_unary_expr_or_type(); !ok {
+            return nil, nil, false
+        } else if t == nil {
+            return &ast.UnaryExpr{Op: '*', Arg: a}, nil, true
+        } else {
+            return nil, &ast.PtrType{Base: t}, true
+        }
+    case s.RECV:
+        p.next()
+        if a, t, ok := p.parse_unary_expr_or_type(); !ok {
+            return nil, nil, false
+        } else if t == nil {
+            return &ast.UnaryExpr{Op: s.RECV, Arg: a}, nil, true
+        } else if ch, ok := t.(*ast.ChanType); ok {
+            ch.Recv, ch.Send = true, false
+            return nil, ch, true
+        } else {
+            return nil, nil, false
+        }
+    default:
+        return p.parse_primary_expr_or_type()
+    }
+}
+
+func (p *parser) need_type(ex ast.Expr) (ast.TypeSpec, bool) {
+    switch t := ex.(type) {
+    case *ast.QualId:
+        return t, true
+    case *ast.Selector:
+        if a, ok := t.Arg.(*ast.QualId); ok && len(a.Pkg) == 0 {
+            return &ast.QualId{Pkg: a.Id, Id: t.Id}, true
+        }
+    }
+    return nil, false
+}
 
 // PrimaryExpr =
 //     Operand |
@@ -862,21 +1038,301 @@ func (p *parser) parse_expr_list() (es []ast.Expr) {
 //     PrimaryExpr TypeAssertion |
 //     PrimaryExpr Call .
 
-// Selector       = "." identifier .
-// Index          = "[" Expression "]" .
-// Slice          = "[" ( [ Expression ] ":" [ Expression ] ) |
-//                      ( [ Expression ] ":" Expression ":" Expression )
-//                  "]" .
-// TypeAssertion  = "." "(" Type ")" .
-// Call           = "(" [ ArgumentList [ "," ] ] ")" .
-// ArgumentList   = ExpressionList [ "..." ] .
+func (p *parser) parse_primary_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
+    var (
+        ex  ast.Expr
+        t   ast.TypeSpec
+        ok  bool
+    )
+    // Handle initial Operand, Conversion or a BuiltinCall
+    switch p.token {
+    case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
+        id, _ := p.match_valued(s.ID)
+        if p.token == '{' {
+            ex, ok = p.parse_composite_literal(&ast.QualId{Id: id})
+        } else if p.token == '(' {
+            ex, ok = p.parse_call(&ast.QualId{Id: id})
+        } else {
+            ex, ok = &ast.QualId{Id: id}, true
+        }
+    case '(': // Expression, MethodExpr, Conversion
+        p.next()
+        if ex, t, ok = p.parse_expr_or_type(); ok {
+            p.match(')')
+            if ex == nil {
+                if p.token == '(' {
+                    ex, ok = p.parse_conversion(t)
+                } else {
+                    return nil, t, true
+                }
+            }
+        }
+    case '[', s.STRUCT, s.MAP: // Conversion, CompositeLit
+        if t, ok = p.parse_type(); ok {
+            if p.token == '(' {
+                ex, ok = p.parse_conversion(t)
+            } else if p.token == '{' {
+                ex, ok = p.parse_composite_literal(t)
+            } else {
+                return nil, t, true
+            }
+        }
+    case s.FUNC: // Conversion, FunctionLiteral
+        if t, ok = p.parse_type(); ok {
+            if p.token == '(' {
+                ex, ok = p.parse_conversion(t)
+            } else if p.token == '{' {
+                ex, ok = p.parse_func_literal(t)
+            } else {
+                return nil, t, true
+            }
+        }
+    case '*', s.RECV:
+        panic("should no reach here")
+    case s.INTERFACE, s.CHAN: // Conversion
+        if t, ok = p.parse_type(); ok {
+            if p.token == '(' {
+                ex, ok = p.parse_conversion(t)
+            } else {
+                return nil, t, true
+            }
+        }
+    case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE, s.STRING: // BasicLiteral
+        k := p.token
+        v, _ := p.match_valued(k)
+        return &ast.Literal{Kind: k, Value: v}, nil, true
+    default:
+        p.error("token cannot start neither expression nor type")
+    }
+    // Parse the left-recursive alternatives for PrimaryExpr, folding the left-
+    // hand parts in the variable `EX`.
+    for {
+        // If we haven't reached here with a parsed Expression, return an error.
+        if !ok {
+            return nil, nil, false
+        }
+        switch p.token {
+        case '.': // TypeAssertion or Selector
+            p.next()
+            if p.token == '(' {
+                // PrimaryExpr TypeAssertion
+                // TypeAssertion = "." "(" Type ")" .
+                if t, ok = p.parse_type(); ok {
+                    ex = &ast.TypeAssertion{Type: t, Arg: ex}
+                }
+            } else {
+                // PrimaryExpr Selector
+                // Selector = "." identifier .
+                if id, ok := p.match_valued(s.ID); ok {
+                    ex = &ast.Selector{Arg: ex, Id: id}
+                }
+            }
+        case '[':
+            // PrimaryExpr Index
+            // PrimaryExpr Slice
+            ex, ok = p.parse_index_or_slice(ex)
+        case '(':
+            // PrimaryExpr Call
+            ex, ok = p.parse_call(ex)
+        case '{':
+            // Composite literal
+            var typ ast.TypeSpec = nil
+            if typ, ok = p.need_type(ex); ok {
+                ex, ok = p.parse_composite_literal(typ)
+            } else {
+                p.error("invalid type for composite literal")
+            }
+        default:
+            return ex, nil, true
+        }
+    }
+}
 
 // Operand    = Literal | OperandName | MethodExpr | "(" Expression ")" .
 // Literal    = BasicLit | CompositeLit | FunctionLit .
 // BasicLit   = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
 // OperandName = identifier | QualifiedIdent.
 
-// Conversion = Type "(" Expression [ "," ] ")" .
+// Parsed as Selector expression, to be fixed up later by the typecheck phase.
+// MethodExpr    = ReceiverType "." MethodName .
+// ReceiverType  = TypeName | "(" "*" TypeName ")" | "(" ReceiverType ")" .
+// func (p *parser) parse_method_expr(typ ast.TypeSpec) (ast.Expr, bool) {
+//     p.match('.')
+//     if id, ok := p.match_valued(s.ID); ok {
+//         return &ast.MethodExpr{Type: typ, Id: id}, true
+//     }
+//     return nil, false
+// }
 
+// CompositeLit  = LiteralType LiteralValue .
+// LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
+//                 SliceType | MapType | TypeName .
+func (p *parser) parse_composite_literal(typ ast.TypeSpec) (ast.Expr, bool) {
+    if elts, ok := p.parse_literal_value(); ok {
+        return &ast.CompLiteral{Type: typ, Elts: elts}, true
+    } else {
+        return nil, false
+    }
+}
+
+// LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
+// ElementList   = Element { "," Element } .
+func (p *parser) parse_literal_value() (elts []*ast.Element, ok bool) {
+    p.match('{')
+    for p.token != s.EOF && p.token != '}' {
+        if e, ok := p.parse_element(); ok {
+            elts = append(elts, e)
+        } else {
+            p.skip_until2(',', '}')
+        }
+        if p.token != '}' {
+            p.match(',')
+        }
+    }
+    p.match('}')
+    return elts, true
+}
+
+// Element       = [ Key ":" ] Value .
+// Key           = FieldName | ElementIndex .
+// FieldName     = identifier .
+// ElementIndex  = Expression .
+// Value         = Expression | LiteralValue .
+func (p *parser) parse_element() (*ast.Element, bool) {
+    var k ast.Expr
+    var ok bool
+    if p.token != '{' {
+        if k, ok = p.parse_expr(); !ok {
+            return nil, false
+        }
+        if p.token != ':' {
+            return &ast.Element{Key: nil, Value: k}, true
+        }
+        p.match(':')
+    }
+    if p.token == '{' {
+        if elts, ok := p.parse_literal_value(); ok {
+            e := &ast.CompLiteral{Type: nil, Elts: elts}
+            return &ast.Element{Key: k, Value: e}, true
+        }
+    } else {
+        if e, ok := p.parse_expr(); ok {
+            return &ast.Element{Key: k, Value: e}, true
+        }
+    }
+    return nil, false
+}
+
+// Conversion = Type "(" Expression [ "," ] ")" .
+func (p *parser) parse_conversion(typ ast.TypeSpec) (ast.Expr, bool) {
+    p.match('(')
+    if a, ok := p.parse_expr(); ok {
+        if p.token == ',' {
+            p.next()
+        }
+        p.match(')')
+        return &ast.Conversion{Type: typ, Arg: a}, true
+    }
+    return nil, false
+}
+
+// Call           = "(" [ ArgumentList [ "," ] ] ")" .
+// ArgumentList   = ExpressionList [ "..." ] .
 // BuiltinCall = identifier "(" [ BuiltinArgs [ "," ] ] ")" .
 // BuiltinArgs = Type [ "," ArgumentList ] | ArgumentList .
+func (p *parser) parse_call(f ast.Expr) (ast.Expr, bool) {
+    p.match('(')
+    if p.token == ')' {
+        p.next()
+        return &ast.Call{Func: f}, true
+    }
+    var as []ast.Expr
+    a, t, ok := p.parse_expr_or_type()
+    if !ok {
+        p.skip_until2(',', ')')
+    } else if a != nil {
+        as = append(as, a)
+    }
+    seen_dots := false
+    if p.token == s.DOTS {
+        p.next()
+        seen_dots = true
+    }
+    if p.token != ')' {
+        p.match(',')
+    }
+    for p.token != s.EOF && p.token != ')' && !seen_dots {
+        if a, ok = p.parse_expr(); ok {
+            as = append(as, a)
+        } else {
+            p.skip_until2(',', ')')
+        }
+        if p.token == s.DOTS {
+            p.next()
+            seen_dots = true
+        }
+        if p.token != ')' {
+            p.match(',')
+        }
+    }
+    p.match(')')
+    return &ast.Call{Func: f, Type: t, Args: as, Ellipsis: seen_dots}, true
+}
+
+// FunctionLit = "func" Function .
+func (p *parser) parse_func_literal(typ ast.TypeSpec) (ast.Expr, bool) {
+    sig := typ.(*ast.FuncType)
+    p.match('{')
+    p.match('}')
+    return &ast.FuncLiteral{Sig: sig, Body: &ast.Block{}}, true
+}
+
+// Index          = "[" Expression "]" .
+// Slice          = "[" ( [ Expression ] ":" [ Expression ] ) |
+//                      ( [ Expression ] ":" Expression ":" Expression )
+//                  "]" .
+func (p *parser) parse_index_or_slice(e ast.Expr) (ast.Expr, bool) {
+    p.match('[')
+    if p.token == ':' {
+        p.next()
+        if p.token == ']' {
+            p.next()
+            return &ast.SliceExpr{Array: e}, true
+        }
+        if h, ok := p.parse_expr(); ok {
+            if p.token == ']' {
+                p.next()
+                return &ast.SliceExpr{Array: e, High: h}, true
+            }
+            p.match(':')
+            if c, ok := p.parse_expr(); ok {
+                p.match(']')
+                return &ast.SliceExpr{Array: e, High: h, Cap: c}, true
+            }
+        }
+    } else {
+        if i, ok := p.parse_expr(); ok {
+            if p.token == ']' {
+                p.next()
+                return &ast.IndexExpr{Array: e, Idx: i}, true
+            }
+            p.match(':')
+            if p.token == ']' {
+                p.next()
+                return &ast.SliceExpr{Array: e, Low: i}, true
+            }
+            if h, ok := p.parse_expr(); ok {
+                if p.token == ']' {
+                    p.next()
+                    return &ast.SliceExpr{Array: e, Low: i, High: h}, true
+                }
+                p.match(':')
+                if c, ok := p.parse_expr(); ok {
+                    p.match(']')
+                    return &ast.SliceExpr{Array: e, Low: i, High: h, Cap: c}, true
+                }
+            }
+        }
+    }
+    return nil, false
+}

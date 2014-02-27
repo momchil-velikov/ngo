@@ -1,0 +1,146 @@
+// Example ambiguity resolution: * and <- always parsed as unary operators
+package main
+
+import "fmt"
+
+type A uint
+type B <-chan uint
+
+func main() {
+  var a *uint = new(uint)
+  aa := *A(a)
+
+  var b chan uint = make(chan uint)
+  pb := &b
+  bb := <-chan uint(b)
+  fmt.Println("Hello, playground", aa, bb, pb)
+}
+
+// UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+
+First(UnaryExpr) = First(PrimaryExpr) + unary_op = 
+=
++ {ID} // Literal, OperandName, MethodExpr, Conversion, BuiltinCall
++ {'('} // MethodExpr, Expression, Conversion
++ {'['} // Conversion, Literal
++ {STRUCT, MAP, FUNC}  // Conversion, Literal
++ {INTERFACE, CHAN } // Conversion
++ {INTEGER, FLOAT, IMAGINARY, RUNE, STRING} // BasicLiteral
++ { "+", "-", "!", "^", "&", '*', RECV } // unary_op
+
+// unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
+
+// PrimaryExpr =
+//    Operand |
+//    Conversion |
+//    BuiltinCall |
+//    PrimaryExpr Selector |
+//    PrimaryExpr Index |
+//    PrimaryExpr Slice |
+//    PrimaryExpr TypeAssertion |
+//    PrimaryExpr Call .
+
+First(PrimaryExpr) = First(Operand) + First(Conversion) + First(BuiltinCall) = 
+
+= {INTEGER, FLOAT, IMAGINARY, RUNE, STRING} +
++ {STRUCT, '[', MAP, ID } +
++ {FUNC} // Literal
+
++ {ID} // OperandName
+
++ {ID, '('} // MethodExpr -> ReceiverType
+
++ {'('} // parenthesized Expression
+
++ {ID, '[', STRUCT, '*', FUNC, INTERFACE, MAP, CHAN, '(', RECV } // Conversion
+
++ { ID } // BuiltinCall
+
+= {ID} // CompositeLiteral, MethodExpr, Conversion, BuiltinCall, OperandName
++ {'('} // Expression, MethodExpr, Conversion
++ {'['} // Conversion, CompositeLiteral
++ {STRUCT, MAP, FUNC}  // Conversion, CompositeLiteral
++ {'*', INTERFACE, CHAN, RECV } // Conversion
++ {INTEGER, FLOAT, IMAGINARY, RUNE, STRING} // BasicLiteral
+
+// Operand    = Literal | OperandName | MethodExpr | "(" Expression ")" .
+First(Operand) = First(Literal)+First(OperandName)+First(MethodExpr) + "(" =
+               = {INTEGER, FLOAT, IMAGINARY, RUNE, STRING} +
+               + {STRUCT, '[', MAP, ID } +
+               + {FUNC} // Literal
+
+               + {ID} // OperandName
+
+               + {ID, '('} // MethodExpr -> ReceiverType
+
+               + '(' // parenthesized Expression
+
+// Conversion = Type "(" Expression [ "," ] ")" .
+First(Conversion) = First(Type) = 
+                  = {ID, '[', STRUCT, '*', FUNC, INTERFACE, MAP, CHAN, '(', RECV }
+
+// BuiltinCall = identifier "(" [ BuiltinArgs [ "," ] ] ")" .
+First(BuiltinCall) = { ID }
+
+// Selector       = "." identifier .
+// Index          = "[" Expression "]" .
+// Slice          = "[" ( [ Expression ] ":" [ Expression ] ) |
+//                      ( [ Expression ] ":" Expression ":" Expression )
+//                  "]" .
+// TypeAssertion  = "." "(" Type ")" .
+// Call           = "(" [ ArgumentList [ "," ] ] ")" .
+// ArgumentList   = ExpressionList [ "..." ] .
+
+
+
+// Literal    = BasicLit | CompositeLit | FunctionLit .
+First(Literal) = First(BasicList)+First(CompositeLit)+First(FunctionLit) = 
+               = {INTEGER, FLOAT, IMAGINARY, RUNE, STRING} +
+               + {STRUCT, '[', MAP, ID } +
+               + {FUNC}
+
+// BasicLit   = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
+First(BasicLit) = {INTEGER, FLOAT, IMAGINARY, RUNE, STRING}
+
+// OperandName = identifier | QualifiedIdent.
+
+// MethodExpr    = ReceiverType "." MethodName .
+First(MethodExpr) = First(ReceiverType)
+
+// ReceiverType  = TypeName | "(" "*" TypeName ")" | "(" ReceiverType ")" .
+First(ReceiverType) = {ID, '('}
+
+// CompositeLit  = LiteralType LiteralValue .
+First(CompositeLit) = First(LiteralType) = {STRUCT, '[', MAP, ID }
+
+// FunctionLit = "func" Function .
+First(FunctionLit) = {FUNC}
+
+// LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
+//                 SliceType | MapType | TypeName .
+
+First(LiteralType) = First(StructType) + First(ArrayType) + '[' + 
+                   + First(SliceType) + First(MapType) + First(TypeName) =
+                   = {STRUCT, '[', MAP, ID }
+
+// LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
+// ElementList   = Element { "," Element } .
+// Element       = [ Key ":" ] Value .
+// Key           = FieldName | ElementIndex .
+// FieldName     = identifier .
+// ElementIndex  = Expression .
+// Value         = Expression | LiteralValue .
+
+
+// BuiltinCall = identifier "(" [ BuiltinArgs [ "," ] ] ")" .
+// BuiltinArgs = Type [ "," ArgumentList ] | ArgumentList .
+
+// Type      = TypeName | TypeLit | "(" Type ")" .
+// TypeName  = identifier | QualifiedIdent .
+First(Type) = First(TypeName) + First(TypeLit) + '(' = 
+            = ID + First(TypeLit) + '(' = 
+            = {ID, '[', STRUCT, '*', FUNC, INTERFACE, MAP, CHAN, '(', RECV }
+
+// TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
+               SliceType | MapType | ChannelType .
+First(TypeLit) = { '[', STRUCT, '*', FUNC, INTERFACE, MAP, CHAN, RECV}

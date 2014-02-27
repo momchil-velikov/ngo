@@ -1,5 +1,7 @@
 package ast
 
+import s "golang/scanner"
+
 type Decl interface {
     Formatter
     decl()
@@ -75,11 +77,105 @@ type Expr interface {
     expr()
 }
 
-type Operand struct {
-    Const string
+// Precedence table for binary expressions.
+var op_prec = map[uint]uint{
+    '*': 5, '/': 5, '%': 5, s.SHL: 5, s.SHR: 5, '&': 5, s.ANDN: 5,
+    '+': 4, '-': 4, '|': 4, '^': 4,
+    s.EQ: 3, s.NEQ: 3, s.LT: 3, s.LE: 3, s.GT: 3, s.GE: 3,
+    s.AND: 2,
+    s.OR:  1,
 }
 
-func (op *Operand) expr() {}
+type Literal struct {
+    Kind  uint
+    Value string
+}
+
+func (e Literal) expr() {}
+
+type Element struct {
+    Key   Expr
+    Value Expr
+}
+
+type CompLiteral struct {
+    Type TypeSpec
+    Elts []*Element
+}
+
+func (e CompLiteral) expr() {}
+
+type Call struct {
+    Func     Expr
+    Type     TypeSpec
+    Args     []Expr
+    Ellipsis bool
+}
+
+func (e Call) expr() {}
+
+type Conversion struct {
+    Type TypeSpec
+    Arg  Expr
+}
+
+func (e Conversion) expr() {}
+
+type MethodExpr struct {
+    Type TypeSpec
+    Id   string
+}
+
+func (e MethodExpr) expr() {}
+
+type FuncLiteral struct {
+    Sig  *FuncType
+    Body *Block
+}
+
+func (e FuncLiteral) expr() {}
+
+type TypeAssertion struct {
+    Type TypeSpec
+    Arg  Expr
+}
+
+func (e TypeAssertion) expr() {}
+
+type Selector struct {
+    Arg Expr
+    Id  string
+}
+
+func (e Selector) expr() {}
+
+type IndexExpr struct {
+    Array Expr
+    Idx   Expr
+}
+
+func (e IndexExpr) expr() {}
+
+type SliceExpr struct {
+    Array          Expr
+    Low, High, Cap Expr
+}
+
+func (e SliceExpr) expr() {}
+
+type UnaryExpr struct {
+    Op  uint
+    Arg Expr
+}
+
+func (ex UnaryExpr) expr() {}
+
+type BinaryExpr struct {
+    Op         uint
+    Arg0, Arg1 Expr
+}
+
+func (ex BinaryExpr) expr() {}
 
 // Types
 type TypeSpec interface {
@@ -92,6 +188,7 @@ type QualId struct {
 }
 
 func (t QualId) typeSpec() {}
+func (t QualId) expr()     {}
 
 type ArrayType struct {
     Dim     Expr

@@ -1,6 +1,9 @@
 package ast
 
-// import "fmt"
+import (
+    //    "fmt"
+    s "golang/scanner"
+)
 
 type Formatter interface {
     Format(uint) string
@@ -54,7 +57,7 @@ func (t *TypeDecl) Format(n uint) (s string) {
     return
 }
 
-// Output a formatter constant group declaration
+// Output a formatted constant group declaration
 func (c *ConstGroup) Format(n uint) string {
     indent := nspaces(4 * n)
     s := indent + "const (\n"
@@ -173,7 +176,7 @@ func (t *ArrayType) Format(n uint) (s string) {
         s = "[" + t.Dim.Format(n+1) + "]"
     }
     s += t.EltType.Format(n)
-    return 
+    return
 }
 
 func (t *SliceType) Format(n uint) (s string) {
@@ -286,6 +289,169 @@ func (t *InterfaceType) Format(n uint) string {
 }
 
 // Output a formatted expression
-func (e *Operand) Format(n uint) string {
-    return e.Const
+func (e *Literal) Format(n uint) string {
+    switch e.Kind {
+    case s.INTEGER, s.FLOAT:
+        return e.Value
+    case s.RUNE:
+        return "'" + e.Value + "'"
+    case s.IMAGINARY:
+        return e.Value + "i"
+    case s.STRING:
+        return "\"" + e.Value + "\""
+    default:
+        panic("invalid literal")
+    }
+}
+
+func (e *TypeAssertion) Format(n uint) (s string) {
+    s = e.Arg.Format(n)
+    switch e.Arg.(type) {
+    case *UnaryExpr, *BinaryExpr:
+        s = "(" + s + ")"
+    }
+    s += ".(" + e.Type.Format(n) + ")"
+    return
+}
+
+func (e *Selector) Format(n uint) (s string) {
+    s = e.Arg.Format(n)
+    switch e.Arg.(type) {
+    case *UnaryExpr, *BinaryExpr:
+        s = "(" + s + ")"
+    }
+    s += "." + e.Id
+    return
+}
+
+func (e *IndexExpr) Format(n uint) (s string) {
+    s = e.Array.Format(n)
+    switch e.Array.(type) {
+    case *UnaryExpr, *BinaryExpr:
+        s = "(" + s + ")"
+    }
+    s += "[" + e.Idx.Format(n) + "]"
+    return
+}
+
+func (e *SliceExpr) Format(n uint) (s string) {
+    s = e.Array.Format(n)
+    switch e.Array.(type) {
+    case *UnaryExpr, *BinaryExpr:
+        s = "(" + s + ")"
+    }
+    s += "["
+    if e.Low != nil {
+        s += e.Low.Format(n) + " :"
+    } else {
+        s += ":"
+    }
+    if e.High != nil {
+        s += " " + e.High.Format(n)
+    }
+    if e.Cap != nil {
+        s += " : " + e.Cap.Format(n)
+    }
+    s += "]"
+    return
+}
+
+func (e *MethodExpr) Format(n uint) string {
+    return "(" + e.Type.Format(n) + ")." + e.Id
+}
+
+func (e *CompLiteral) Format(n uint) (s string) {
+    if e.Type != nil {
+        s = e.Type.Format(n)
+    }
+    s += "{"
+    m := len(e.Elts)
+    for i, elt := range e.Elts {
+        s += elt.format()
+        if i+1 < m {
+            s += ", "
+        }
+    }
+    s += "}"
+    return
+}
+
+func (e *Element) format() (s string) {
+    if e.Key != nil {
+        s = e.Key.Format(0) + ": "
+    }
+    s += e.Value.Format(0)
+    return
+}
+
+func (e *Conversion) Format(n uint) (s string) {
+    s = e.Type.Format(n)
+    switch f := e.Type.(type) {
+    case *FuncType:
+        if len(f.Returns) == 0 {
+            s = "(" + s + ")"
+        }
+    case *PtrType, *ChanType:
+        s = "(" + s + ")"
+    }
+    s += "(" + e.Arg.Format(n) + ")"
+    return
+}
+
+func (e *Call) Format(n uint) string {
+    s := e.Func.Format(n)
+    if e.Type == nil && len(e.Args) == 0 {
+        return s + "()"
+    }
+    var nargs = len(e.Args)
+    s += "("
+    if e.Type != nil {
+        s += e.Type.Format(n)
+        if nargs > 0 {
+            s += ", "
+        }
+    }
+    for i := 0; i+1 < nargs; i++ {
+        s += e.Args[i].Format(n) + ", "
+    }
+    if nargs > 0 {
+        s += e.Args[nargs-1].Format(n)
+    }
+    if e.Ellipsis {
+        s += "..."
+    }
+    s += ")"
+    return s
+}
+
+func (e *FuncLiteral) Format(n uint) string {
+    return e.Sig.Format(n) + "{}"
+}
+
+func (e *UnaryExpr) Format(n uint) string {
+    return s.TokenNames[e.Op] + e.Arg.Format(n)
+}
+
+func (e *BinaryExpr) Format(n uint) string {
+    var a0, a1 string
+    prec := op_prec[e.Op]
+    if ex, ok := e.Arg0.(*BinaryExpr); ok {
+        if op_prec[ex.Op] < prec {
+            a0 = "(" + ex.Format(n) + ")"
+        } else {
+            a0 = ex.Format(n)
+        }
+    } else {
+        a0 = e.Arg0.Format(n)
+    }
+    if ex, ok := e.Arg1.(*BinaryExpr); ok {
+        if op_prec[ex.Op] < prec {
+            a1 = "(" + ex.Format(n) + ")"
+        } else {
+            a1 = ex.Format(n)
+        }
+    } else {
+        a1 = e.Arg1.Format(n)
+    }
+    return a0 + " " + s.TokenNames[e.Op] + " " + a1
 }
