@@ -951,7 +951,7 @@ func (p *parser) parse_mul_expr_or_type() (ast.Expr, ast.TypeSpec, bool) {
 // rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
 func is_rel_op(t uint) bool {
     switch t {
-    case s.EQ, s.NEQ, s.LT, s.LE, s.GT, s.GE:
+    case s.EQ, s.NE, s.LT, s.LE, s.GT, s.GE:
         return true
     default:
         return false

@@ -43,7 +43,7 @@ func TestOperations1(t *testing.T) {
 func TestOperations2(t *testing.T) {
     input := "< <= << <<= <- > >> >>= >= = == ! != ( ) { } [ ] . ... .. : :="
     tokens := [...]uint{'<', LE, SHL, SHL_ASSIGN, RECV, '>', SHR, SHR_ASSIGN,
-        GE, '=', EQ, '!', NEQ, '(', ')', '{', '}', '[', ']', '.', DOTS, '.',
+        GE, '=', EQ, '!', NE, '(', ')', '{', '}', '[', ']', '.', DOTS, '.',
         '.', ':', DEFINE}
     test_ops(t, input, tokens[:])
 }

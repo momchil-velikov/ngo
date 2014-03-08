@@ -623,7 +623,7 @@ L:
         r = s.peek_char()
         if r == '=' {
             s.next_char()
-            return NEQ
+            return NE
         }
         return '!'
     case '(', '[', '{', ',', ';':

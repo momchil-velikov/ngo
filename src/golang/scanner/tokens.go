@@ -46,7 +46,7 @@ const (
     INC                       // ++
     DEC                       // --
     EQ                        // ==
-    NEQ                       // !=
+    NE                        // !=
     LE                        // <=
     GE                        // >=
     DEFINE                    // :=
@@ -166,7 +166,7 @@ var TokenNames = map[uint]string{
     INC:          "++",
     DEC:          "--",
     EQ:           "==",
-    NEQ:          "!=",
+    NE:           "!=",
     LE:           "<=",
     GE:           ">=",
     DEFINE:       ":=",
