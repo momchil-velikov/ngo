@@ -9,10 +9,12 @@ type Formatter interface {
     Format(uint) string
 }
 
-// Return a string, consisting of N spaces.
-func nspaces(n uint) (s string) {
+const indent_str = "    "
+
+// Return a string for N levels of indentation.
+func indent(n uint) (s string) {
     for i := uint(0); i < n; i++ {
-        s += " "
+        s += indent_str
     }
     return
 }
@@ -42,7 +44,7 @@ func (f *File) Format() (s string) {
 
 // Output formatted import clause with N levels of indentation.
 func (i *Import) Format(n uint) (s string) {
-    s = nspaces(4 * n)
+    s = indent(n)
     if len(i.Name) > 0 {
         s += i.Name + " "
     }
@@ -59,12 +61,12 @@ func (t *TypeDecl) Format(n uint) (s string) {
 
 // Output a formatted constant group declaration
 func (c *ConstGroup) Format(n uint) string {
-    indent := nspaces(4 * n)
-    s := indent + "const (\n"
+    ind := indent(n)
+    s := ind + "const (\n"
     for _, d := range c.Decls {
         s += d.format_internal(n+1, false) + "\n"
     }
-    s += indent + ")\n"
+    s += ind + ")\n"
     return s
 }
 
@@ -77,7 +79,7 @@ func (c *ConstDecl) format_internal(n uint, top bool) (s string) {
     if top {
         s = "const "
     } else {
-        s = nspaces(4 * n)
+        s = indent(n)
     }
     s += c.Names[0]
     for i := 1; i < len(c.Names); i++ {
@@ -97,12 +99,12 @@ func (c *ConstDecl) format_internal(n uint, top bool) (s string) {
 
 // Output a formatted variable group declaration
 func (c *VarGroup) Format(n uint) string {
-    indent := nspaces(4 * n)
-    s := indent + "var (\n"
+    ind := indent(n)
+    s := ind + "var (\n"
     for _, d := range c.Decls {
         s += d.format_internal(n+1, false) + "\n"
     }
-    s += indent + ")\n"
+    s += ind + ")\n"
     return s
 }
 
@@ -115,7 +117,7 @@ func (c *VarDecl) format_internal(n uint, top bool) (s string) {
     if top {
         s = "var "
     } else {
-        s = nspaces(4 * n)
+        s = indent(n)
     }
     s += c.Names[0]
     for i := 1; i < len(c.Names); i++ {
@@ -210,8 +212,8 @@ func (t *StructType) Format(n uint) string {
     if len(t.Fields) == 0 {
         return "struct{}"
     }
-    sp := nspaces(4 * n)
-    sp1 := sp + "    "
+    sp := indent(n)
+    sp1 := indent(n + 1)
     s := "struct {\n"
     for _, f := range t.Fields {
         s += sp1
@@ -277,14 +279,14 @@ func (t *InterfaceType) Format(n uint) string {
         return "interface{}"
     }
     s := "interface {\n"
-    indent := nspaces(4 * (n + 1))
+    ind := indent(n + 1)
     for _, e := range t.Embed {
-        s += indent + e.Format(n+1) + "\n"
+        s += ind + e.Format(n+1) + "\n"
     }
     for _, m := range t.Methods {
-        s += indent + m.Name + format_signature(m.Sig, n+1) + "\n"
+        s += ind + m.Name + format_signature(m.Sig, n+1) + "\n"
     }
-    s += nspaces(4*n) + "}"
+    s += indent(n) + "}"
     return s
 }
 
