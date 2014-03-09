@@ -26,6 +26,12 @@ type TypeDecl struct {
 
 func (d TypeDecl) decl() {}
 
+type TypeGroup struct {
+    Decls []*TypeDecl
+}
+
+func (d TypeGroup) decl() {}
+
 type ConstDecl struct {
     Names  []string
     Type   TypeSpec

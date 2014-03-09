@@ -207,15 +207,14 @@ type (
     exp := `package foo
 
 type a int
-
-type b int
-
-type c bar.Z
-
-type d uint
-
-type e float64
-
+type (
+    b int
+    c bar.Z
+)
+type (
+    d uint
+    e float64
+)
 `
     f := t.Format()
     if f != exp {
@@ -224,93 +223,65 @@ type e float64
 }
 
 func TestArrayType1(tst *testing.T) {
-    src := `
-package foo
+    src := `package foo
+
 type a [3]int
-type ( b [][3]bar.T )
-type ( c [...][3]bar.T )
-type ( d [...][3][...]bar.T )
+type (
+    b [][3]bar.T
+    c [...][3]bar.T
+    d [...][3][...]bar.T
+)
 `
     t, e := Parse("array-type-1.go", src)
     if e != nil {
         tst.Error(e)
     }
 
-    exp := `package foo
-
-type a [3]int
-
-type b [][3]bar.T
-
-type c [...][3]bar.T
-
-type d [...][3][...]bar.T
-
-`
     f := t.Format()
-    if f != exp {
+    if f != src {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
 }
 
 func TestPtrType(tst *testing.T) {
-    src := `
-package foo
+    src := `package foo
+
 type a *int
 type b [3]*int
-type ( b []*[3]bar.T )
-
+type b []*[3]bar.T
 `
     t, e := Parse("ptr-type.go", src)
     if e != nil {
         tst.Error(e)
     }
 
-    exp := `package foo
-
-type a *int
-
-type b [3]*int
-
-type b []*[3]bar.T
-
-`
     f := t.Format()
-    if f != exp {
+    if f != src {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
 }
 
 func TestMapType(tst *testing.T) {
-    src := `
-package foo
+    src := `package foo
+
 type a map[int]int
 type b map[string][3]*int
-type ( b []*[3]map[*int]bar.T )
-
+type b []*[3]map[*int]bar.T
 `
     t, e := Parse("map-type.go", src)
     if e != nil {
         tst.Error(e)
     }
 
-    exp := `package foo
-
-type a map[int]int
-
-type b map[string][3]*int
-
-type b []*[3]map[*int]bar.T
-
-`
     f := t.Format()
-    if f != exp {
+    if f != src {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
 }
 
 func TestChanType(tst *testing.T) {
     src := `package foo
+
 type a chan int
 type b <-chan uint
 type c chan<- float32
@@ -324,26 +295,8 @@ type g chan<- <-chan uint
         tst.Error(e)
     }
 
-    exp := `package foo
-
-type a chan int
-
-type b <-chan uint
-
-type c chan<- float32
-
-type d chan<- chan uint
-
-type e <-chan chan map[uint][]float64
-
-type f chan (<-chan uint)
-
-type g chan<- <-chan uint
-
-`
-
     f := t.Format()
-    if f != exp {
+    if f != src {
         tst.Errorf("Error output:\n->|%s|<-\n", f)
     }
 }
@@ -412,11 +365,9 @@ type S struct {
     }
     h struct{}
 }
-
 type T struct {
     S
 }
-
 `
     t, e := Parse("struct-type-1.go", src)
     if e != nil {
@@ -455,7 +406,6 @@ type S struct {
         }
     }
 }
-
 `
     t, e := Parse("struct-type-error.go", src)
     if e != nil {
@@ -471,6 +421,7 @@ type S struct {
 
 func TestFuncType(tst *testing.T) {
     src := `package foo
+
 type T2 func()
 type T3 func(x int) int
 type T4 func(a, _ int, z float32) bool
@@ -483,22 +434,15 @@ type T9 func(n int) func(p *T)
     exp := `package foo
 
 type T2 func()
-
 type T3 func(x int) int
-
 type T4 func(a int, _ int, z float32) bool
-
 type T5 func(a int, b int, z float32) bool
-
 type T6 func(prefix string, values ...int)
-
 type T7 func(a int, b int, z float64, opt ...struct{}) (success bool)
-
 type T8 func(int, int, float64) (float64, *[]int)
-
 type T9 func(n int) func(p *T)
-
 `
+
     t, e := Parse("func-type-1.go", src)
     if e != nil {
         tst.Error(e)
@@ -521,18 +465,13 @@ type T5 func (a, [4]*, c uint, d.)
     exp := `package foo
 
 type T1 func(uint)
-
 type T2 func(P.t, a func())
-
 type T3 func(struct {
         a uint
         b
     }, ...struct{})
-
 type T4 func(c uint)
-
 type T5 func(a uint, c uint, d)
-
 `
     t, e := Parse("func-type-error.go", src)
     if e != nil {
@@ -561,20 +500,19 @@ type (
 `
     exp := `package foo
 
-type T3 interface{}
-
-type T4 interface {
-    T3
-    Foo()
-    Bar(a interface{})
-}
-
-type T5 interface {
-    foo.T3
-    T4
-    Baz(T3, T4) (r foo.T5)
-}
-
+type (
+    T3 interface{}
+    T4 interface {
+        T3
+        Foo()
+        Bar(a interface{})
+    }
+    T5 interface {
+        foo.T3
+        T4
+        Baz(T3, T4) (r foo.T5)
+    }
+)
 `
     t, e := Parse("interface-type-1.go", src)
     if e != nil {
@@ -1087,12 +1025,10 @@ type Point3D struct {
     y float64
     z float64
 }
-
 type Line struct {
     p Point3D
     q Point3D
 }
-
 var (
     origin = Point3D{}
     line = Line{origin, Point3D{y: -4, z: 12.3}}

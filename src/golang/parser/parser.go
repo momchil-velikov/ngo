@@ -196,32 +196,22 @@ func (p *parser) parse_import_spec() (name string, path string, ok bool) {
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 func (p *parser) parse_toplevel_decls() (dcls []ast.Decl) {
     for {
-        ok := true
-        ds := []ast.Decl(nil)
-        d := ast.Decl(nil)
+        var f func() (ast.Decl, bool)
         switch p.token {
         case s.TYPE:
-            ds, ok = p.parse_type_decls()
-            if ds != nil {
-                dcls = append(dcls, ds...)
-            }
+            f = p.parse_type_decl
         case s.CONST:
-            d, ok = p.parse_const_decl()
-            if d != nil {
-                dcls = append(dcls, d)
-            }
+            f = p.parse_const_decl
         case s.VAR:
-            d, ok = p.parse_var_decl()
-            if d != nil {
-                dcls = append(dcls, d)
-            }
+            f = p.parse_var_decl
         case s.FUNC:
-            d, ok = p.parse_func_decl()
-            if d != nil {
-                dcls = append(dcls, d)
-            }
+            f = p.parse_func_decl
         default:
             return
+        }
+        d, ok := f()
+        if d != nil {
+            dcls = append(dcls, d)
         }
         if !(ok && p.match(';')) {
             p.skip_until_decl()
@@ -244,18 +234,15 @@ func (p *parser) skip_until_decl() {
 // Parse type declaration
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
-func (p *parser) parse_type_decls() (ts []ast.Decl, fine bool) {
-    fine = true
+func (p *parser) parse_type_decl() (ast.Decl, bool) {
     p.match(s.TYPE)
-
     if p.token == '(' {
         p.next()
+        var ts []*ast.TypeDecl = nil
         for p.token != s.EOF && p.token != ')' {
-            id, t, ok := p.parse_type_spec()
-            if ok {
-                ts = append(ts, &ast.TypeDecl{id, t})
+            if t, ok := p.parse_type_spec(); ok {
+                ts = append(ts, t)
             } else {
-                fine = false
                 p.skip_until(';')
             }
             if p.token != ')' {
@@ -263,25 +250,24 @@ func (p *parser) parse_type_decls() (ts []ast.Decl, fine bool) {
             }
         }
         p.match(')')
+        return &ast.TypeGroup{Decls: ts}, true
     } else {
-        id, t, ok := p.parse_type_spec()
-        if ok {
-            ts = append(ts, &ast.TypeDecl{id, t})
+        if t, ok := p.parse_type_spec(); ok {
+            return t, ok
         } else {
-            fine = false
-            p.skip_until(';')
+            return nil, false
         }
     }
-    return
 }
 
 // TypeSpec = identifier Type .
-func (p *parser) parse_type_spec() (id string, t ast.TypeSpec, ok bool) {
-    id, ok = p.match_valued(s.ID)
-    if ok {
-        t, ok = p.parse_type()
+func (p *parser) parse_type_spec() (*ast.TypeDecl, bool) {
+    if id, ok := p.match_valued(s.ID); ok {
+        if t, ok := p.parse_type(); ok {
+            return &ast.TypeDecl{Name: id, Type: t}, true
+        }
     }
-    return
+    return nil, false
 }
 
 // Determine if the given TOKEN could be a beginning of a typespec.

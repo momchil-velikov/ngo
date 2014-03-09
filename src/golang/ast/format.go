@@ -52,10 +52,32 @@ func (i *Import) Format(n uint) (s string) {
     return s
 }
 
+// Output a formatted type group declaration
+func (c *TypeGroup) Format(n uint) string {
+    ind := indent(n)
+    s := ind + "type (\n"
+    for _, d := range c.Decls {
+        s += d.format_internal(n+1, false) + "\n"
+    }
+    s += ind + ")\n"
+    return s
+}
+
 // Output a formatted type declaration.
-func (t *TypeDecl) Format(n uint) (s string) {
-    s = "type " + t.Name + " "
-    s += t.Type.Format(n) + "\n\n"
+func (t *TypeDecl) Format(n uint) string {
+    return t.format_internal(n, true) + "\n"
+}
+
+func (t *TypeDecl) format_internal(n uint, top bool) (s string) {
+    if top {
+        s = "type "
+    } else {
+        s = indent(n)
+    }
+    if t == nil {
+        panic("t nil")
+    }
+    s += t.Name + " " + t.Type.Format(n)
     return
 }
 
