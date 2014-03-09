@@ -18,6 +18,16 @@ type Import struct {
     Path string
 }
 
+// Universal error node
+type Error struct {
+}
+
+func (e Error) decl() {}
+
+func (e Error) expr() {}
+
+func (e Error) typeSpec() {}
+
 // Declarations
 type TypeDecl struct {
     Name string

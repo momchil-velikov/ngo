@@ -382,6 +382,7 @@ type S struct { a uint; b, *float64 "field1"
 bar.Z ; S "foo"
 ch -chan string; e, f string
 g []struct { x, y float64; z struct zn, zf float32} }
+[]uint
 }
 `
     exp := `package foo
@@ -391,6 +392,7 @@ type S struct {
     b *float64 "field1"
     bar.Z
     S "foo"
+    ch <error>
     e, f string
     g []struct {
         x, y float64
@@ -398,6 +400,7 @@ type S struct {
             zn, zf float32
         }
     }
+    <error>
 }
 `
     t, e := Parse("struct-type-error.go", src)
@@ -463,8 +466,8 @@ type T3 func(struct {
         a uint
         b
     }, ...struct{})
-type T4 func(c uint)
-type T5 func(a uint, c uint, d)
+type T4 func(a [4]*<error>, b [4]*<error>, c uint)
+type T5 func(a uint, [4]*<error>, c uint, d.)
 `
     t, e := Parse("func-type-error.go", src)
     if e != nil {
@@ -548,6 +551,8 @@ const (
     c
     d
 )
+const (
+)
 `
     t, e := Parse("const-decl.go", src)
     if e != nil {
@@ -567,26 +572,25 @@ const a,  = 2
 const a float32 = 4; const , b float64 = 2 5
 const c
 const (
-    a = 
-    a,  = 2
-    a float32 = 4; , b float64 = 2 5
-    c; d
+    u = 
+    v,  = 2
+    u float32 = 4; , v float64 = 2 5
+    w; x
 )
-
 `
     exp := `package foo
 
-const a
+const a = <error>
 const a = 2
 const a float32 = 4
 const b float64 = 2
 const c
 const (
-    a = a
-    a float32 = 4
-    b float64 = 2
-    c
-    d
+    u = v, <error>
+    u float32 = 4
+    v float64 = 2
+    w
+    x
 )
 `
     t, e := Parse("const-decl-error.go", src)
@@ -631,6 +635,8 @@ var (
     c
     d
 )
+var (
+)
 `
     t, e := Parse("var-decl.go", src)
     if e != nil {
@@ -658,13 +664,13 @@ var (
 `
     exp := `package foo
 
-var a
+var a = <error>
 var a = 2
 var a float32 = 4
 var b float64 = 2
 var c
 var (
-    a = a
+    a = a, <error>
     a float32 = 4
     b float64 = 2
     c
@@ -732,20 +738,21 @@ func i( , b uint) (r0 []*X r1 bool)
 func (r T) f
 func (r *T) g() {
 func (*) h( , b uint) bool
-func () i( a,  uint) (r0 []*X r1 bool) 
+func () i( a,  uint) (r0 []*X r1 bool)
 }
 `
     exp := `package foo
 
+func () ()
 func g() {
 }
 func h(a, uint) bool
-func i(b uint) (r0 []*X, r1 bool)
+func i(<error>, b uint) (r0 []*X, r1 bool)
 func (r T) f()
 func (r *T) g() {
 }
-func h(b uint) bool
-func i(a, uint) (r0 []*X, r1 bool)
+func (*) h(<error>, b uint) bool
+func () i(a, uint) (r0 []*X, r1 bool)
 `
     t, e := Parse("func-decl-error.go", src)
     if e != nil {

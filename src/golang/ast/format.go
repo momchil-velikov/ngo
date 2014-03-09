@@ -52,6 +52,11 @@ func (i *Import) Format(n uint) (s string) {
     return s
 }
 
+// Output error node
+func (e *Error) Format(n uint) string {
+    return "<error>"
+}
+
 // Output a formatted type group declaration
 func (c *TypeGroup) Format(n uint) string {
     ind := indent(n)
