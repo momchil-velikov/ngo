@@ -229,9 +229,9 @@ type ChanType struct {
 func (t ChanType) typeSpec() {}
 
 type FieldDecl struct {
-    Name string
-    Type TypeSpec
-    Tag  string
+    Names []string
+    Type  TypeSpec
+    Tag   string
 }
 
 type StructType struct {

@@ -347,20 +347,16 @@ func TestStructType(tst *testing.T) {
 
 type S struct {
     a uint
-    b *float64 "field1"
-    c *float64 "field1"
+    b, c *float64 "field1"
     bar.Z
     S "foo"
     *T "bar"
     c <-chan string
-    e string
-    f string
+    e, f string
     g []struct {
-        x float64
-        y float64
+        x, y float64
         z struct {
-            zn float32
-            zf float32
+            zn, zf float32
         }
     }
     h struct{}
@@ -395,14 +391,11 @@ type S struct {
     b *float64 "field1"
     bar.Z
     S "foo"
-    e string
-    f string
+    e, f string
     g []struct {
-        x float64
-        y float64
+        x, y float64
         z struct {
-            zn float32
-            zf float32
+            zn, zf float32
         }
     }
 }
@@ -872,28 +865,22 @@ var (
     d = (*[]uint)(c)
     e = []uint{}
     f = struct {
-            x uint
-            y uint
+            x, y uint
         }{}
     g = struct {
-            x uint
-            y uint
+            x, y uint
         }(f)
     gg = struct {
-            x uint
-            y uint
+            x, y uint
         }(gg)
     h = map[uint]struct {
-            x float64
-            y float64
+            x, y float64
         }{}
     i = map[uint]struct {
-            x float64
-            y float64
+            x, y float64
         }(h)
     j = map[uint]struct {
-            x float64
-            y float64
+            x, y float64
         }(i)
     k = func(uint, uint) (float64, bool){}
     l = func(uint, uint) (float64, bool)(k)
@@ -912,8 +899,7 @@ var (
     u = a.b{}
     v = s.(chan uint)
     w = a.b.([4]struct {
-            x uint
-            y uint
+            x, y uint
         })
     x = (*pkg.T).M
 )
@@ -1021,13 +1007,10 @@ var (
     exp := `package foo
 
 type Point3D struct {
-    x float64
-    y float64
-    z float64
+    x, y, z float64
 }
 type Line struct {
-    p Point3D
-    q Point3D
+    p, q Point3D
 }
 var (
     origin = Point3D{}

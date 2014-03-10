@@ -406,7 +406,7 @@ func (p *parser) parse_struct_type() (*ast.StructType, bool) {
     p.match('{')
     for p.token != s.EOF && p.token != '}' {
         if f, ok := p.parse_field_decl(); ok {
-            fs = append(fs, f...)
+            fs = append(fs, f)
         } else {
             p.skip_until2(';', '}')
         }
@@ -422,15 +422,14 @@ func (p *parser) parse_struct_type() (*ast.StructType, bool) {
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
-func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
+func (p *parser) parse_field_decl() (*ast.FieldDecl, bool) {
     if p.token == '*' {
         // Anonymous field.
         p.next()
         if t, ok := p.parse_qual_id(); ok {
             pt := &ast.PtrType{t}
             tag := p.parse_tag_opt()
-            fs = append(fs, &ast.FieldDecl{"", pt, tag})
-            return fs, ok
+            return &ast.FieldDecl{Names: nil, Type: pt, Tag: tag}, true
         }
     } else if p.token == s.ID {
         // If the field decl begins with a qualified-id, it's parsed as
@@ -441,23 +440,18 @@ func (p *parser) parse_field_decl() (fs []*ast.FieldDecl, ok bool) {
             if id, ok := p.match_valued(s.ID); ok {
                 t := &ast.QualId{pkg, id}
                 tag := p.parse_tag_opt()
-                fs = append(fs, &ast.FieldDecl{"", t, tag})
-                return fs, true
+                return &ast.FieldDecl{Names: nil, Type: t, Tag: tag}, true
             }
         } else if p.token == s.STRING || p.token == ';' || p.token == '}' {
             // If it's only a single identifier, with no separate type
             // declaration, it's also an anonymous filed.
             t := &ast.QualId{"", pkg}
             tag := p.parse_tag_opt()
-            fs = append(fs, &ast.FieldDecl{"", t, tag})
-            return fs, true
+            return &ast.FieldDecl{Names: nil, Type: t, Tag: tag}, true
         } else if ids, ok := p.parse_id_list(pkg); ok {
             if t, ok := p.parse_type(); ok {
                 tag := p.parse_tag_opt()
-                for _, id := range ids {
-                    fs = append(fs, &ast.FieldDecl{id, t, tag})
-                }
-                return fs, true
+                return &ast.FieldDecl{Names: ids, Type: t, Tag: tag}, true
             }
         }
     }

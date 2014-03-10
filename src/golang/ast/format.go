@@ -239,9 +239,7 @@ func (t *StructType) Format(n uint) string {
     s := "struct {\n"
     for _, f := range t.Fields {
         s += sp1
-        if len(f.Name) > 0 {
-            s += f.Name + " "
-        }
+        s += format_id_list(f.Names)
         s += f.Type.Format(n + 1)
         if len(f.Tag) > 0 {
             s += " \"" + f.Tag +
@@ -251,6 +249,22 @@ func (t *StructType) Format(n uint) string {
 
     }
     s += sp + "}"
+    return s
+}
+
+func format_id_list(id []string) (s string) {
+    n := len(id)
+    for i, nm := range id {
+        if len(nm) > 0 {
+            s += nm
+            if i+1 < n {
+                s += ", "
+            }
+        }
+    }
+    if len(s) > 0 {
+        s += " "
+    }
     return s
 }
 
