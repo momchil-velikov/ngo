@@ -3,19 +3,19 @@ package ast
 import s "golang/scanner"
 
 type Decl interface {
-    Formatter
-    decl()
+	Formatter
+	decl()
 }
 
 type File struct {
-    PackageName string
-    Imports     []Import
-    Decls       []Decl
+	PackageName string
+	Imports     []Import
+	Decls       []Decl
 }
 
 type Import struct {
-    Name string
-    Path string
+	Name string
+	Path string
 }
 
 // Universal error node
@@ -30,56 +30,56 @@ func (e Error) typeSpec() {}
 
 // Declarations
 type TypeDecl struct {
-    Name string
-    Type TypeSpec
+	Name string
+	Type TypeSpec
 }
 
 func (d TypeDecl) decl() {}
 
 type TypeGroup struct {
-    Decls []*TypeDecl
+	Decls []*TypeDecl
 }
 
 func (d TypeGroup) decl() {}
 
 type ConstDecl struct {
-    Names  []string
-    Type   TypeSpec
-    Values []Expr
+	Names  []string
+	Type   TypeSpec
+	Values []Expr
 }
 
 func (d ConstDecl) decl() {}
 
 type ConstGroup struct {
-    Decls []*ConstDecl
+	Decls []*ConstDecl
 }
 
 func (d ConstGroup) decl() {}
 
 type VarDecl struct {
-    Names []string
-    Type  TypeSpec
-    Init  []Expr
+	Names []string
+	Type  TypeSpec
+	Init  []Expr
 }
 
 func (v VarDecl) decl() {}
 
 type VarGroup struct {
-    Decls []*VarDecl
+	Decls []*VarDecl
 }
 
 func (d VarGroup) decl() {}
 
 type Receiver struct {
-    Name string
-    Type TypeSpec
+	Name string
+	Type TypeSpec
 }
 
 type FuncDecl struct {
-    Name string
-    Recv *Receiver
-    Sig  *FuncType
-    Body *Block
+	Name string
+	Recv *Receiver
+	Sig  *FuncType
+	Body *Block
 }
 
 func (d FuncDecl) decl() {}
@@ -89,188 +89,188 @@ type Block struct {
 
 // Expressions
 type Expr interface {
-    Formatter
-    expr()
+	Formatter
+	expr()
 }
 
 // Precedence table for binary expressions.
-var op_prec = map[uint]uint{
-    '*': 5, '/': 5, '%': 5, s.SHL: 5, s.SHR: 5, '&': 5, s.ANDN: 5,
-    '+': 4, '-': 4, '|': 4, '^': 4,
-    s.EQ: 3, s.NE: 3, s.LT: 3, s.LE: 3, s.GT: 3, s.GE: 3,
-    s.AND: 2,
-    s.OR:  1,
+var opPrec = map[uint]uint{
+	'*': 5, '/': 5, '%': 5, s.SHL: 5, s.SHR: 5, '&': 5, s.ANDN: 5,
+	'+': 4, '-': 4, '|': 4, '^': 4,
+	s.EQ: 3, s.NE: 3, s.LT: 3, s.LE: 3, s.GT: 3, s.GE: 3,
+	s.AND: 2,
+	s.OR:  1,
 }
 
 type Literal struct {
-    Kind  uint
-    Value string
+	Kind  uint
+	Value string
 }
 
 func (e Literal) expr() {}
 
 type Element struct {
-    Key   Expr
-    Value Expr
+	Key   Expr
+	Value Expr
 }
 
 type CompLiteral struct {
-    Type TypeSpec
-    Elts []*Element
+	Type TypeSpec
+	Elts []*Element
 }
 
 func (e CompLiteral) expr() {}
 
 type Call struct {
-    Func     Expr
-    Type     TypeSpec
-    Args     []Expr
-    Ellipsis bool
+	Func     Expr
+	Type     TypeSpec
+	Args     []Expr
+	Ellipsis bool
 }
 
 func (e Call) expr() {}
 
 type Conversion struct {
-    Type TypeSpec
-    Arg  Expr
+	Type TypeSpec
+	Arg  Expr
 }
 
 func (e Conversion) expr() {}
 
 type MethodExpr struct {
-    Type TypeSpec
-    Id   string
+	Type TypeSpec
+	Id   string
 }
 
 func (e MethodExpr) expr() {}
 
 type FuncLiteral struct {
-    Sig  *FuncType
-    Body *Block
+	Sig  *FuncType
+	Body *Block
 }
 
 func (e FuncLiteral) expr() {}
 
 type TypeAssertion struct {
-    Type TypeSpec
-    Arg  Expr
+	Type TypeSpec
+	Arg  Expr
 }
 
 func (e TypeAssertion) expr() {}
 
 type Selector struct {
-    Arg Expr
-    Id  string
+	Arg Expr
+	Id  string
 }
 
 func (e Selector) expr() {}
 
 type IndexExpr struct {
-    Array Expr
-    Idx   Expr
+	Array Expr
+	Idx   Expr
 }
 
 func (e IndexExpr) expr() {}
 
 type SliceExpr struct {
-    Array          Expr
-    Low, High, Cap Expr
+	Array          Expr
+	Low, High, Cap Expr
 }
 
 func (e SliceExpr) expr() {}
 
 type UnaryExpr struct {
-    Op  uint
-    Arg Expr
+	Op  uint
+	Arg Expr
 }
 
 func (ex UnaryExpr) expr() {}
 
 type BinaryExpr struct {
-    Op         uint
-    Arg0, Arg1 Expr
+	Op         uint
+	Arg0, Arg1 Expr
 }
 
 func (ex BinaryExpr) expr() {}
 
 // Types
 type TypeSpec interface {
-    Formatter
-    typeSpec()
+	Formatter
+	typeSpec()
 }
 
 type QualId struct {
-    Pkg, Id string
+	Pkg, Id string
 }
 
 func (t QualId) typeSpec() {}
 func (t QualId) expr()     {}
 
 type ArrayType struct {
-    Dim     Expr
-    EltType TypeSpec
+	Dim     Expr
+	EltType TypeSpec
 }
 
 func (t ArrayType) typeSpec() {}
 
 type SliceType struct {
-    EltType TypeSpec
+	EltType TypeSpec
 }
 
 func (t SliceType) typeSpec() {}
 
 type PtrType struct {
-    Base TypeSpec
+	Base TypeSpec
 }
 
 func (t PtrType) typeSpec() {}
 
 type MapType struct {
-    KeyType, EltType TypeSpec
+	KeyType, EltType TypeSpec
 }
 
 func (t MapType) typeSpec() {}
 
 type ChanType struct {
-    Send, Recv bool
-    EltType    TypeSpec
+	Send, Recv bool
+	EltType    TypeSpec
 }
 
 func (t ChanType) typeSpec() {}
 
 type FieldDecl struct {
-    Names []string
-    Type  TypeSpec
-    Tag   string
+	Names []string
+	Type  TypeSpec
+	Tag   string
 }
 
 type StructType struct {
-    Fields []*FieldDecl
+	Fields []*FieldDecl
 }
 
 func (t StructType) typeSpec() {}
 
 type ParamDecl struct {
-    Name     string
-    Type     TypeSpec
-    Variadic bool
+	Name     string
+	Type     TypeSpec
+	Variadic bool
 }
 
 type FuncType struct {
-    Params  []*ParamDecl
-    Returns []*ParamDecl
+	Params  []*ParamDecl
+	Returns []*ParamDecl
 }
 
 func (f FuncType) typeSpec() {}
 
 type MethodSpec struct {
-    Name string
-    Sig  *FuncType
+	Name string
+	Sig  *FuncType
 }
 
 type InterfaceType struct {
-    Embed   []*QualId
-    Methods []*MethodSpec
+	Embed   []*QualId
+	Methods []*MethodSpec
 }
 
 func (t InterfaceType) typeSpec() {}

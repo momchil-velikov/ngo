@@ -15,5 +15,8 @@ done
 
 for f1 in $(find ${dir} -name '*.go.scanfilt.1'); do
     f2=$(dirname ${f1})/$(basename -s .scanfilt.1 ${f1}).scanfilt.2
-    diff -ud ${f1} ${f2}
+    if diff -qud ${f1} ${f2}
+    then
+        rm $f1 $f2
+    fi
 done
