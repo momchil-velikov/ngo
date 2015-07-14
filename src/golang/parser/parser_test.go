@@ -747,12 +747,12 @@ func () ()
 func g() {
 }
 func h(a, uint) bool
-func i(<error>, b uint) (r0 []*X, r1 bool)
+func i(<error>, b uint) (r0 []*X)
 func (r T) f()
 func (r *T) g() {
 }
 func (*) h(<error>, b uint) bool
-func () i(a, uint) (r0 []*X, r1 bool)
+func () i(a, uint) (r0 []*X)
 `
 	t, e := Parse("func-decl-error.go", src)
 	if e != nil {

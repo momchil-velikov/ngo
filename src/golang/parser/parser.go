@@ -92,12 +92,26 @@ func (p *parser) sync(token uint) {
 }
 
 // Skip tokens, until either T1 or T2 token is found. Report an error
-// only if some tokens were skipped.
+// only if some tokens were skipped. Consume T1.
 func (p *parser) sync2(t1, t2 uint) {
 	if p.token != t1 {
 		p.expectError(t1, p.token)
 	}
 	for p.token != s.EOF && p.token != t1 && p.token != t2 {
+		p.next()
+	}
+	if p.token == t1 {
+		p.next()
+	}
+}
+
+// Skip tokens, until either T1, T2 or T3 token is found. Report an error
+// only if some tokens were skipped. Consume T1.
+func (p *parser) sync3(t1, t2, t3 uint) {
+	if p.token != t1 {
+		p.expectError(t1, p.token)
+	}
+	for p.token != s.EOF && p.token != t1 && p.token != t2 && p.token != t3 {
 		p.next()
 	}
 	if p.token == t1 {
@@ -162,9 +176,7 @@ func (p *parser) parseImportDecls() (imports []ast.Import) {
 					imports = append(imports, ast.Import{name, path})
 				}
 				if p.token != ')' {
-					// Spec does not say a semicolon here is optional, Google Go
-					// allows it to be missing.
-					p.sync(';')
+					p.sync2(';', ')')
 				}
 			}
 			p.match(')')
@@ -471,7 +483,7 @@ func (p *parser) parseParameters() (ds []*ast.ParamDecl) {
 		d := p.parseParamDecl()
 		ds = append(ds, d...)
 		if p.token != ')' {
-			p.match(',')
+			p.sync3(',', ')', ';')
 		}
 	}
 	p.match(')')
@@ -1007,7 +1019,7 @@ func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 	for p.token != s.EOF && p.token != '}' {
 		elts = append(elts, p.parseElement())
 		if p.token != '}' {
-			p.match(',')
+			p.sync2(',', '}')
 		}
 	}
 	p.match('}')
@@ -1079,7 +1091,7 @@ func (p *parser) parseCall(f ast.Expr) ast.Expr {
 			dots = true
 		}
 		if p.token != ')' {
-			p.match(',')
+			p.sync2(',', ')')
 		}
 	}
 	p.match(')')
