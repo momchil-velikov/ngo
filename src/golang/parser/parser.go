@@ -226,7 +226,7 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 		case s.EOF:
 			return
 		default:
-			p.error("expected type, const, bar or func/method declaration")
+			p.error("expected type, const, var or func/method declaration")
 			p.syncDecl()
 			f = nil
 		}
@@ -734,7 +734,7 @@ func (p *parser) parseExpr() ast.Expr {
 }
 
 // Expression = UnaryExpr | Expression binary_op UnaryExpr .
-// `Expression` from the Go Specification is reaplaced by the following
+// `Expression` from the Go Specification is replaced by the following
 // ``xxxExpr` productions.
 
 // LogicalOrExpr = LogicalAndExpr { "||" LogicalAndExpr }
@@ -942,7 +942,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 			return nil, t
 		}
 	case '*', s.RECV:
-		panic("should no reach here")
+		panic("should not reach here")
 	case s.INTERFACE, s.CHAN: // Conversion
 		t = p.parseType()
 		if p.token == '(' {

@@ -21,30 +21,29 @@ func indent(n uint) (s string) {
 
 // Output a formatted source file.
 func (f *File) Format() (s string) {
-	s = "package " + f.PackageName + "\n\n"
+	s = "package " + f.PackageName + "\n"
 
 	if len(f.Imports) > 0 {
 		if len(f.Imports) == 1 {
-			s += "import " + f.Imports[0].Format(0) + "\n"
+			s += "\nimport " + f.Imports[0].Format(0)
 		} else {
-			s += "import (\n"
+			s += "\nimport ("
 			for _, i := range f.Imports {
-				s += i.Format(1) + "\n"
+				s += "\n" + indent(1) + i.Format(0)
 			}
-			s += ")\n\n"
+			s += "\n)"
 		}
 	}
 
 	for _, d := range f.Decls {
-		s += d.Format(0)
+		s += "\n" + d.Format(0)
 	}
 
-	return
+	return s + "\n"
 }
 
 // Output formatted import clause with N levels of indentation.
 func (i *Import) Format(n uint) (s string) {
-	s = indent(n)
 	if len(i.Name) > 0 {
 		s += i.Name + " "
 	}
@@ -59,28 +58,22 @@ func (e *Error) Format(n uint) string {
 
 // Output a formatted type group declaration
 func (c *TypeGroup) Format(n uint) string {
-	ind := indent(n)
-	s := ind + "type (\n"
+	s := "type ("
 	for _, d := range c.Decls {
-		s += d.formatInternal(n+1, false) + "\n"
+		s += "\n" + indent(n+1) + d.formatInternal(n+1, true)
 	}
-	s += ind + ")\n"
+	s += "\n" + indent(n) + ")"
 	return s
 }
 
 // Output a formatted type declaration.
 func (t *TypeDecl) Format(n uint) string {
-	return t.formatInternal(n, true) + "\n"
+	return t.formatInternal(n, false)
 }
 
-func (t *TypeDecl) formatInternal(n uint, top bool) (s string) {
-	if top {
-		s = "type "
-	} else {
-		s = indent(n)
-	}
-	if t == nil {
-		panic("t nil")
+func (t *TypeDecl) formatInternal(n uint, group bool) (s string) {
+	if !group {
+		s += "type "
 	}
 	s += t.Name + " " + t.Type.Format(n)
 	return
@@ -88,25 +81,23 @@ func (t *TypeDecl) formatInternal(n uint, top bool) (s string) {
 
 // Output a formatted constant group declaration
 func (c *ConstGroup) Format(n uint) string {
-	ind := indent(n)
-	s := ind + "const (\n"
+	s := "const ("
+	ind := "\n" + indent(n+1)
 	for _, d := range c.Decls {
-		s += d.formatInternal(n+1, false) + "\n"
+		s += ind + d.formatInternal(n+1, true)
 	}
-	s += ind + ")\n"
+	s += "\n" + indent(n) + ")"
 	return s
 }
 
 // Output a formatted constant declaration.
 func (c *ConstDecl) Format(n uint) string {
-	return c.formatInternal(n, true) + "\n"
+	return c.formatInternal(n, false)
 }
 
-func (c *ConstDecl) formatInternal(n uint, top bool) (s string) {
-	if top {
-		s = "const "
-	} else {
-		s = indent(n)
+func (c *ConstDecl) formatInternal(n uint, group bool) (s string) {
+	if !group {
+		s += "const "
 	}
 	s += c.Names[0]
 	for i := 1; i < len(c.Names); i++ {
@@ -126,25 +117,23 @@ func (c *ConstDecl) formatInternal(n uint, top bool) (s string) {
 
 // Output a formatted variable group declaration
 func (c *VarGroup) Format(n uint) string {
-	ind := indent(n)
-	s := ind + "var (\n"
+	s := "var ("
+	ind := "\n" + indent(n+1)
 	for _, d := range c.Decls {
-		s += d.formatInternal(n+1, false) + "\n"
+		s += ind + d.formatInternal(n+1, true)
 	}
-	s += ind + ")\n"
+	s += "\n" + indent(n) + ")"
 	return s
 }
 
 // Output a formatted variable declaration.
 func (c *VarDecl) Format(n uint) string {
-	return c.formatInternal(n, true) + "\n"
+	return c.formatInternal(n, false)
 }
 
-func (c *VarDecl) formatInternal(n uint, top bool) (s string) {
-	if top {
-		s = "var "
-	} else {
-		s = indent(n)
+func (c *VarDecl) formatInternal(n uint, group bool) (s string) {
+	if !group {
+		s += "var "
 	}
 	s += c.Names[0]
 	for i := 1; i < len(c.Names); i++ {
@@ -166,21 +155,17 @@ func (c *VarDecl) formatInternal(n uint, top bool) (s string) {
 func (f *FuncDecl) Format(n uint) string {
 	s := "func"
 	if f.Recv != nil {
-		s += " " + f.Recv.Format(n+1)
+		s += " " + f.Recv.Format(0)
 	}
-	s += " " + f.Name + formatSignature(f.Sig, n+1)
+	s += " " + f.Name + formatSignature(f.Sig, n)
 	if f.Body != nil {
-		s += f.Body.Format(n + 1)
+		return s + " " + f.Body.Format(n)
+	} else {
+		return s
 	}
-	return s + "\n"
 }
 
-// Output a formatted block
-func (b *Block) Format(n uint) string {
-	return " {\n}"
-}
-
-// Output a formatter method receiver.
+// Output a formatted method receiver.
 func (r *Receiver) Format(n uint) string {
 	s := "("
 	if len(r.Name) > 0 {
@@ -319,15 +304,15 @@ func (t *InterfaceType) Format(n uint) string {
 	if len(t.Embed) == 0 && len(t.Methods) == 0 {
 		return "interface{}"
 	}
-	s := "interface {\n"
-	ind := indent(n + 1)
+	s := "interface {"
+	ind := "\n" + indent(n+1)
 	for _, e := range t.Embed {
-		s += ind + e.Format(n+1) + "\n"
+		s += ind + e.Format(n+1)
 	}
 	for _, m := range t.Methods {
-		s += ind + m.Name + formatSignature(m.Sig, n+1) + "\n"
+		s += ind + m.Name + formatSignature(m.Sig, n+1)
 	}
-	s += indent(n) + "}"
+	s += "\n" + indent(n) + "}"
 	return s
 }
 
@@ -468,7 +453,7 @@ func (e *Call) Format(n uint) string {
 }
 
 func (e *FuncLiteral) Format(n uint) string {
-	return e.Sig.Format(n) + "{}"
+	return e.Sig.Format(n) + " " + e.Body.Format(n)
 }
 
 func (e *UnaryExpr) Format(n uint) string {
@@ -497,4 +482,8 @@ func (e *BinaryExpr) Format(n uint) string {
 		a1 = e.Arg1.Format(n)
 	}
 	return a0 + " " + s.TokenNames[e.Op] + " " + a1
+}
+
+func (b *Block) Format(n uint) string {
+	return "{}"
 }

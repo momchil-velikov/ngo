@@ -7,6 +7,17 @@ type Decl interface {
 	decl()
 }
 
+type TypeSpec interface {
+	Formatter
+	typeSpec()
+}
+
+type Expr interface {
+	Formatter
+	expr()
+}
+
+// Source file
 type File struct {
 	PackageName string
 	Imports     []Import
@@ -22,11 +33,9 @@ type Import struct {
 type Error struct {
 }
 
-func (e Error) decl() {}
-
-func (e Error) expr() {}
-
+func (e Error) decl()     {}
 func (e Error) typeSpec() {}
+func (e Error) expr()     {}
 
 // Declarations
 type TypeDecl struct {
@@ -84,14 +93,7 @@ type FuncDecl struct {
 
 func (d FuncDecl) decl() {}
 
-type Block struct {
-}
-
 // Expressions
-type Expr interface {
-	Formatter
-	expr()
-}
 
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
@@ -194,11 +196,6 @@ type BinaryExpr struct {
 func (ex BinaryExpr) expr() {}
 
 // Types
-type TypeSpec interface {
-	Formatter
-	typeSpec()
-}
-
 type QualId struct {
 	Pkg, Id string
 }
@@ -274,3 +271,6 @@ type InterfaceType struct {
 }
 
 func (t InterfaceType) typeSpec() {}
+
+type Block struct {
+}

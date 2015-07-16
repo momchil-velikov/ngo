@@ -1,8 +1,6 @@
 package parser
 
 import (
-	// "fmt"
-	// "golang/ast"
 	"testing"
 )
 
@@ -97,7 +95,6 @@ import (
     . "bar"
     s "baz"
 )
-
 `
 	f := t.Format()
 	if f != exp {
@@ -125,7 +122,6 @@ import (
     "xyzzy"
     "qux"
 )
-
 `
 	f := t.Format()
 	if f != exp {
@@ -153,7 +149,6 @@ import (
     "xyzzy"
     "qux"
 )
-
 `
 	f := t.Format()
 	if f != exp {
@@ -306,7 +301,6 @@ func TestTypeError1(tst *testing.T) {
 type a uint
 type b
 type c [string
-
 `
 	t, e := Parse("type-error-1.go", src)
 	f := t.Format()
@@ -320,9 +314,7 @@ type c [string
 
 func TestTypeError2(tst *testing.T) {
 	src := `package foo
-type ( a uint; b[] ; c float64 )
-
-`
+type ( a uint; b[] ; c float64 )`
 	t, e := Parse("type-error-2.go", src)
 	f := t.Format()
 	tst.Log(f)
@@ -705,16 +697,13 @@ func (r *T) i( a, b uint) (r0 []*X, r1 bool) {
 	exp := `package foo
 
 func f()
-func g() {
-}
+func g() {}
 func h(a uint, b uint) bool
 func i(a uint, b uint) (r0 []*X, r1 bool)
 func (r T) f()
-func (r *T) g() {
-}
+func (r *T) g() {}
 func (*T) h(a uint, b uint) bool
-func (r *T) i(a uint, b uint) (r0 []*X, r1 bool) {
-}
+func (r *T) i(a uint, b uint) (r0 []*X, r1 bool) {}
 `
 	t, e := Parse("func-decl.go", src)
 	if e != nil {
@@ -730,30 +719,25 @@ func (r *T) i(a uint, b uint) (r0 []*X, r1 bool) {
 func TestFuncDeclError(tst *testing.T) {
 	src := `package foo
 
-func ()
-func g() {
+func func ()
 func h( a,  uint) bool
 func i( , b uint) (r0 []*X r1 bool)
-
 func (r T) f
-func (r *T) g() {
 func (*) h( , b uint) bool
 func () i( a,  uint) (r0 []*X r1 bool)
 }
 `
+
 	exp := `package foo
 
-func () ()
-func g() {
-}
+func (func())
 func h(a, uint) bool
 func i(<error>, b uint) (r0 []*X)
 func (r T) f()
-func (r *T) g() {
-}
 func (*) h(<error>, b uint) bool
 func () i(a, uint) (r0 []*X)
 `
+
 	t, e := Parse("func-decl-error.go", src)
 	if e != nil {
 		tst.Log(e)
@@ -889,9 +873,9 @@ var (
     j = map[uint]struct {
             x, y float64
         }(i)
-    k = func(uint, uint) (float64, bool){}
+    k = func(uint, uint) (float64, bool) {}
     l = func(uint, uint) (float64, bool)(k)
-    m = func(uint){}
+    m = func(uint) {}
     n = (func(uint))(m)
     n = (func(uint))(m)
     o = interface {
