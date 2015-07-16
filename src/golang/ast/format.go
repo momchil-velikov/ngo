@@ -596,3 +596,40 @@ func (i *IfStmt) Format(n uint) string {
 	}
 	return s
 }
+
+func (f *ForStmt) Format(n uint) string {
+	if f.Init == nil && f.Cond == nil && f.Post == nil {
+		return "for " + f.Body.Format(n)
+	}
+	if f.Init == nil && f.Post == nil {
+		return "for " + f.Cond.Format(n) + " " + f.Body.Format(n)
+	}
+	s := "for "
+	if f.Init != nil {
+		s += f.Init.Format(n + 1)
+	}
+	if f.Cond != nil {
+		s += "; " + f.Cond.Format(n) + ";"
+	} else {
+		s += "; ;"
+	}
+	if f.Post != nil {
+		s += " " + f.Post.Format(n)
+	}
+	s += " " + f.Body.Format(n)
+	return s
+}
+
+func (f *ForRangeStmt) Format(n uint) string {
+	out := "for"
+	for i := range f.LHS {
+		out += " " + f.LHS[i].Format(n)
+		if i+1 < len(f.LHS) {
+			out += ","
+		}
+	}
+	if len(f.LHS) > 0 {
+		out += " " + s.TokenNames[f.Op]
+	}
+	return out + " range " + f.Ex.Format(n) + " " + f.Body.Format(n)
+}

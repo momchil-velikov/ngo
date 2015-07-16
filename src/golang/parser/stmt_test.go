@@ -489,3 +489,126 @@ func foo() {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestForStmt(tst *testing.T) {
+	src := `package main
+
+func foo() {
+for {
+  loop()
+}
+for cond {
+  loop()
+}
+for init(); ; {
+  loop()
+}
+for ; cond() ; {
+  loop()
+}
+for ; ; post() {
+  loop()
+}
+for init(); cond(); {
+  loop()
+}
+for init() ; ; post() {
+  baz()
+}
+for ; cond() ; post() {
+  baz()
+}
+for init() ; cond() ; post() {
+  baz()
+}
+for p.token != s.EOF && p.token != t1 && p.token != t2 {
+  p.next()
+}
+
+for s:= (S{1, 2}); s.x > 0; tweak(&s) {
+loop(s)
+}
+
+for x, y := 1, 1; x < n; x, y = y, x + y {
+  fmt.Println(x)
+}
+
+for i := range(a) {
+  fmt.Println(a[i])
+}
+for i, v := range(a) {
+  fmt.Println(i, v)
+}
+for _, v := range(a) {
+  fmt.Println(v)
+}
+i := 0
+for range a {  fmt.Println(i, a[i]);i++}
+}
+`
+
+	exp := `package main
+
+func foo() {
+    for {
+        loop()
+    }
+    for cond {
+        loop()
+    }
+    for init(); ; {
+        loop()
+    }
+    for cond() {
+        loop()
+    }
+    for ; ; post() {
+        loop()
+    }
+    for init(); cond(); {
+        loop()
+    }
+    for init(); ; post() {
+        baz()
+    }
+    for ; cond(); post() {
+        baz()
+    }
+    for init(); cond(); post() {
+        baz()
+    }
+    for p.token != s.EOF && p.token != t1 && p.token != t2 {
+        p.next()
+    }
+    for s := S{1, 2}; s.x > 0; tweak(&s) {
+        loop(s)
+    }
+    for x, y := 1, 1; x < n; x, y = y, x + y {
+        fmt.Println(x)
+    }
+    for i := range a {
+        fmt.Println(a[i])
+    }
+    for i, v := range a {
+        fmt.Println(i, v)
+    }
+    for _, v := range a {
+        fmt.Println(v)
+    }
+    i := 0
+    for range a {
+        fmt.Println(i, a[i])
+        i++
+    }
+}
+`
+	t, e := Parse("for-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}

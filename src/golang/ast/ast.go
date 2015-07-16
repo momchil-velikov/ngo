@@ -371,3 +371,21 @@ type IfStmt struct {
 }
 
 func (i *IfStmt) stmt() {}
+
+type ForStmt struct {
+	Init Stmt
+	Cond Expr
+	Post Stmt
+	Body *Block
+}
+
+func (f ForStmt) stmt() {}
+
+type ForRangeStmt struct {
+	Op   uint
+	LHS  []Expr
+	Ex   Expr
+	Body *Block
+}
+
+func (f ForRangeStmt) stmt() {}

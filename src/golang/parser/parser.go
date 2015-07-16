@@ -1394,8 +1394,77 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
 // Condition = Expression .
+// ForClause = [ InitStmt ] ";" [ Condition ] ";" [ PostStmt ] .
+// InitStmt = SimpleStmt .
+// PostStmt = SimpleStmt .
+// RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 func (p *parser) parseForStmt() ast.Stmt {
-	return &ast.EmptyStmt{}
+	var (
+		init ast.Stmt
+		cond ast.Expr
+		post ast.Stmt
+		body *ast.Block
+	)
+	p.match(s.FOR)
+	b := p.brackets
+	p.brackets = 0
+	defer func() { p.brackets = b }()
+
+	if p.token == '{' {
+		// infinite loop: "for { ..."
+		return &ast.ForStmt{nil, nil, nil, p.parseBlock()}
+	}
+
+	if p.token == s.RANGE {
+		// range for: "for range ex { ..."
+		p.next()
+		e := p.parseExpr()
+		body = p.parseBlock()
+		return &ast.ForRangeStmt{'=', nil, e, body}
+	}
+
+	if p.token == ';' {
+		// ordinary for : "for ; [cond] ; [post] { ..."
+		p.next()
+		if p.token != ';' {
+			cond = p.parseExpr()
+		}
+		p.match(';')
+		if p.token != '{' {
+			e := p.parseExpr()
+			post = p.parseSimpleStmt(e)
+		}
+		body = p.parseBlock()
+		return &ast.ForStmt{nil, cond, post, body}
+	}
+
+	e := p.parseExpr()
+	if p.token == '{' {
+		// "while" loop "for cond { ..."
+		cond = e
+		body = p.parseBlock()
+		return &ast.ForStmt{nil, cond, nil, body}
+	}
+
+	init = p.parseSimpleStmtOrRange(e)
+	if r, ok := init.(*ast.ForRangeStmt); ok {
+		// range for
+		r.Body = p.parseBlock()
+		return r
+	}
+
+	// ordinary for: "for init ; [cond] ; [post] { ..."
+	p.match(';')
+	if p.token != ';' {
+		cond = p.parseExpr()
+	}
+	p.match(';')
+	if p.token != '{' {
+		e := p.parseExpr()
+		post = p.parseSimpleStmt(e)
+	}
+	body = p.parseBlock()
+	return &ast.ForStmt{init, cond, post, body}
 }
 
 // DeferStmt = "defer" Expression .
@@ -1420,7 +1489,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	case s.INC, s.DEC:
 		return p.parseIncDecStmt(e)
 	}
-	if p.token == ';' || p.token == '}' {
+	if p.token == ';' || p.token == '}' || p.token == '{' {
 		return &ast.ExprStmt{e}
 	}
 	var es []ast.Expr
@@ -1430,10 +1499,49 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	} else {
 		es = append(es, e)
 	}
-	if p.token == s.DEFINE {
+	t := p.token
+	if t == s.DEFINE {
+		p.next()
 		return p.parseShortVarDecl(es)
-	} else if isAssignOp(p.token) {
-		return p.parseAssignment(es)
+	} else if isAssignOp(t) {
+		p.next()
+		return p.parseAssignment(t, es)
+	}
+
+	p.error("Invalid statement")
+	return &ast.Error{}
+}
+
+// Parses a SimpleStmt or a RangeClause. Used by `parseForStmt` to
+// disambiguate between a range for and an ordinary for.
+func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
+	switch p.token {
+	case s.RECV:
+		return p.parseSendStmt(e)
+	case s.INC, s.DEC:
+		return p.parseIncDecStmt(e)
+	}
+	if p.token == ';' || p.token == '{' {
+		return &ast.ExprStmt{e}
+	}
+	var es []ast.Expr
+	if p.token == ',' {
+		p.next()
+		es = p.parseExprList(e)
+	} else {
+		es = append(es, e)
+	}
+	t := p.token
+	if t == s.DEFINE || isAssignOp(t) {
+		p.next()
+		if p.token == s.RANGE {
+			return p.parseRangeClause(t, es)
+		}
+		if t == s.DEFINE {
+			return p.parseShortVarDecl(es)
+		} else {
+			return p.parseAssignment(t, es)
+		}
 	}
 	p.error("Invalid statement")
 	return &ast.Error{}
@@ -1459,17 +1567,19 @@ func (p *parser) parseIncDecStmt(e ast.Expr) ast.Stmt {
 
 // Assignment = ExpressionList assign_op ExpressionList .
 // assign_op = [ add_op | mul_op ] "=" .
-func (p *parser) parseAssignment(lhs []ast.Expr) ast.Stmt {
-	op := p.token
-	p.next()
+func (p *parser) parseAssignment(op uint, lhs []ast.Expr) ast.Stmt {
 	rhs := p.parseExprList(nil)
 	return &ast.AssignStmt{op, lhs, rhs}
 }
 
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
-	op := p.token
-	p.match(s.DEFINE)
 	rhs := p.parseExprList(nil)
-	return &ast.AssignStmt{op, lhs, rhs}
+	return &ast.AssignStmt{s.DEFINE, lhs, rhs}
+}
+
+// RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
+func (p *parser) parseRangeClause(op uint, lhs []ast.Expr) *ast.ForRangeStmt {
+	p.match(s.RANGE)
+	return &ast.ForRangeStmt{op, lhs, p.parseExpr(), nil}
 }
