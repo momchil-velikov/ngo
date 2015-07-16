@@ -4,22 +4,37 @@ import (
 	"fmt"
 	"golang/ast"
 	s "golang/scanner"
+	"io"
+	"os"
+	// "runtime"
 )
 
 type parser struct {
 	errors []error
 	scan   s.Scanner
 
-	token uint // current token
+	token    uint // current token
+	level    int
+	brackets int
 }
 
 func (p *parser) init(name string, src string) {
 	p.scan.Init(name, src)
+	p.level = 1
+	p.brackets = 1
+}
+
+func (p *parser) beginBrackets() {
+	p.brackets++
+}
+
+func (p *parser) endBrackets() {
+	p.brackets--
 }
 
 // Parse a source file
 func Parse(name string, src string) (*ast.File, error) {
-	var p parser
+	p := parser{}
 	p.init(name, src)
 
 	p.next()
@@ -29,6 +44,28 @@ func Parse(name string, src string) (*ast.File, error) {
 	} else {
 		return f, ErrorList(p.errors)
 	}
+}
+
+func printIndent(w io.Writer, n int, s string) {
+	for i := 0; i < n; i++ {
+		fmt.Fprint(w, s)
+	}
+}
+func (p *parser) traceIn(args ...interface{}) {
+	printIndent(os.Stderr, p.level, ".")
+	fmt.Fprintln(os.Stderr, "->", args)
+	p.level++
+}
+
+func (p *parser) traceOut(args ...interface{}) {
+	p.level--
+	printIndent(os.Stderr, p.level, ".")
+	fmt.Fprintln(os.Stderr, "<-", args)
+}
+
+func (p *parser) trace(args ...interface{}) func() {
+	p.traceIn(args...)
+	return func() { p.traceOut(args...) }
 }
 
 // Append an error message to the parser error messages list
@@ -616,7 +653,7 @@ func (p *parser) parseConstSpec() *ast.ConstDecl {
 	}
 	if p.token == '=' {
 		p.next()
-		es = p.parseExprList()
+		es = p.parseExprList(nil)
 	}
 	return &ast.ConstDecl{Names: ids, Type: t, Values: es}
 }
@@ -652,7 +689,7 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 	}
 	if p.token == '=' {
 		p.next()
-		es = p.parseExprList()
+		es = p.parseExprList(nil)
 	}
 	return &ast.VarDecl{Names: ids, Type: t, Init: es}
 }
@@ -699,14 +736,13 @@ func (p *parser) parseReceiver() *ast.Receiver {
 	return &ast.Receiver{Name: n, Type: tp}
 }
 
-func (p *parser) parseBlock() *ast.Block {
-	p.match('{')
-	p.match('}')
-	return &ast.Block{}
-}
-
 // ExpressionList = Expression { "," Expression } .
-func (p *parser) parseExprList() (es []ast.Expr) {
+func (p *parser) parseExprList(e ast.Expr) (es []ast.Expr) {
+	//	defer p.trace("ExprList")()
+
+	if e != nil {
+		es = append(es, e)
+	}
 	for {
 		es = append(es, p.parseExpr())
 		if p.token != ',' {
@@ -722,10 +758,14 @@ func (p *parser) parseExprList() (es []ast.Expr) {
 // in such contexts, allow either one to happen and rely on a later typecheck
 // pass to validate the AST.
 func (p *parser) parseExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("ExprOrType")()
+
 	return p.parseOrExprOrType()
 }
 
 func (p *parser) parseExpr() ast.Expr {
+	// defer p.trace("Expression", s.TokenNames[p.token], p.scan.TLine, p.scan.TPos)()
+
 	if e, _ := p.parseOrExprOrType(); e != nil {
 		return e
 	}
@@ -739,6 +779,8 @@ func (p *parser) parseExpr() ast.Expr {
 
 // LogicalOrExpr = LogicalAndExpr { "||" LogicalAndExpr }
 func (p *parser) parseOrExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("OrExprOrType")()
+
 	a0, t := p.parseAndExprOrType()
 	if a0 == nil {
 		return nil, t
@@ -753,6 +795,8 @@ func (p *parser) parseOrExprOrType() (ast.Expr, ast.TypeSpec) {
 
 // LogicalAndExpr = CompareExpr { "&&" CompareExpr }
 func (p *parser) parseAndExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("AndExprOrType")()
+
 	a0, t := p.parseCompareExprOrType()
 	if a0 == nil {
 		return nil, t
@@ -767,6 +811,8 @@ func (p *parser) parseAndExprOrType() (ast.Expr, ast.TypeSpec) {
 
 // CompareExpr = AddExpr { rel_op AddExpr }
 func (p *parser) parseCompareExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("CompareExprOrType")()
+
 	a0, t := p.parseAddExprOrType()
 	if a0 == nil {
 		return nil, t
@@ -782,6 +828,8 @@ func (p *parser) parseCompareExprOrType() (ast.Expr, ast.TypeSpec) {
 
 // AddExpr = MulExpr { add_op MulExpr}
 func (p *parser) parseAddExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("AddExprOrType")()
+
 	a0, t := p.parseMulExprOrType()
 	if a0 == nil {
 		return nil, t
@@ -797,6 +845,8 @@ func (p *parser) parseAddExprOrType() (ast.Expr, ast.TypeSpec) {
 
 // MulExpr = UnaryExpr { mul_op UnaryExpr }
 func (p *parser) parseMulExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("MulExprOrType")()
+
 	a0, t := p.parseUnaryExprOrType()
 	if a0 == nil {
 		return nil, t
@@ -842,9 +892,23 @@ func isMulOp(t uint) bool {
 	}
 }
 
+// assign_op = [ add_op | mul_op ] "=" .
+func isAssignOp(t uint) bool {
+	switch t {
+	case '=', s.PLUS_ASSIGN, s.MINUS_ASSIGN, s.MUL_ASSIGN, s.DIV_ASSIGN,
+		s.REM_ASSIGN, s.AND_ASSIGN, s.OR_ASSIGN, s.XOR_ASSIGN, s.SHL_ASSIGN,
+		s.SHR_ASSIGN, s.ANDN_ASSIGN:
+		return true
+	default:
+		return false
+	}
+}
+
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 // unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
 func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.TypeSpec) {
+	//	defer p.trace("UnaryExprOrType")()
+
 	switch p.token {
 	case '+', '-', '!', '^', '&':
 		op := p.token
@@ -897,6 +961,8 @@ func (p *parser) needType(ex ast.Expr) (ast.TypeSpec, bool) {
 //     PrimaryExpr Call .
 
 func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
+	// defer p.trace("PrimaryExprOrType", s.TokenNames[p.token])()
+
 	var (
 		ex ast.Expr
 		t  ast.TypeSpec
@@ -905,7 +971,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 	switch p.token {
 	case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
 		id := p.matchValue(s.ID)
-		if p.token == '{' {
+		if p.token == '{' && p.brackets > 0 {
 			ex = p.parseCompositeLiteral(&ast.QualId{Id: id})
 		} else if p.token == '(' {
 			ex = p.parseCall(&ast.QualId{Id: id})
@@ -914,7 +980,9 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 		}
 	case '(': // Expression, MethodExpr, Conversion
 		p.next()
+		p.beginBrackets()
 		ex, t = p.parseExprOrType()
+		p.endBrackets()
 		p.match(')')
 		if ex == nil {
 			if p.token == '(' {
@@ -982,15 +1050,17 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 		case '(':
 			// PrimaryExpr Call
 			ex = p.parseCall(ex)
-		case '{':
-			// Composite literal
-			typ, ok := p.needType(ex)
-			if !ok {
-				p.error("invalid type for composite literal")
-			}
-			ex = p.parseCompositeLiteral(typ)
 		default:
-			return ex, nil
+			if p.token == '{' && p.brackets > 0 {
+				// Composite literal
+				typ, ok := p.needType(ex)
+				if !ok {
+					p.error("invalid type for composite literal")
+				}
+				ex = p.parseCompositeLiteral(typ)
+			} else {
+				return ex, nil
+			}
 		}
 	}
 }
@@ -1053,10 +1123,12 @@ func (p *parser) parseElement() *ast.Element {
 // Conversion = Type "(" Expression [ "," ] ")" .
 func (p *parser) parseConversion(typ ast.TypeSpec) ast.Expr {
 	p.match('(')
+	p.beginBrackets()
 	a := p.parseExpr()
 	if p.token == ',' {
 		p.next()
 	}
+	p.endBrackets()
 	p.match(')')
 	return &ast.Conversion{Type: typ, Arg: a}
 }
@@ -1067,6 +1139,8 @@ func (p *parser) parseConversion(typ ast.TypeSpec) ast.Expr {
 // BuiltinArgs = Type [ "," ArgumentList ] | ArgumentList .
 func (p *parser) parseCall(f ast.Expr) ast.Expr {
 	p.match('(')
+	p.beginBrackets()
+	defer p.endBrackets()
 	if p.token == ')' {
 		p.next()
 		return &ast.Call{Func: f}
@@ -1101,9 +1175,8 @@ func (p *parser) parseCall(f ast.Expr) ast.Expr {
 // FunctionLit = "func" Function .
 func (p *parser) parseFuncLiteral(typ ast.TypeSpec) ast.Expr {
 	sig := typ.(*ast.FuncType)
-	p.match('{')
-	p.match('}')
-	return &ast.FuncLiteral{Sig: sig, Body: &ast.Block{}}
+	b := p.parseBlock()
+	return &ast.FuncLiteral{Sig: sig, Body: b}
 }
 
 // Index          = "[" Expression "]" .
@@ -1112,6 +1185,8 @@ func (p *parser) parseFuncLiteral(typ ast.TypeSpec) ast.Expr {
 //                  "]" .
 func (p *parser) parseIndexOrSlice(e ast.Expr) ast.Expr {
 	p.match('[')
+	p.beginBrackets()
+	defer p.endBrackets()
 	if p.token == ':' {
 		p.next()
 		if p.token == ']' {
@@ -1148,4 +1223,253 @@ func (p *parser) parseIndexOrSlice(e ast.Expr) ast.Expr {
 		p.match(']')
 		return &ast.SliceExpr{Array: e, Low: i, High: h, Cap: c}
 	}
+}
+
+// Block = "{" StatementList "}" .
+// StatementList = { Statement ";" } .
+func (p *parser) parseBlock() *ast.Block {
+	//	defer p.trace("Block")()
+
+	var ss []ast.Stmt
+	p.match('{')
+	b := p.brackets
+	p.brackets = 1
+	for p.token != s.EOF && p.token != '}' {
+		ss = append(ss, p.parseStmt())
+		if p.token != '}' {
+			p.sync2(';', '}')
+		}
+	}
+	p.brackets = b
+	p.match('}')
+	return &ast.Block{Stmts: ss}
+}
+
+// Statement =
+//     Declaration | LabeledStmt | SimpleStmt |
+//     GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
+//     FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
+//     DeferStmt .
+// SimpleStmt =
+//     EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment |
+//     ShortVarDecl .
+func (p *parser) parseStmt() ast.Stmt {
+	//	defer p.trace("Statement")()
+
+	switch p.token {
+	case s.CONST:
+		// FIXME: these type assertions are rather dubious
+		return p.parseConstDecl().(ast.Stmt)
+	case s.TYPE:
+		return p.parseTypeDecl().(ast.Stmt)
+	case s.VAR:
+		return p.parseVarDecl().(ast.Stmt)
+	case s.GO:
+		return p.parseGoStmt()
+	case s.RETURN:
+		return p.parseReturnStmt()
+	case s.BREAK:
+		return p.parseBreakStmt()
+	case s.CONTINUE:
+		return p.parseContinueStmt()
+	case s.GOTO:
+		return p.parseGotoStmt()
+	case s.FALLTHROUGH:
+		return p.parseFallthroughStmt()
+	case '{':
+		return p.parseBlock()
+	case s.IF:
+		return p.parseIfStmt()
+	case s.SWITCH:
+		return p.parseSwitchStmt()
+	case s.SELECT:
+		return p.parseSelectStmt()
+	case s.FOR:
+		return p.parseForStmt()
+	case s.DEFER:
+		return p.parseDeferStmt()
+	case ';':
+		return &ast.EmptyStmt{}
+	}
+
+	e := p.parseExpr()
+	if p.token == ':' {
+		return p.parseLabeledStmt(e)
+	} else {
+		return p.parseSimpleStmt(e)
+	}
+}
+
+// GoStmt = "go" Expression .
+func (p *parser) parseGoStmt() ast.Stmt {
+	p.match(s.GO)
+	e := p.parseExpr()
+	return &ast.GoStmt{e}
+}
+
+// ReturnStmt = "return" [ ExpressionList ] .
+func (p *parser) parseReturnStmt() ast.Stmt {
+	p.match(s.RETURN)
+	if p.token != ';' && p.token != '}' {
+		e := p.parseExprList(nil)
+		return &ast.ReturnStmt{e}
+	} else {
+		return &ast.ReturnStmt{nil}
+	}
+}
+
+// BreakStmt = "break" [ Label ] .
+func (p *parser) parseBreakStmt() ast.Stmt {
+	p.match(s.BREAK)
+	if p.token == s.ID {
+		return &ast.BreakStmt{p.matchValue(s.ID)}
+	} else {
+		return &ast.BreakStmt{}
+	}
+}
+
+// ContinueStmt = "continue" [ Label ] .
+func (p *parser) parseContinueStmt() ast.Stmt {
+	p.match(s.CONTINUE)
+	if p.token == s.ID {
+		return &ast.ContinueStmt{p.matchValue(s.ID)}
+	} else {
+		return &ast.ContinueStmt{}
+	}
+}
+
+// GotoStmt = "goto" Label .
+func (p *parser) parseGotoStmt() ast.Stmt {
+	p.match(s.GOTO)
+	return &ast.GotoStmt{p.matchValue(s.ID)}
+}
+
+// FallthroughStmt = "fallthrough" .
+func (p *parser) parseFallthroughStmt() ast.Stmt {
+	p.match(s.FALLTHROUGH)
+	return &ast.FallthroughStmt{}
+}
+
+// IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
+func (p *parser) parseIfStmt() ast.Stmt {
+	p.match(s.IF)
+	b := p.brackets
+	p.brackets = 0
+	var ss ast.Stmt
+	e := p.parseExpr()
+	if p.token != '{' {
+		ss = p.parseSimpleStmt(e)
+		p.match(';')
+		e = p.parseExpr()
+	}
+	p.brackets = b
+	then := p.parseBlock()
+	if p.token == s.ELSE {
+		var els ast.Stmt
+		p.next()
+		if p.token == s.IF {
+			els = p.parseIfStmt()
+		} else {
+			els = p.parseBlock()
+		}
+		return &ast.IfStmt{ss, e, then, els}
+	} else {
+		return &ast.IfStmt{ss, e, then, nil}
+	}
+}
+
+// SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
+func (p *parser) parseSwitchStmt() ast.Stmt {
+	return &ast.EmptyStmt{}
+}
+
+// SelectStmt = "select" "{" { CommClause } "}" .
+// CommClause = CommCase ":" StatementList .
+// CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
+// RecvStmt   = [ ExpressionList "=" | IdentifierList ":=" ] RecvExpr .
+// RecvExpr   = Expression .
+func (p *parser) parseSelectStmt() ast.Stmt {
+	return &ast.EmptyStmt{}
+}
+
+// ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
+// Condition = Expression .
+func (p *parser) parseForStmt() ast.Stmt {
+	return &ast.EmptyStmt{}
+}
+
+// DeferStmt = "defer" Expression .
+func (p *parser) parseDeferStmt() ast.Stmt {
+	return &ast.EmptyStmt{}
+}
+
+// LabeledStmt = Label ":" Statement .
+// Label       = identifier .
+func (p *parser) parseLabeledStmt(id ast.Expr) ast.Stmt {
+	p.match(':')
+	return p.parseStmt()
+}
+
+// SimpleStmt =
+//     EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment |
+//     ShortVarDecl .
+func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
+	switch p.token {
+	case s.RECV:
+		return p.parseSendStmt(e)
+	case s.INC, s.DEC:
+		return p.parseIncDecStmt(e)
+	}
+	if p.token == ';' || p.token == '}' {
+		return &ast.ExprStmt{e}
+	}
+	var es []ast.Expr
+	if p.token == ',' {
+		p.next()
+		es = p.parseExprList(e)
+	} else {
+		es = append(es, e)
+	}
+	if p.token == s.DEFINE {
+		return p.parseShortVarDecl(es)
+	} else if isAssignOp(p.token) {
+		return p.parseAssignment(es)
+	}
+	p.error("Invalid statement")
+	return &ast.Error{}
+}
+
+// SendStmt = Channel "<-" Expression .
+// Channel  = Expression .
+func (p *parser) parseSendStmt(ch ast.Expr) ast.Stmt {
+	p.match(s.RECV)
+	return &ast.SendStmt{ch, p.parseExpr()}
+}
+
+// IncDecStmt = Expression ( "++" | "--" ) .
+func (p *parser) parseIncDecStmt(e ast.Expr) ast.Stmt {
+	if p.token == s.INC {
+		p.match(s.INC)
+		return &ast.IncStmt{e}
+	} else {
+		p.match(s.DEC)
+		return &ast.DecStmt{e}
+	}
+}
+
+// Assignment = ExpressionList assign_op ExpressionList .
+// assign_op = [ add_op | mul_op ] "=" .
+func (p *parser) parseAssignment(lhs []ast.Expr) ast.Stmt {
+	op := p.token
+	p.next()
+	rhs := p.parseExprList(nil)
+	return &ast.AssignStmt{op, lhs, rhs}
+}
+
+// ShortVarDecl = IdentifierList ":=" ExpressionList .
+func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
+	op := p.token
+	p.match(s.DEFINE)
+	rhs := p.parseExprList(nil)
+	return &ast.AssignStmt{op, lhs, rhs}
 }

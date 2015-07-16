@@ -17,6 +17,11 @@ type Expr interface {
 	expr()
 }
 
+type Stmt interface {
+	Formatter
+	stmt()
+}
+
 // Source file
 type File struct {
 	PackageName string
@@ -36,6 +41,7 @@ type Error struct {
 func (e Error) decl()     {}
 func (e Error) typeSpec() {}
 func (e Error) expr()     {}
+func (e Error) stmt()     {}
 
 // Declarations
 type TypeDecl struct {
@@ -44,12 +50,14 @@ type TypeDecl struct {
 }
 
 func (d TypeDecl) decl() {}
+func (d TypeDecl) stmt() {}
 
 type TypeGroup struct {
 	Decls []*TypeDecl
 }
 
 func (d TypeGroup) decl() {}
+func (d TypeGroup) stmt() {}
 
 type ConstDecl struct {
 	Names  []string
@@ -58,12 +66,14 @@ type ConstDecl struct {
 }
 
 func (d ConstDecl) decl() {}
+func (d ConstDecl) stmt() {}
 
 type ConstGroup struct {
 	Decls []*ConstDecl
 }
 
 func (d ConstGroup) decl() {}
+func (d ConstGroup) stmt() {}
 
 type VarDecl struct {
 	Names []string
@@ -72,12 +82,14 @@ type VarDecl struct {
 }
 
 func (v VarDecl) decl() {}
+func (v VarDecl) stmt() {}
 
 type VarGroup struct {
 	Decls []*VarDecl
 }
 
 func (d VarGroup) decl() {}
+func (d VarGroup) stmt() {}
 
 type Receiver struct {
 	Name string
@@ -272,5 +284,90 @@ type InterfaceType struct {
 
 func (t InterfaceType) typeSpec() {}
 
+// Statements
+
+type EmptyStmt struct{}
+
+func (e EmptyStmt) stmt() {}
+
 type Block struct {
+	Stmts []Stmt
 }
+
+func (b Block) stmt() {}
+
+type GoStmt struct {
+	Ex Expr
+}
+
+func (b GoStmt) stmt() {}
+
+type ReturnStmt struct {
+	Exs []Expr
+}
+
+func (b ReturnStmt) stmt() {}
+
+type BreakStmt struct {
+	Label string
+}
+
+func (b BreakStmt) stmt() {}
+
+type ContinueStmt struct {
+	Label string
+}
+
+func (b ContinueStmt) stmt() {}
+
+type GotoStmt struct {
+	Label string
+}
+
+func (b GotoStmt) stmt() {}
+
+type FallthroughStmt struct{}
+
+func (b FallthroughStmt) stmt() {}
+
+type SendStmt struct {
+	Ch Expr
+	Ex Expr
+}
+
+func (b SendStmt) stmt() {}
+
+type IncStmt struct {
+	Ex Expr
+}
+
+func (b IncStmt) stmt() {}
+
+type DecStmt struct {
+	Ex Expr
+}
+
+func (b DecStmt) stmt() {}
+
+type AssignStmt struct {
+	Op  uint
+	LHS []Expr
+	RHS []Expr
+}
+
+func (a AssignStmt) stmt() {}
+
+type ExprStmt struct {
+	Ex Expr
+}
+
+func (e ExprStmt) stmt() {}
+
+type IfStmt struct {
+	S    Stmt
+	Ex   Expr
+	Then *Block
+	Else Stmt
+}
+
+func (i *IfStmt) stmt() {}

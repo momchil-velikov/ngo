@@ -484,6 +484,115 @@ func (e *BinaryExpr) Format(n uint) string {
 	return a0 + " " + s.TokenNames[e.Op] + " " + a1
 }
 
+// Output a formatted block
 func (b *Block) Format(n uint) string {
-	return "{}"
+	s := "{"
+	sp := "\n" + indent(n+1)
+	empty := true
+	for i := range b.Stmts {
+		if _, ok := b.Stmts[i].(*EmptyStmt); !ok {
+			empty = false
+			s += sp + b.Stmts[i].Format(n+1)
+		}
+	}
+	if empty {
+		return s + "}"
+	} else {
+		return s + "\n" + indent(n) + "}"
+	}
+}
+
+func (e *EmptyStmt) Format(n uint) string {
+	return ""
+}
+
+func (g *GoStmt) Format(n uint) string {
+	return "go " + g.Ex.Format(0)
+}
+
+func (r *ReturnStmt) Format(n uint) string {
+	s := "return"
+	if len(r.Exs) > 0 {
+		s += " "
+		for i := range r.Exs {
+			s += r.Exs[i].Format(0)
+			if i+1 < len(r.Exs) {
+				s += ", "
+			}
+		}
+	}
+	return s
+}
+
+func (b *BreakStmt) Format(n uint) string {
+	if len(b.Label) == 0 {
+		return "break"
+	} else {
+		return "break " + b.Label
+	}
+}
+
+func (c *ContinueStmt) Format(n uint) string {
+	if len(c.Label) == 0 {
+		return "continue"
+	} else {
+		return "continue " + c.Label
+	}
+}
+
+func (b *GotoStmt) Format(n uint) string {
+	return "goto " + b.Label
+}
+
+func (b *FallthroughStmt) Format(n uint) string {
+	return "fallthrough"
+}
+
+func (s *SendStmt) Format(n uint) string {
+	return s.Ch.Format(0) + " <- " + s.Ex.Format(0)
+}
+
+func (s *IncStmt) Format(n uint) string {
+	return s.Ex.Format(0) + "++"
+}
+
+func (s *DecStmt) Format(n uint) string {
+	return s.Ex.Format(0) + "--"
+}
+
+func (a *AssignStmt) Format(n uint) string {
+	var out string
+	m := len(a.LHS)
+	for i := 0; i < m; i++ {
+		out += a.LHS[i].Format(0)
+		if i+1 < m {
+			out += ", "
+		}
+	}
+	out += " " + s.TokenNames[a.Op] + " "
+	m = len(a.RHS)
+	for i := 0; i < m; i++ {
+		out += a.RHS[i].Format(n)
+		if i+1 < m {
+			out += ", "
+		}
+	}
+	return out
+}
+
+func (e *ExprStmt) Format(n uint) string {
+	return e.Ex.Format(n)
+}
+
+func (i *IfStmt) Format(n uint) string {
+	s := "if "
+	if i.S != nil {
+		s += i.S.Format(n) + "; "
+	}
+	s += i.Ex.Format(n)
+	s += " " + i.Then.Format(n)
+	if i.Else != nil {
+		s += " else " + i.Else.Format(n)
+	}
+	return s
 }
