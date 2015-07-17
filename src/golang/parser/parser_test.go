@@ -844,6 +844,7 @@ var (
     v = s.(chan uint)
     w = a.b.([4]struct{x, y uint})
     x = (*pkg.T).M
+    y = s.(type)
 )
 `
 	exp := `package foo
@@ -893,6 +894,7 @@ var (
             x, y uint
         })
     x = (*pkg.T).M
+    y = s.(type)
 )
 `
 	t, e := Parse("primary-expr-2.go", src)

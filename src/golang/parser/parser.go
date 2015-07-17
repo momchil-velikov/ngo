@@ -950,6 +950,20 @@ func (p *parser) needType(ex ast.Expr) (ast.TypeSpec, bool) {
 	return nil, false
 }
 
+// TypeAssertion = "." "(" Type ")" .
+// Also allow "." "(" "type" ")".
+func (p *parser) parseTypeAssertion(ex ast.Expr) ast.Expr {
+	p.match('(')
+	var t ast.TypeSpec
+	if p.token == s.TYPE {
+		p.next()
+	} else {
+		t = p.parseType()
+	}
+	p.match(')')
+	return &ast.TypeAssertion{t, ex}
+}
+
 // PrimaryExpr =
 //     Operand |
 //     Conversion |
@@ -1035,8 +1049,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 			if p.token == '(' {
 				// PrimaryExpr TypeAssertion
 				// TypeAssertion = "." "(" Type ")" .
-				t = p.parseType()
-				ex = &ast.TypeAssertion{Type: t, Arg: ex}
+				ex = p.parseTypeAssertion(ex)
 			} else {
 				// PrimaryExpr Selector
 				// Selector = "." identifier .

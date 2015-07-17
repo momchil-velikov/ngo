@@ -338,7 +338,13 @@ func (e *TypeAssertion) Format(n uint) (s string) {
 	case *UnaryExpr, *BinaryExpr:
 		s = "(" + s + ")"
 	}
-	s += ".(" + e.Type.Format(n) + ")"
+	var t string
+	if e.Type == nil {
+		t = "type"
+	} else {
+		t = e.Type.Format(n)
+	}
+	s += ".(" + t + ")"
 	return
 }
 
