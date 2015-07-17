@@ -633,3 +633,7 @@ func (f *ForRangeStmt) Format(n uint) string {
 	}
 	return out + " range " + f.Ex.Format(n) + " " + f.Body.Format(n)
 }
+
+func (d *DeferStmt) Format(n uint) string {
+	return "defer " + d.Ex.Format(n)
+}

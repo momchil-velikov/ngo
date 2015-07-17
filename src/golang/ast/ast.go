@@ -389,3 +389,9 @@ type ForRangeStmt struct {
 }
 
 func (f ForRangeStmt) stmt() {}
+
+type DeferStmt struct {
+	Ex Expr
+}
+
+func (d DeferStmt) stmt() {}

@@ -612,3 +612,26 @@ func foo() {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestDeferStmt(tst *testing.T) {
+	src := `package main
+func foo(i int) int {
+defer bar()
+}
+`
+	exp := `package main
+
+func foo(i int) int {
+    defer bar()
+}
+`
+	t, e := Parse("send-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}

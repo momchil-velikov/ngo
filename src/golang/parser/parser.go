@@ -1469,7 +1469,8 @@ func (p *parser) parseForStmt() ast.Stmt {
 
 // DeferStmt = "defer" Expression .
 func (p *parser) parseDeferStmt() ast.Stmt {
-	return &ast.EmptyStmt{}
+	p.match(s.DEFER)
+	return &ast.DeferStmt{p.parseExpr()}
 }
 
 // LabeledStmt = Label ":" Statement .
