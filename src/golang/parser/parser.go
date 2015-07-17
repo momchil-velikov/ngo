@@ -1252,7 +1252,7 @@ func (p *parser) parseStatementList() []ast.Stmt {
 	var st []ast.Stmt
 	b := p.brackets
 	p.brackets = 1
-	for p.token != s.EOF && p.token != '}' {
+	for p.token != s.EOF && p.token != '}' && p.token != s.CASE && p.token != s.DEFAULT {
 		st = append(st, p.parseStmt())
 		p.syncEndStatement()
 	}
