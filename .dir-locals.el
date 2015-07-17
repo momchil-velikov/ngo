@@ -3,7 +3,7 @@
 
 ((go-mode
   (tab-width . 4)
-  (fill-column . 90)
+  (fill-column . 78)
   (indent-tabs-mode . t)))
 
 

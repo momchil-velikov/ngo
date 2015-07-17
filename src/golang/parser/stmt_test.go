@@ -635,3 +635,104 @@ func foo(i int) int {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestExprSwitchStmt(tst *testing.T) {
+	src := `package main
+
+func foo() {
+  switch {}
+  switch x + 1 {}
+  switch x:= foo(); x + 1 {}
+  switch x= foo(); x + 1 {}
+  switch x + 1; y + 1 {}
+  switch <-ch; {}
+  switch <-ch {}
+  switch t := <-ch; t {}
+  switch { case x < 0: {return -1; ;}; case x == 0: return 0; default: return 1 }
+}
+`
+	exp := `package main
+
+func foo() {
+    switch {}
+    switch x + 1 {}
+    switch x := foo(); x + 1 {}
+    switch x = foo(); x + 1 {}
+    switch x + 1; y + 1 {}
+    switch <-ch; {}
+    switch <-ch {}
+    switch t := <-ch; t {}
+    switch {
+    case x < 0:
+        {
+            return -1
+        }
+    case x == 0:
+        return 0
+    default:
+        return 1
+    }
+}
+`
+	t, e := Parse("expr-switch-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+
+}
+
+func TestTypeSwitchStmt(tst *testing.T) {
+	src := `package main
+
+func foo() {
+  switch x.(type) {}
+  switch t := x.(type) {}
+  switch x:= foo(); t := x.(type) {}
+switch i := x.(type) {
+case nil:printString("x is nil")
+case int:printInt(i)
+case float64:printFloat64(i)
+case func(int) float64:	printFunction(i)
+case bool, string:	printString("type is bool or string")
+default:	printString("don't know the type")
+}
+}
+`
+	exp := `package main
+
+func foo() {
+    switch x.(type) {}
+    switch t := x.(type) {}
+    switch x := foo(); t := x.(type) {}
+    switch i := x.(type) {
+    case nil:
+        printString("x is nil")
+    case int:
+        printInt(i)
+    case float64:
+        printFloat64(i)
+    case func(int) float64:
+        printFunction(i)
+    case bool, string:
+        printString("type is bool or string")
+    default:
+        printString("don't know the type")
+    }
+}
+`
+	t, e := Parse("type-switch-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+
+}

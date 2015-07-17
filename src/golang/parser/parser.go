@@ -1409,9 +1409,155 @@ func (p *parser) parseIfStmt() ast.Stmt {
 	}
 }
 
+// Checks if an Expression is a TypeSwitchGuard.
+func isTypeSwitchGuardExpr(x ast.Expr) (ast.Expr, bool) {
+	if y, ok := x.(*ast.TypeAssertion); ok && y.Type == nil {
+		return y.Arg, true
+	} else {
+		return nil, false
+	}
+
+}
+
+// Checks if a SimpleStmt is a TypeSwitchGuard. If true, returns the statement
+// constituent parts.
+func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
+	if a, ok := x.(*ast.AssignStmt); ok {
+		if len(a.LHS) == 1 && len(a.RHS) == 1 {
+			lhs, rhs := a.LHS[0], a.RHS[0]
+			if y, ok := isTypeSwitchGuardExpr(rhs); ok {
+				id := ""
+				if z, ok := lhs.(*ast.QualId); !ok || len(z.Pkg) > 0 {
+					id = ""
+					p.error("invalid identifier in type switch")
+				} else {
+					id = z.Id
+				}
+				if a.Op != s.DEFINE {
+					p.error("type switch guard must use := instead of =")
+				}
+				return id, y, true
+			}
+		}
+	}
+	return "", nil, false
+}
+
 // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
+// ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}".
+// TypeSwitchStmt = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" {TypeCaseClause} "}" .
+// TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
 func (p *parser) parseSwitchStmt() ast.Stmt {
-	return &ast.EmptyStmt{}
+	p.match(s.SWITCH)
+
+	b := p.brackets
+	p.brackets = 0
+	defer func() { p.brackets = b }()
+
+	if p.token == '{' {
+		return p.parseExprSwitchStmt(nil, nil)
+	}
+
+	x := p.parseExpr()
+	if p.token == '{' {
+		if y, ok := isTypeSwitchGuardExpr(x); ok {
+			return p.parseTypeSwitchStmt(nil, "", y)
+		} else {
+			return p.parseExprSwitchStmt(nil, x)
+		}
+	}
+
+	init := p.parseSimpleStmt(x)
+	if p.token == '{' {
+		if id, y, ok := p.isTypeSwitchGuardStmt(init); ok {
+			return p.parseTypeSwitchStmt(nil, id, y)
+		}
+	}
+	p.match(';')
+
+	if p.token == '{' {
+		return p.parseExprSwitchStmt(init, nil)
+	}
+
+	x = p.parseExpr()
+	if p.token == '{' {
+		return p.parseExprSwitchStmt(init, x)
+	}
+
+	stmt := p.parseSimpleStmt(x)
+	if id, y, ok := p.isTypeSwitchGuardStmt(stmt); ok {
+		return p.parseTypeSwitchStmt(init, id, y)
+	}
+
+	p.error("invalid switch expression")
+	p.sync('{')
+	return p.parseExprSwitchStmt(init, nil)
+}
+
+// ExprCaseClause = ExprSwitchCase ":" StatementList .
+// ExprSwitchCase = "case" ExpressionList | "default" .
+func (p *parser) parseExprSwitchStmt(init ast.Stmt, ex ast.Expr) ast.Stmt {
+	var (
+		cs  []ast.ExprCaseClause
+		def bool = false
+	)
+	p.match('{')
+	for p.token == s.CASE || p.token == s.DEFAULT {
+		t := p.token
+		p.next()
+		var xs []ast.Expr
+		if t == s.CASE {
+			xs = p.parseExprList(nil)
+		} else {
+			if def {
+				p.error("multiple defaults in switch")
+			}
+			def = true
+		}
+		p.match(':')
+		ss := p.parseStatementList()
+		cs = append(cs, ast.ExprCaseClause{xs, ss})
+	}
+	p.match('}')
+	return &ast.ExprSwitchStmt{init, ex, cs}
+}
+
+// TypeCaseClause  = TypeSwitchCase ":" StatementList .
+// TypeSwitchCase  = "case" TypeList | "default" .
+func (p *parser) parseTypeSwitchStmt(init ast.Stmt, id string, ex ast.Expr) ast.Stmt {
+	def := false
+	var cs []ast.TypeCaseClause
+	p.match('{')
+	for p.token == s.CASE || p.token == s.DEFAULT {
+		t := p.token
+		p.next()
+		var ts []ast.TypeSpec
+		if t == s.CASE {
+			ts = p.parseTypeList()
+		} else {
+			if def {
+				p.error("multiple defaults in switch")
+			}
+			def = true
+		}
+		p.match(':')
+		ss := p.parseStatementList()
+		cs = append(cs, ast.TypeCaseClause{ts, ss})
+	}
+	p.match('}')
+	return &ast.TypeSwitchStmt{init, id, ex, cs}
+}
+
+// TypeList = Type { "," Type } .
+func (p *parser) parseTypeList() (ts []ast.TypeSpec) {
+	for {
+		ts = append(ts, p.parseType())
+		if p.token != ',' {
+			break
+		}
+		p.next()
+	}
+	return
 }
 
 // SelectStmt = "select" "{" { CommClause } "}" .

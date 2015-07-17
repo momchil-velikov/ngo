@@ -643,3 +643,72 @@ func (f *ForRangeStmt) Format(n uint) string {
 func (d *DeferStmt) Format(n uint) string {
 	return "defer " + d.Ex.Format(n)
 }
+
+func (s *ExprSwitchStmt) Format(n uint) string {
+	out := "switch"
+	if s.Init != nil {
+		out += " " + s.Init.Format(n) + ";"
+	}
+	if s.Ex != nil {
+		out += " " + s.Ex.Format(n)
+	}
+	if len(s.Cases) == 0 {
+		out += " {}"
+		return out
+	}
+	out += " {"
+	for _, c := range s.Cases {
+		if c.Ex == nil {
+			out += "\n" + indent(n) + "default:"
+		} else {
+			out += "\n" + indent(n) + "case "
+			out += c.Ex[0].Format(0)
+			for i := 1; i < len(c.Ex); i++ {
+				out += ", " + c.Ex[i].Format(0)
+			}
+			out += ":"
+		}
+		for _, s := range c.Stmts {
+			if _, ok := s.(*EmptyStmt); !ok {
+				out += "\n" + indent(n+1) + s.Format(n+1)
+			}
+		}
+	}
+	out += "\n" + indent(n) + "}"
+	return out
+}
+
+func (s *TypeSwitchStmt) Format(n uint) string {
+	out := "switch"
+	if s.Init != nil {
+		out += " " + s.Init.Format(n) + ";"
+	}
+	if len(s.Id) > 0 {
+		out += " " + s.Id + " :="
+	}
+	out += " " + s.Ex.Format(n) + ".(type)"
+	if len(s.Cases) == 0 {
+		out += " {}"
+		return out
+	}
+	out += " {"
+	for _, c := range s.Cases {
+		if c.Type == nil {
+			out += "\n" + indent(n) + "default:"
+		} else {
+			out += "\n" + indent(n) + "case "
+			out += c.Type[0].Format(0)
+			for i := 1; i < len(c.Type); i++ {
+				out += ", " + c.Type[i].Format(0)
+			}
+			out += ":"
+		}
+		for _, s := range c.Stmts {
+			if _, ok := s.(*EmptyStmt); !ok {
+				out += "\n" + indent(n+1) + s.Format(n+1)
+			}
+		}
+	}
+	out += "\n" + indent(n) + "}"
+	return out
+}

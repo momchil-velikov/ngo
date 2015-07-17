@@ -395,3 +395,30 @@ type DeferStmt struct {
 }
 
 func (d DeferStmt) stmt() {}
+
+type ExprCaseClause struct {
+	Ex    []Expr
+	Stmts []Stmt
+}
+
+type ExprSwitchStmt struct {
+	Init  Stmt
+	Ex    Expr
+	Cases []ExprCaseClause
+}
+
+func (d ExprSwitchStmt) stmt() {}
+
+type TypeCaseClause struct {
+	Type  []TypeSpec
+	Stmts []Stmt
+}
+
+type TypeSwitchStmt struct {
+	Init  Stmt
+	Id    string
+	Ex    Expr
+	Cases []TypeCaseClause
+}
+
+func (d TypeSwitchStmt) stmt() {}
