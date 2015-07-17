@@ -1239,23 +1239,37 @@ func (p *parser) parseIndexOrSlice(e ast.Expr) ast.Expr {
 }
 
 // Block = "{" StatementList "}" .
-// StatementList = { Statement ";" } .
 func (p *parser) parseBlock() *ast.Block {
 	//	defer p.trace("Block")()
-
-	var ss []ast.Stmt
 	p.match('{')
+	st := p.parseStatementList()
+	p.match('}')
+	return &ast.Block{Stmts: st}
+}
+
+// StatementList = { Statement ";" } .
+func (p *parser) parseStatementList() []ast.Stmt {
+	var st []ast.Stmt
 	b := p.brackets
 	p.brackets = 1
-	for p.token != s.EOF && p.token != '}' {
-		ss = append(ss, p.parseStmt())
-		if p.token != '}' {
-			p.sync2(';', '}')
-		}
+	for p.token != s.EOF && p.token != '}' && p.token != s.CASE && p.token != s.DEFAULT {
+		st = append(st, p.parseStmt())
+		p.syncEndStatement()
 	}
 	p.brackets = b
-	p.match('}')
-	return &ast.Block{Stmts: ss}
+	return st
+}
+
+func (p *parser) syncEndStatement() {
+	if p.token == '}' || p.token == s.CASE || p.token == s.DEFAULT {
+		return
+	}
+	if p.match(';') {
+		return
+	}
+	for p.token != s.EOF && p.token != ';' && p.token != '}' && p.token != s.CASE && p.token != s.DEFAULT {
+		p.next()
+	}
 }
 
 // Statement =
