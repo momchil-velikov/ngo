@@ -1563,10 +1563,32 @@ func (p *parser) parseTypeList() (ts []ast.TypeSpec) {
 // SelectStmt = "select" "{" { CommClause } "}" .
 // CommClause = CommCase ":" StatementList .
 // CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
+// SendStmt = Channel "<-" Expression .
 // RecvStmt   = [ ExpressionList "=" | IdentifierList ":=" ] RecvExpr .
 // RecvExpr   = Expression .
 func (p *parser) parseSelectStmt() ast.Stmt {
-	return &ast.EmptyStmt{}
+	def := false
+	var cs []ast.CommClause
+	p.match(s.SELECT)
+	p.match('{')
+	for p.token == s.CASE || p.token == s.DEFAULT {
+		t := p.token
+		p.next()
+		var comm ast.Stmt
+		if t == s.CASE {
+			comm = p.parseSimpleStmt(p.parseExpr())
+		} else {
+			if def {
+				p.error("multiple defaults in select")
+			}
+			def = true
+		}
+		p.match(':')
+		ss := p.parseStatementList()
+		cs = append(cs, ast.CommClause{comm, ss})
+	}
+	p.match('}')
+	return &ast.SelectStmt{cs}
 }
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
@@ -1667,7 +1689,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	case s.INC, s.DEC:
 		return p.parseIncDecStmt(e)
 	}
-	if p.token == ';' || p.token == '}' || p.token == '{' {
+	if p.token == ';' || p.token == ':' || p.token == '}' || p.token == '{' {
 		return &ast.ExprStmt{e}
 	}
 	var es []ast.Expr

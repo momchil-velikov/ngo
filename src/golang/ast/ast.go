@@ -422,3 +422,14 @@ type TypeSwitchStmt struct {
 }
 
 func (d TypeSwitchStmt) stmt() {}
+
+type CommClause struct {
+	Comm  Stmt
+	Stmts []Stmt
+}
+
+type SelectStmt struct {
+	Clauses []CommClause
+}
+
+func (s SelectStmt) stmt() {}

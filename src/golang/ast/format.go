@@ -712,3 +712,24 @@ func (s *TypeSwitchStmt) Format(n uint) string {
 	out += "\n" + indent(n) + "}"
 	return out
 }
+
+func (s *SelectStmt) Format(n uint) string {
+	out := "select {"
+	if s.Clauses == nil {
+		return out + "}"
+	}
+	for _, c := range s.Clauses {
+		if c.Comm == nil {
+			out += "\n" + indent(n) + "default:"
+		} else {
+			out += "\n" + indent(n) + "case " + c.Comm.Format(n) + ":"
+		}
+		for _, s := range c.Stmts {
+			if _, ok := s.(*EmptyStmt); !ok {
+				out += "\n" + indent(n+1) + s.Format(n+1)
+			}
+		}
+	}
+	out += "\n" + indent(n) + "}"
+	return out
+}

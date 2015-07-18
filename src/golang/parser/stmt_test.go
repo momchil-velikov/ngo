@@ -734,5 +734,53 @@ func foo() {
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
+}
 
+func TestSelectStmt(tst *testing.T) {
+	src := `package main
+
+func foo() {
+  select{}
+  select{
+    case ch1 <-ex:
+      bar()
+    default:
+      baz()
+    case x, y = <- ch2:
+      xyzzy();;
+    case u, v:= <- ch3:
+      quux()
+    case x++:
+;
+ case <- ch3:
+  }
+}
+`
+	exp := `package main
+
+func foo() {
+    select {}
+    select {
+    case ch1 <- ex:
+        bar()
+    default:
+        baz()
+    case x, y = <-ch2:
+        xyzzy()
+    case u, v := <-ch3:
+        quux()
+    case x++:
+    case <-ch3:
+    }
+}
+`
+	t, e := Parse("select-switch-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	f := t.Format()
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
 }
