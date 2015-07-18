@@ -31,7 +31,7 @@ type File struct {
 
 type Import struct {
 	Name string
-	Path string
+	Path []byte
 }
 
 // Universal error node
@@ -118,7 +118,7 @@ var opPrec = map[uint]uint{
 
 type Literal struct {
 	Kind  uint
-	Value string
+	Value []byte
 }
 
 func (e Literal) expr() {}
@@ -250,7 +250,7 @@ func (t ChanType) typeSpec() {}
 type FieldDecl struct {
 	Names []string
 	Type  TypeSpec
-	Tag   string
+	Tag   []byte
 }
 
 type StructType struct {

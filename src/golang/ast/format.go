@@ -47,7 +47,7 @@ func (i *Import) Format(n uint) (s string) {
 	if len(i.Name) > 0 {
 		s += i.Name + " "
 	}
-	s += `"` + i.Path + `"`
+	s += string(i.Path)
 	return s
 }
 
@@ -231,9 +231,8 @@ func (t *StructType) Format(n uint) string {
 		s += sp1
 		s += formatIdList(f.Names)
 		s += f.Type.Format(n + 1)
-		if len(f.Tag) > 0 {
-			s += " \"" + f.Tag +
-				"\""
+		if f.Tag != nil {
+			s += " " + string(f.Tag)
 		}
 		s += "\n"
 
@@ -320,13 +319,13 @@ func (t *InterfaceType) Format(n uint) string {
 func (e *Literal) Format(n uint) string {
 	switch e.Kind {
 	case s.INTEGER, s.FLOAT:
-		return e.Value
+		return string(e.Value)
 	case s.RUNE:
-		return "'" + e.Value + "'"
+		return "'" + string(e.Value) + "'"
 	case s.IMAGINARY:
-		return e.Value + "i"
+		return string(e.Value) + "i"
 	case s.STRING:
-		return "\"" + e.Value + "\""
+		return string(e.Value)
 	default:
 		panic("invalid literal")
 	}

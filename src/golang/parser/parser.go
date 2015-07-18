@@ -19,7 +19,7 @@ type parser struct {
 }
 
 func (p *parser) init(name string, src string) {
-	p.scan.Init(name, src)
+	p.scan.Init(name, []byte(src))
 	p.level = 1
 	p.brackets = 1
 }
@@ -105,15 +105,22 @@ func (p *parser) match(token uint) bool {
 	}
 }
 
-// Advance to the next token iff the current one is TOKEN.
-func (p *parser) matchValue(token uint) string {
+// Advances to the next token iff the current one is TOKEN. Returns token
+// value.
+func (p *parser) matchRaw(token uint) []byte {
 	if p.expect(token) {
 		value := p.scan.Value
 		p.next()
 		return value
 	} else {
-		return ""
+		return nil
 	}
+}
+
+// Advances to the next token iff the current one is TOKEN. Returns token
+// value as string.
+func (p *parser) matchString(token uint) string {
+	return string(p.matchRaw(token))
 }
 
 // Skip tokens, until given token found, then consume it. Report an error
@@ -197,7 +204,7 @@ func (p *parser) parseFile() *ast.File {
 // PackageName    = identifier .
 func (p *parser) parsePackageClause() string {
 	p.match(s.PACKAGE)
-	return p.matchValue(s.ID)
+	return p.matchString(s.ID)
 }
 
 // Parse import declarations(s).
@@ -231,16 +238,16 @@ func (p *parser) parseImportDecls() (imports []ast.Import) {
 //
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-func (p *parser) parseImportSpec() (name string, path string) {
+func (p *parser) parseImportSpec() (name string, path []byte) {
 	if p.token == '.' {
 		name = "."
 		p.next()
 	} else if p.token == s.ID {
-		name = p.matchValue(s.ID)
+		name = p.matchString(s.ID)
 	} else {
 		name = ""
 	}
-	path = p.matchValue(s.STRING)
+	path = p.matchRaw(s.STRING)
 	return
 }
 
@@ -297,7 +304,7 @@ func (p *parser) parseTypeDecl() ast.Decl {
 
 // TypeSpec = identifier Type .
 func (p *parser) parseTypeSpec() *ast.TypeDecl {
-	id := p.matchValue(s.ID)
+	id := p.matchString(s.ID)
 	t := p.parseType()
 	return &ast.TypeDecl{Name: id, Type: t}
 }
@@ -399,11 +406,11 @@ func (p *parser) parseType() ast.TypeSpec {
 
 // TypeName = identifier | QualifiedIdent .
 func (p *parser) parseQualId() *ast.QualId {
-	pkg := p.matchValue(s.ID)
+	pkg := string(p.matchString(s.ID))
 	var id string
 	if p.token == '.' {
 		p.next()
-		id = p.matchValue(s.ID)
+		id = p.matchString(s.ID)
 	} else {
 		pkg, id = "", pkg
 	}
@@ -436,12 +443,12 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 		tag := p.parseTagOpt()
 		return &ast.FieldDecl{Names: nil, Type: pt, Tag: tag}
 	} else if p.token == s.ID {
-		pkg := p.matchValue(s.ID)
+		pkg := p.matchString(s.ID)
 		if p.token == '.' {
 			// If the field decl begins with a qualified-id, it's parsed as an
 			// anonymous field.
 			p.next()
-			id := p.matchValue(s.ID)
+			id := p.matchString(s.ID)
 			t := &ast.QualId{pkg, id}
 			tag := p.parseTagOpt()
 			return &ast.FieldDecl{Names: nil, Type: t, Tag: tag}
@@ -462,11 +469,11 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 	return &ast.FieldDecl{Names: nil, Type: &ast.Error{}}
 }
 
-func (p *parser) parseTagOpt() (tag string) {
+func (p *parser) parseTagOpt() (tag []byte) {
 	if p.token == s.STRING {
-		tag = p.matchValue(s.STRING)
+		tag = p.matchRaw(s.STRING)
 	} else {
-		tag = ""
+		tag = nil
 	}
 	return
 }
@@ -474,14 +481,14 @@ func (p *parser) parseTagOpt() (tag string) {
 // IdentifierList = identifier { "," identifier } .
 func (p *parser) parseIdList(id string) (ids []string) {
 	if len(id) == 0 {
-		id = p.matchValue(s.ID)
+		id = p.matchString(s.ID)
 	}
 	if len(id) > 0 {
 		ids = append(ids, id)
 	}
 	for p.token == ',' {
 		p.next()
-		id = p.matchValue(s.ID)
+		id = p.matchString(s.ID)
 		if len(id) > 0 {
 			ids = append(ids, id)
 		}
@@ -531,10 +538,10 @@ func (p *parser) parseParameters() (ds []*ast.ParamDecl) {
 // parameter name or the parameter type, depending upon what was parsed.
 func (p *parser) parseIdOrType() *ast.ParamDecl {
 	if p.token == s.ID {
-		id := p.matchValue(s.ID)
+		id := p.matchString(s.ID)
 		if p.token == '.' {
 			p.next()
-			name := p.matchValue(s.ID)
+			name := p.matchString(s.ID)
 			return &ast.ParamDecl{Type: &ast.QualId{id, name}}
 			// Fallthrough as if the dot wasn't there.
 		}
@@ -603,10 +610,10 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 	emb := []*ast.QualId(nil)
 	meth := []*ast.MethodSpec(nil)
 	for p.token != s.EOF && p.token != '}' {
-		id := p.matchValue(s.ID)
+		id := p.matchString(s.ID)
 		if p.token == '.' {
 			p.next()
-			name := p.matchValue(s.ID)
+			name := p.matchString(s.ID)
 			emb = append(emb, &ast.QualId{Pkg: id, Id: name})
 		} else if p.token == '(' {
 			sig := p.parseSignature()
@@ -705,7 +712,7 @@ func (p *parser) parseFuncDecl() ast.Decl {
 	if p.token == '(' {
 		r = p.parseReceiver()
 	}
-	name := p.matchValue(s.ID)
+	name := p.matchString(s.ID)
 	sig := p.parseSignature()
 	var blk *ast.Block = nil
 	if p.token == '{' {
@@ -720,14 +727,14 @@ func (p *parser) parseReceiver() *ast.Receiver {
 	p.match('(')
 	var n string
 	if p.token == s.ID {
-		n = p.matchValue(s.ID)
+		n = p.matchString(s.ID)
 	}
 	ptr := false
 	if p.token == '*' {
 		p.next()
 		ptr = true
 	}
-	t := p.matchValue(s.ID)
+	t := p.matchString(s.ID)
 	p.sync2(')', ';')
 	var tp ast.TypeSpec = &ast.QualId{Id: t}
 	if ptr {
@@ -984,7 +991,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 	// Handle initial Operand, Conversion or a BuiltinCall
 	switch p.token {
 	case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
-		id := p.matchValue(s.ID)
+		id := p.matchString(s.ID)
 		if p.token == '{' && p.brackets > 0 {
 			ex = p.parseCompositeLiteral(&ast.QualId{Id: id})
 		} else if p.token == '(' {
@@ -1034,7 +1041,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 		}
 	case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE, s.STRING: // BasicLiteral
 		k := p.token
-		v := p.matchValue(k)
+		v := p.matchRaw(k)
 		return &ast.Literal{Kind: k, Value: v}, nil
 	default:
 		p.error("token cannot start neither expression nor type")
@@ -1053,7 +1060,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.TypeSpec) {
 			} else {
 				// PrimaryExpr Selector
 				// Selector = "." identifier .
-				id := p.matchValue(s.ID)
+				id := p.matchString(s.ID)
 				ex = &ast.Selector{Arg: ex, Id: id}
 			}
 		case '[':
@@ -1353,7 +1360,7 @@ func (p *parser) parseReturnStmt() ast.Stmt {
 func (p *parser) parseBreakStmt() ast.Stmt {
 	p.match(s.BREAK)
 	if p.token == s.ID {
-		return &ast.BreakStmt{p.matchValue(s.ID)}
+		return &ast.BreakStmt{p.matchString(s.ID)}
 	} else {
 		return &ast.BreakStmt{}
 	}
@@ -1363,7 +1370,7 @@ func (p *parser) parseBreakStmt() ast.Stmt {
 func (p *parser) parseContinueStmt() ast.Stmt {
 	p.match(s.CONTINUE)
 	if p.token == s.ID {
-		return &ast.ContinueStmt{p.matchValue(s.ID)}
+		return &ast.ContinueStmt{p.matchString(s.ID)}
 	} else {
 		return &ast.ContinueStmt{}
 	}
@@ -1372,7 +1379,7 @@ func (p *parser) parseContinueStmt() ast.Stmt {
 // GotoStmt = "goto" Label .
 func (p *parser) parseGotoStmt() ast.Stmt {
 	p.match(s.GOTO)
-	return &ast.GotoStmt{p.matchValue(s.ID)}
+	return &ast.GotoStmt{p.matchString(s.ID)}
 }
 
 // FallthroughStmt = "fallthrough" .

@@ -198,23 +198,21 @@ func testString(t *testing.T, input string, value string) {
 		t.Errorf("Expected EOF, got %s", TokenNames[tok])
 	}
 
-	if str != value {
+	if string(str) != value {
 		t.Errorf("Incorrect string value, expected |%s|, got |%s|", value, str)
 	}
 }
 
 func TestStringBasic(t *testing.T) {
 	input := [...]string{`""`, `"\t"`, `"abc"`, `"ab\taßäख🃑\r\txy"`}
-	values := [...]string{"", "\t", "abc", "ab\taßäख🃑\r\txy"}
 	for i := range input {
-		testString(t, input[i], values[i])
+		testString(t, input[i], input[i])
 	}
 }
 
 func TestStringEscapes(t *testing.T) {
 	const input = `"\041 \x20 \u0916 \U0001F0D1 ' \""`
-	value := "! \x20 ख 🃑 ' \""
-	testString(t, input, value)
+	testString(t, input, input)
 }
 
 func TestStringErrors(t *testing.T) {
@@ -241,7 +239,7 @@ func testRunes(t *testing.T, runes string, values []string) {
 				t.Errorf("error is: %s", s.Err)
 			}
 		} else {
-			if s.Value != val {
+			if string(s.Value) != val {
 				t.Errorf("Expected value |%s|, got |%s|", val, s.Value)
 			}
 		}
@@ -258,18 +256,15 @@ func TestRunesBasic(t *testing.T) {
 }
 
 func TestRunesHexOctEscapes(t *testing.T) {
-	const runes = `'\041' '\x20' '\u0916' '\U0001F0d1'`
-	values := [...]string{"!", " ", "ख", "🃑"}
-
+	runes := `'\041' '\x20' '\u0916' '\U0001F0d1'`
+	values := [...]string{`\041`, `\x20`, `\u0916`, `\U0001F0d1`}
 	testRunes(t, runes, values[:])
 }
 
 func TestRunesEscapes(t *testing.T) {
 	const runes = ` '\a' '\b' '\f' '\n' '\r' '\t' '\v' '\\' '\'' `
-	values := [...]string{"\a", "\b", "\f", "\n", "\r", "\t", "\v", "\\", "'"}
-
+	values := [...]string{`\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\\`, `\'`}
 	// \"   U+0022 double quote  (valid escape only within string literals)
-
 	testRunes(t, runes, values[:])
 }
 
@@ -292,13 +287,13 @@ func TestIntLiterals1(t *testing.T) {
 	s := New("hex numeric", input)
 	tok := s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[0] {
+	if string(s.Value) != values[0] {
 		t.Errorf("Expected token value %s, got %s", values[0], s.Value)
 	}
 
 	tok = s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[1] {
+	if string(s.Value) != values[1] {
 		t.Errorf("Expected token value %s, got %s", values[0], s.Value)
 	}
 
@@ -329,19 +324,19 @@ func TestIntLiterals2(t *testing.T) {
 	s := New("oct numeric", input)
 	tok := s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[0] {
+	if string(s.Value) != values[0] {
 		t.Errorf("Expected token value %s, got %s", values[0], s.Value)
 	}
 
 	tok = s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[1] {
+	if string(s.Value) != values[1] {
 		t.Errorf("Expected token value %s, got %s", values[1], s.Value)
 	}
 
 	tok = s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[2] {
+	if string(s.Value) != values[2] {
 		t.Errorf("Expected token value %s, got %s", values[2], s.Value)
 	}
 
@@ -367,7 +362,7 @@ func TestIntLiterals3(t *testing.T) {
 	s := New("int", input)
 	tok := s.Get()
 	expectToken(t, tok, INTEGER)
-	if s.Value != values[0] {
+	if string(s.Value) != values[0] {
 		t.Errorf("Expected token value %s, got %s", values[0], s.Value)
 	}
 
@@ -390,7 +385,7 @@ func TestFloatLiterals(t *testing.T) {
 	for i := range values {
 		tok := s.Get()
 		expectToken(t, tok, FLOAT)
-		if s.Value != values[i] {
+		if string(s.Value) != values[i] {
 			t.Errorf("Expected token value %s, got %s", values[i], s.Value)
 		}
 	}
@@ -425,7 +420,7 @@ func TestImaginaryLiterals(t *testing.T) {
 	for i := range values {
 		tok := s.Get()
 		expectToken(t, tok, IMAGINARY)
-		if s.Value != values[i] {
+		if string(s.Value) != values[i] {
 			t.Errorf("Expected token value %s, got %s", values[i], s.Value)
 		}
 	}
@@ -470,12 +465,10 @@ func TestRawString(t *testing.T) {
 		t.Error(s.Err)
 	}
 
-	const value = `a
-b
-c`
+	const value = "`a\nb\nc`"
 
-	if s.Value != value {
-		t.Errorf("Expected value ->|%s|<-, got ->|%s|<- ", value, s.Value)
+	if string(s.Value) != value {
+		t.Errorf("Expected value ->|%s|<-\ngot ->|%s|<- ", value, s.Value)
 	}
 
 	tok = s.Get()
@@ -495,7 +488,7 @@ func TestIdent(t *testing.T) {
 	for _, exp := range values {
 		tok := s.Get()
 		expectToken(t, tok, ID)
-		if s.Value != exp {
+		if string(s.Value) != exp {
 			t.Errorf("Expected value ->|%s|<-, got ->|%s|<- ", exp, s.Value)
 		}
 	}

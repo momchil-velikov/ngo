@@ -8,9 +8,9 @@ import (
 type Scanner struct {
 	Name              string // Name of the source, e.g. a file name
 	Err               error
-	Value             string // Value of the last token
+	Value             []byte // Value of the last token
 	TOff, TLine, TPos int    // Byte offset, line number, line position of the last token
-	src               string // source characters
+	src               []byte // source characters
 	off, line, pos    int    // Curent byte offset, line number and line position
 	lineOff           int    // Current line offset
 	needSemi          bool
@@ -18,11 +18,11 @@ type Scanner struct {
 
 func New(name string, src string) *Scanner {
 	s := &Scanner{}
-	s.Init(name, src)
+	s.Init(name, []byte(src))
 	return s
 }
 
-func (s *Scanner) Init(name string, src string) {
+func (s *Scanner) Init(name string, src []byte) {
 	s.Name = name
 	s.src = src
 	s.line = 1
@@ -54,18 +54,19 @@ func (s *Scanner) peekAt(off int) (rune, int) {
 	if off < 0 || off >= len(s.src) {
 		return EOF, 0
 	} else {
-		return utf8.DecodeRuneInString(s.src[off:])
+		return utf8.DecodeRune(s.src[off:])
 	}
 }
 
 // Return the rune at the current offset
-func (s *Scanner) peek() (rune, int) {
-	return s.peekAt(s.off)
+func (s *Scanner) peek() rune {
+	r, _ := s.peekAt(s.off)
+	return r
 }
 
 // Position at the next codepoint
 func (s *Scanner) next() rune {
-	r, sz := s.peek()
+	r, sz := s.peekAt(s.off)
 	if sz > 0 {
 		s.off += sz
 		s.pos++
@@ -119,7 +120,7 @@ func (s *Scanner) skipBlockComment() rune {
 	var r rune
 	for r = s.next(); r != EOF; r = s.next() {
 		if r == '*' {
-			r, _ = s.peek()
+			r = s.peek()
 			if r == '/' {
 				s.nextChar()
 				break
@@ -140,12 +141,12 @@ func (s *Scanner) skipBlockComment() rune {
 
 // Scan an identifier. Upon entry the source offset is positioned at the first
 // letter of the idenfifier.
-func (s *Scanner) scanIdent() string {
+func (s *Scanner) scanIdent() []byte {
 	off := s.off
-	r, _ := s.peek()
+	r := s.peek()
 	for isLetter(r) || isDigit(r) {
 		s.next()
-		r, _ = s.peek()
+		r = s.peek()
 	}
 	return s.src[off:s.off]
 }
@@ -168,7 +169,7 @@ func (s *Scanner) scanDec() {
 	}
 }
 
-func (s *Scanner) scanFraction(start int) (uint, string) {
+func (s *Scanner) scanFraction(start int) (uint, []byte) {
 	ch := s.peekChar()
 	if ch == '.' {
 		s.nextChar()
@@ -190,7 +191,7 @@ func (s *Scanner) scanFraction(start int) (uint, string) {
 			s.scanDec()
 			ch = s.peekChar()
 		} else {
-			return s.error("Invalid exponent"), ""
+			return s.error("Invalid exponent"), nil
 		}
 	}
 
@@ -203,7 +204,7 @@ func (s *Scanner) scanFraction(start int) (uint, string) {
 }
 
 // Scan a numeric literal.
-func (s *Scanner) scanNumeric() (uint, string) {
+func (s *Scanner) scanNumeric() (uint, []byte) {
 	start := s.off
 	r := s.peekChar()
 
@@ -218,7 +219,7 @@ func (s *Scanner) scanNumeric() (uint, string) {
 			if s.off-start > 2 {
 				return INTEGER, s.src[start:s.off]
 			} else {
-				return s.error("Invalid hex literal"), ""
+				return s.error("Invalid hex literal"), nil
 			}
 		} else {
 			// scan octal or floating
@@ -236,7 +237,7 @@ func (s *Scanner) scanNumeric() (uint, string) {
 			} else if r == '.' || r == 'E' || r == 'e' {
 				return s.scanFraction(start)
 			} else if d {
-				return s.error("Invalid octal literal"), ""
+				return s.error("Invalid octal literal"), nil
 			} else {
 				return INTEGER, s.src[start:s.off]
 			}
@@ -259,179 +260,140 @@ func (s *Scanner) scanNumeric() (uint, string) {
 	}
 }
 
-// Read N hexadecimal characters, return the value as a rune
-func (s *Scanner) readHex(n uint) rune {
-	var i, r uint = 0, 0
+// Scans N hexadecimal characters. Returns true if exactly N characters
+// scanned.
+func (s *Scanner) scanHexN(n uint) bool {
+	i := uint(0)
 	for ch := s.peekChar(); i < n && isHexDigit(ch); i++ {
-		r = r<<4 + hexValue(ch)
 		s.nextChar()
 		ch = s.peekChar()
 	}
 
 	if i == n {
-		return rune(r)
+		return true
 	} else {
 		s.error("Invalid hex escape sequence")
-		return utf8.RuneError
+		return false
 	}
 }
 
 // Read N octal characters, return the value as a rune
-func (s *Scanner) readOct(n uint) rune {
-	var i, r uint = 0, 0
+func (s *Scanner) scanOctN(n uint) bool {
+	i := uint(0)
 	for ch := s.peekChar(); i < n && isOctDigit(ch); i++ {
-		r = r<<3 + hexValue(ch)
 		s.nextChar()
 		ch = s.peekChar()
 	}
 
 	if i == n {
-		return rune(r)
+		return true
 	} else {
 		s.error("Invalid octal escape sequence")
-		return utf8.RuneError
+		return false
 	}
 }
 
-// Scan an escape sequence. The parameter STR indicates if we are processing a
-// string (or a rune) literal. Return the decoded rune in R. If the escape
-// sequence was a two-digit hexadecimal sequence of three-digit octal sequence,
-// return true in the return B. This case needs to be distinguished when
-// processing string literals.
-func (s *Scanner) scanEscape(str bool) (r rune, b bool, ok bool) {
+// Scans an escape sequence. The parameter STR indicates if we are processing
+// a string (or a rune) literal.
+func (s *Scanner) scanEscape(str bool) bool {
 	ch := s.peekChar()
-
 	if isOctDigit(ch) {
-		b = true
-		r = s.readOct(3)
-		ok = r != utf8.RuneError
-		return
+		return s.scanOctN(3)
 	}
-
 	s.nextChar()
-	b, ok = false, true
-	switch {
-	case ch == 'x':
-		r, b = s.readHex(2), true
-		ok = r != utf8.RuneError
-	case ch == 'u':
-		r = s.readHex(4)
-	case ch == 'U':
-		r = s.readHex(8)
-	case ch == 'a':
-		r = '\x07'
-	case ch == 'b':
-		r = '\x08'
-	case ch == 'f':
-		r = '\x0c'
-	case ch == 'n':
-		r = '\x0a'
-	case ch == 'r':
-		r = '\x0d'
-	case ch == 't':
-		r = '\x09'
-	case ch == 'v':
-		r = '\x0b'
-	case ch == '\\':
-		r = '\x5c'
-	case !str && ch == '\'':
-		r = '\x27'
-	case str && ch == '"':
-		r = '\x22'
+	ok := false
+	switch ch {
+	case 'x':
+		ok = s.scanHexN(2)
+	case 'u':
+		ok = s.scanHexN(4)
+	case 'U':
+		ok = s.scanHexN(8)
+	case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\':
+		ok = true
 	default:
-		s.error("Invalid escape sequence")
-		return utf8.RuneError, false, false
+		if !str && ch == '\'' || str && ch == '"' {
+			ok = true
+		} else {
+			s.error("Invalid escape sequence")
+		}
 	}
-
-	return
+	return ok
 }
 
 // Scan a rune literal, including the apostrophes. Return a string, containing a
 // single rune.
-func (s *Scanner) scanRune() (uint, string) {
+func (s *Scanner) scanRune() (uint, []byte) {
 	s.nextChar() // skip leading apostrophe
+	start := s.off
 	ch := s.peekChar()
 
 	if ch == '\'' {
 		s.nextChar()
-		return s.error("Empty rune literal"), ""
+		return s.error("Empty rune literal"), nil
 	}
 
 	if ch == EOF {
-		return s.error("EOF in rune literal"), ""
+		return s.error("EOF in rune literal"), nil
 	}
 
-	var r rune
 	if ch == '\\' {
 		s.nextChar()
-		rr, _, ok := s.scanEscape(false)
-		if !ok {
-			return ERROR, ""
+		if ok := s.scanEscape(false); !ok {
+			return ERROR, nil
 		}
-		r = rr
 	} else {
-		r = s.next()
+		s.next()
 	}
 
 	ch = s.peekChar()
 	if ch != '\'' {
-		return s.error("Unterminated rune literal"), ""
+		return s.error("Unterminated rune literal"), nil
 	}
 
 	s.nextChar()
-	return RUNE, string(r)
+	return RUNE, s.src[start : s.off-1]
 }
 
-func (s *Scanner) scanString() (uint, string) {
-	s.nextChar() // skip leading quotation mark
+// Scans a string literal. Returns raw source bytes including the quotation
+// marks.
+func (s *Scanner) scanString() (uint, []byte) {
+	start := s.off
+	s.nextChar()
 
 	var ch rune
-	var str []byte
-	for ch, _ = s.peek(); ch != '"' && ch != EOF && ch != NL; ch, _ = s.peek() {
+	for ch = s.peek(); ch != '"' && ch != EOF && ch != NL; ch = s.peek() {
 		s.next()
 		if ch == '\\' {
-			c, b, ok := s.scanEscape(true)
-			if !ok {
-				return ERROR, ""
+			if ok := s.scanEscape(true); !ok {
+				return ERROR, nil
 			}
-			if b {
-				str = append(str, byte(c))
-				continue
-			}
-			ch = c
 		}
-		var tmp [4]byte
-		sz := utf8.EncodeRune(tmp[:], ch)
-		str = append(str, tmp[:sz]...)
 	}
 
 	if ch == '"' {
 		s.nextChar()
-		return STRING, string(str)
+		return STRING, s.src[start:s.off]
 	} else {
-		return s.error("Unterminated string literal"), ""
+		return s.error("Unterminated string literal"), nil
 	}
 }
 
-func (s *Scanner) scanRawString() (uint, string) {
-	s.nextChar() // skip leading back apostrophe
+func (s *Scanner) scanRawString() (uint, []byte) {
+	start := s.off
+	s.nextChar()
 
-	var ch rune
-	var str []byte
-	for ch, _ = s.peek(); ch != '`' && ch != EOF; ch, _ = s.peek() {
-		if ch != CR {
-			var tmp [4]byte
-			sz := utf8.EncodeRune(tmp[:], ch)
-			str = append(str, tmp[:sz]...)
-		}
+	ch := s.peek()
+	for ch != '`' && ch != EOF {
 		s.next()
+		ch = s.peek()
 	}
 
 	if ch == '`' {
 		s.nextChar()
-		return STRING, string(str)
+		return STRING, s.src[start:s.off]
 	} else {
-		return s.error("Unterminated raw string literal"), ""
+		return s.error("Unterminated raw string literal"), nil
 	}
 }
 
@@ -451,7 +413,7 @@ L:
 		}
 	}
 
-	r, _ := s.peek()
+	r := s.peek()
 
 	s.TOff, s.TLine, s.TPos = s.off, s.line, s.pos
 	if isWhitespace(r) {
@@ -694,7 +656,7 @@ L:
 
 	if isLetter(r) {
 		id := s.scanIdent()
-		kw, ok := keywords[id]
+		kw, ok := keywords[string(id)]
 		if ok {
 			switch kw {
 			case BREAK, CONTINUE, FALLTHROUGH, RETURN:
