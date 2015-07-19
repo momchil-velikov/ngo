@@ -260,7 +260,7 @@ type StructType struct {
 func (t StructType) typeSpec() {}
 
 type ParamDecl struct {
-	Name     string
+	Names    []string
 	Type     TypeSpec
 	Variadic bool
 }

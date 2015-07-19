@@ -423,10 +423,10 @@ type T9 func(n int) func(p *T)
 
 type T2 func()
 type T3 func(x int) int
-type T4 func(a int, _ int, z float32) bool
-type T5 func(a int, b int, z float32) bool
+type T4 func(a, _ int, z float32) bool
+type T5 func(a, b int, z float32) bool
 type T6 func(prefix string, values ...int)
-type T7 func(a int, b int, z float64, opt ...struct{}) (success bool)
+type T7 func(a, b int, z float64, opt ...struct{}) (success bool)
 type T8 func(int, int, float64) (float64, *[]int)
 type T9 func(n int) func(p *T)
 `
@@ -442,6 +442,81 @@ type T9 func(n int) func(p *T)
 	}
 }
 
+func TestParameters(tst *testing.T) {
+	// c1: t1
+	// c2: id1
+	// c3: id1 id2
+	// c4: id1 t2
+
+	src := []string{
+		"()",
+		/* c1 */ "([]int)", "(pkg.id)", "(... a)",
+		/* c2 */ "(a)",
+		/* c3 */ "(a b)", "(a ...b)",
+		/* c4 */ "(a []int)",
+		/* c1, c1 */ "([]int, []int)", "(pkg.id, []int)", "(...a, []int)",
+		/* c1, c2 */ "([]int, a)", "(pkg.id, a)",
+		/* c1, c3 */ "([]int, a b)", "(pkg.id, a b)",
+		/* c1, c4 */ "([]int, a []int)", "(pkg.id, a []int)", "(pkg.id, a pkg.id)",
+		/*        */ "([]int, a ...b)",
+		/* c2, c1 */ "(a, []int)", "(a, pkd.id)", "(a, ...b)",
+		/* c2, c2 */ "(a, b)", "(a, b, c)",
+		/* c2, c3 */ "(a, b c)",
+		/* c2, c4 */ "(a, b []int)", "(a, b pkg.id)", "(a, b ... c)",
+		/* c3, c1 */ "(a b, []int)", "(a b, pkg.id)", "(a b, ... c)",
+		/* c3, c2 */ "(a b, c)",
+		/* c3, c3 */ "(a b, c d)",
+		/* c3, c4 */ "(a b, c []int)", "(a b, c pkg.id)", "(a b, c ...d)",
+		/* c4, c1 */ "(a []int, []int)", "(a []int, pkg.id)", "(a pkg.id, []int)",
+		/*        */ "(a []int, ...b)", "(... a, []int)",
+		/* c4, c2 */ "(a []int, b)", "(a pkg.id, b)",
+		/* c4, c3 */ "(a []int, b c)", "(a pkg.id, b c)",
+		/* c4, c4 */ "(a []int, b []int)", "(a pkg.id, b []int)", "(a []int, b pkg.id)",
+		/*        */ "(a []int, b ...c)", "(a []int, b ...pkg.id)",
+	}
+
+	exp := []string{
+		"func()",
+		"func(_ []int)", "func(_ pkg.id)", "func(_ ...a)",
+		"func(_ a)",
+		"func(a b)", "func(a ...b)",
+		"func(a []int)",
+		"func(_ []int, _ []int)", "func(_ pkg.id, _ []int)", "func(_ ...a, _ []int)",
+		"func(_ []int, _ a)", "func(_ pkg.id, _ a)",
+		"func(_ []int, a b)", "func(_ pkg.id, a b)",
+		"func(_ []int, a []int)", "func(_ pkg.id, a []int)", "func(_ pkg.id, a pkg.id)",
+		"func(_ []int, a ...b)",
+		"func(_ a, _ []int)", "func(_ a, _ pkd.id)", "func(_ a, _ ...b)",
+		"func(_ a, _ b)", "func(_ a, _ b, _ c)",
+		"func(a, b c)",
+		"func(a, b []int)", "func(a, b pkg.id)", "func(a, b ...c)",
+		"func(a b, _ []int)", "func(a b, _ pkg.id)", "func(a b, _ ...c)",
+		"func(a b, _ c)",
+		"func(a b, c d)",
+		"func(a b, c []int)", "func(a b, c pkg.id)", "func(a b, c ...d)",
+		"func(a []int, _ []int)", "func(a []int, _ pkg.id)", "func(a pkg.id, _ []int)",
+		"func(a []int, _ ...b)", "func(_ ...a, _ []int)",
+		"func(a []int, _ b)", "func(a pkg.id, _ b)",
+		"func(a []int, b c)", "func(a pkg.id, b c)",
+		"func(a []int, b []int)", "func(a pkg.id, b []int)", "func(a []int, b pkg.id)",
+		"func(a []int, b ...c)", "func(a []int, b ...pkg.id)",
+	}
+
+	for i := range src {
+		P := parser{}
+		P.init("params.go", src[i])
+		s := P.parseSignature()
+		if P.errors == nil {
+			t := s.Format1(0)
+			if t != exp[i] {
+				tst.Error(t)
+			}
+		} else {
+			tst.Error(ErrorList(P.errors))
+		}
+	}
+}
+
 func TestFuncTypeError(tst *testing.T) {
 	src := `package foo
 type T1 func(uint
@@ -452,14 +527,13 @@ type T5 func (a, [4]*, c uint, d.)
 `
 	exp := `package foo
 
-type T1 func(uint)
-type T2 func(P.t, a func())
+type T1 func(uint <error>, a func())
 type T3 func(struct {
         a uint
         b
     }, ...struct{})
-type T4 func(a [4]*<error>, b [4]*<error>, c uint)
-type T5 func(a uint, [4]*<error>, c uint, d.)
+type T4 func(a, b [4]*<error>, c uint)
+type T5 func(a, [4]*<error>, c uint, d.)
 `
 	t, e := Parse("func-type-error.go", src)
 	if e != nil {
@@ -470,7 +544,6 @@ type T5 func(a uint, [4]*<error>, c uint, d.)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
-
 }
 
 func TestInterfaceType(tst *testing.T) {
@@ -698,12 +771,12 @@ func (r *T) i( a, b uint) (r0 []*X, r1 bool) {
 
 func f()
 func g() {}
-func h(a uint, b uint) bool
-func i(a uint, b uint) (r0 []*X, r1 bool)
+func h(a, b uint) bool
+func i(a, b uint) (r0 []*X, r1 bool)
 func (r T) f()
 func (r *T) g() {}
-func (*T) h(a uint, b uint) bool
-func (r *T) i(a uint, b uint) (r0 []*X, r1 bool) {}
+func (*T) h(a, b uint) bool
+func (r *T) i(a, b uint) (r0 []*X, r1 bool) {}
 `
 	t, e := Parse("func-decl.go", src)
 	if e != nil {
@@ -730,11 +803,9 @@ func () i( a,  uint) (r0 []*X r1 bool)
 
 	exp := `package foo
 
-func (func())
-func h(a, uint) bool
+func (func(), uint) bool
 func i(<error>, b uint) (r0 []*X)
-func (r T) f()
-func (*) h(<error>, b uint) bool
+func (r T) f(<error>) h
 func () i(a, uint) (r0 []*X)
 `
 

@@ -281,7 +281,7 @@ func foo(in, out chan int, ch chan (<-chan int), i int) {
 `
 	exp := `package main
 
-func foo(in chan int, out chan int, ch chan (<-chan int), i int) {
+func foo(in, out chan int, ch chan (<-chan int), i int) {
     out <- i
     out <- <-in
     ch <- (<-chan int)(in)

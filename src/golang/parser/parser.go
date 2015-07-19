@@ -22,6 +22,7 @@ func (p *parser) init(name string, src string) {
 	p.scan.Init(name, []byte(src))
 	p.level = 1
 	p.brackets = 1
+	p.next()
 }
 
 func (p *parser) beginBrackets() {
@@ -37,7 +38,6 @@ func Parse(name string, src string) (*ast.File, error) {
 	p := parser{}
 	p.init(name, src)
 
-	p.next()
 	f := p.parseFile()
 	if p.errors == nil {
 		return f, nil
@@ -142,20 +142,6 @@ func (p *parser) sync2(t1, t2 uint) {
 		p.expectError(t1, p.token)
 	}
 	for p.token != s.EOF && p.token != t1 && p.token != t2 {
-		p.next()
-	}
-	if p.token == t1 {
-		p.next()
-	}
-}
-
-// Skip tokens, until either T1, T2 or T3 token is found. Report an error
-// only if some tokens were skipped. Consume T1.
-func (p *parser) sync3(t1, t2, t3 uint) {
-	if p.token != t1 {
-		p.expectError(t1, p.token)
-	}
-	for p.token != s.EOF && p.token != t1 && p.token != t2 && p.token != t3 {
 		p.next()
 	}
 	if p.token == t1 {
@@ -406,7 +392,7 @@ func (p *parser) parseType() ast.TypeSpec {
 
 // TypeName = identifier | QualifiedIdent .
 func (p *parser) parseQualId() *ast.QualId {
-	pkg := string(p.matchString(s.ID))
+	pkg := p.matchString(s.ID)
 	var id string
 	if p.token == '.' {
 		p.next()
@@ -517,87 +503,77 @@ func (p *parser) parseSignature() *ast.FuncType {
 
 // Parameters    = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList = ParameterDecl { "," ParameterDecl } .
-func (p *parser) parseParameters() (ds []*ast.ParamDecl) {
+func (p *parser) parseParameters() []*ast.ParamDecl {
+	var (
+		ids []string
+		ds  []*ast.ParamDecl
+	)
 	p.match('(')
 	if p.token == ')' {
 		p.next()
 		return nil
 	}
-	for p.token != s.EOF && p.token != ')' && p.token != ';' {
-		d := p.parseParamDecl()
-		ds = append(ds, d...)
+	for p.token != s.EOF && p.token != ')' {
+		id, t, v := p.parseIdOrType()
+		if t != nil {
+			ds = appendParamTypes(ds, ids)
+			ds = append(ds, &ast.ParamDecl{Names: nil, Type: t, Variadic: v})
+			ids = nil
+		} else {
+			ids = append(ids, id)
+			if p.token != ',' && p.token != ')' {
+				id, t, v = p.parseIdOrType()
+				if t == nil {
+					t = &ast.QualId{Pkg: "", Id: id}
+				}
+				ds = append(ds, &ast.ParamDecl{Names: ids, Type: t, Variadic: v})
+				ids = nil
+			}
+		}
 		if p.token != ')' {
-			p.sync3(',', ')', ';')
+			p.sync2(',', ')')
 		}
 	}
+	ds = appendParamTypes(ds, ids)
 	p.match(')')
 	return ds
 }
 
-// Parse an identifier or a type.  Return a param decl with filled either the
-// parameter name or the parameter type, depending upon what was parsed.
-func (p *parser) parseIdOrType() *ast.ParamDecl {
+// Parses an identifier or a type. A qualified identifier is considered a
+// type.
+func (p *parser) parseIdOrType() (string, ast.TypeSpec, bool) {
 	if p.token == s.ID {
 		id := p.matchString(s.ID)
 		if p.token == '.' {
 			p.next()
-			name := p.matchString(s.ID)
-			return &ast.ParamDecl{Type: &ast.QualId{id, name}}
-			// Fallthrough as if the dot wasn't there.
-		}
-		return &ast.ParamDecl{Name: id}
-	} else {
-		v := false
-		if p.token == s.DOTS {
-			p.next()
-			v = true
-		}
-		t := p.parseType() // FIXME: parenthesized types not allowed
-		return &ast.ParamDecl{Type: t, Variadic: v}
-	}
-}
-
-// Parse a list of (qualified) identifiers or types.
-func (p *parser) parseIdOrTypeList() (ps []*ast.ParamDecl) {
-	for {
-		ps = append(ps, p.parseIdOrType())
-		if p.token != ',' {
-			break
-		}
-		p.next()
-	}
-	return ps
-}
-
-// ParameterDecl = [ IdentifierList ] [ "..." ] Type .
-func (p *parser) parseParamDecl() (ps []*ast.ParamDecl) {
-	ps = p.parseIdOrTypeList()
-	if p.token == ')' || /* missing closing paren */ p.token == ';' || p.token == '{' {
-		// No type follows, then all the decls must be types.
-		for _, d := range ps {
-			if d.Type == nil {
-				d.Type = &ast.QualId{"", d.Name}
-				d.Name = ""
+			pkg := id
+			if p.token == s.ID {
+				id = p.matchString(s.ID)
+			} else {
+				p.error("incomplete qualified id")
+				id = ""
 			}
+			return "", &ast.QualId{Pkg: pkg, Id: id}, false
 		}
-		return ps
+		return id, nil, false
 	}
-	// Otherwise, all the list elements must be identifiers, followed by a type.
 	v := false
 	if p.token == s.DOTS {
 		p.next()
 		v = true
 	}
-	t := p.parseType()
-	for _, d := range ps {
-		if d.Type == nil {
-			d.Type = t
-			d.Variadic = v
-		} else {
-			p.error("Invalid parameter list") // FIXME: more specific message
-		}
+	t := p.parseType() // FIXME: parenthesized types not allowed
+	return "", t, v
+}
+
+// Converts an identifier list to a list of parameter declarations, taking
+// each identifier to be a type name.
+func appendParamTypes(ds []*ast.ParamDecl, ids []string) []*ast.ParamDecl {
+	for i := range ids {
+		t := &ast.QualId{Id: ids[i]}
+		ds = append(ds, &ast.ParamDecl{Names: nil, Type: t, Variadic: false})
 	}
-	return ps
+	return ds
 }
 
 // InterfaceType      = "interface" "{" { MethodSpec ";" } "}" .

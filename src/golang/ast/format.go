@@ -157,7 +157,7 @@ func (f *FuncDecl) Format(n uint) string {
 	if f.Recv != nil {
 		s += " " + f.Recv.Format(0)
 	}
-	s += " " + f.Name + formatSignature(f.Sig, n)
+	s += " " + f.Name + formatSignature(f.Sig, n, false)
 	if f.Body != nil {
 		return s + " " + f.Body.Format(n)
 	} else {
@@ -257,46 +257,59 @@ func formatIdList(id []string) (s string) {
 	return s
 }
 
-func (t *FuncType) Format(n uint) string {
-	return "func" + formatSignature(t, n)
+func (t *FuncType) Format1(n uint) string {
+	return "func" + formatSignature(t, n, true)
 }
 
-func formatSignature(t *FuncType, n uint) (s string) {
+func (t *FuncType) Format(n uint) string {
+	return "func" + formatSignature(t, n, false)
+}
+
+func formatSignature(t *FuncType, n uint, anon bool) (s string) {
 	k := len(t.Params)
 	if k == 0 {
 		s = "()"
 	} else {
-		s = "(" + formatParams(t.Params, n) + ")"
+		s = "(" + formatParams(t.Params, n, anon) + ")"
 	}
 
 	k = len(t.Returns)
-	if k == 1 && len(t.Returns[0].Name) == 0 {
-		s += " " + t.Returns[0].Type.Format(n+1)
+	if k == 1 && len(t.Returns[0].Names) == 0 {
+		s += " " + t.Returns[0].Type.Format(n)
 	} else if k > 0 {
-		s += " (" + formatParams(t.Returns, n) + ")"
+		s += " (" + formatParams(t.Returns, n, false) + ")"
 	}
 	return
 }
 
-func formatParams(p []*ParamDecl, n uint) (s string) {
-	if len(p[0].Name) > 0 {
-		s += p[0].Name + " "
+func formatParams(ps []*ParamDecl, n uint, anon bool) string {
+	s := ps[0].formatInternal(0, anon)
+	for i := 1; i < len(ps); i++ {
+		s += ", " + ps[i].formatInternal(0, anon)
 	}
-	if p[0].Variadic {
+	return s
+}
+
+func (p *ParamDecl) Format(n uint) string {
+	return p.formatInternal(n, true)
+}
+
+func (p *ParamDecl) formatInternal(n uint, anon bool) string {
+	s := ""
+	if p.Names != nil {
+		s += p.Names[0]
+		for i := 1; i < len(p.Names); i++ {
+			s += ", " + p.Names[i]
+		}
+		s += " "
+	} else if anon {
+		s += "_ "
+	}
+	if p.Variadic {
 		s += "..."
 	}
-	s += p[0].Type.Format(n + 1)
-	for i, k := 1, len(p); i < k; i++ {
-		s += ", "
-		if len(p[i].Name) > 0 {
-			s += p[i].Name + " "
-		}
-		if p[i].Variadic {
-			s += "..."
-		}
-		s += p[i].Type.Format(n + 1)
-	}
-	return
+	s += p.Type.Format(n + 1)
+	return s
 }
 
 func (t *InterfaceType) Format(n uint) string {
@@ -309,7 +322,7 @@ func (t *InterfaceType) Format(n uint) string {
 		s += ind + e.Format(n+1)
 	}
 	for _, m := range t.Methods {
-		s += ind + m.Name + formatSignature(m.Sig, n+1)
+		s += ind + m.Name + formatSignature(m.Sig, n+1, false)
 	}
 	s += "\n" + indent(n) + "}"
 	return s
