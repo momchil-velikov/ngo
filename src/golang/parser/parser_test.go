@@ -275,24 +275,39 @@ type b []*[3]map[*int]bar.T
 }
 
 func TestChanType(tst *testing.T) {
-	src := `package foo
-
-type a chan int
-type b <-chan uint
-type c chan<- float32
-type d chan<- chan uint
-type e <-chan chan map[uint][]float64
-type f chan (<-chan uint)
-type g chan<- <-chan uint
-`
-	t, e := Parse("chan-type.go", src)
-	if e != nil {
-		tst.Error(e)
+	src := []string{
+		"chan int",
+		"<- chan uint",
+		"chan <- float32",
+		"chan <- chan uint",
+		"<-chan chan map[uint][]float64",
+		"chan <- chan uint",
+		"chan (<- chan uint)",
+		"chan <- <- chan uint",
+	}
+	exp := []string{
+		"chan int",
+		"<-chan uint",
+		"chan<- float32",
+		"chan<- chan uint",
+		"<-chan chan map[uint][]float64",
+		"chan<- chan uint",
+		"chan (<-chan uint)",
+		"chan<- <-chan uint",
 	}
 
-	f := t.Format()
-	if f != src {
-		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	for i := range src {
+		P := parser{}
+		P.init("chan-type.go", src[i])
+		s := P.parseType()
+		if P.errors == nil {
+			t := s.Format(0)
+			if t != exp[i] {
+				tst.Error(t)
+			}
+		} else {
+			tst.Error(ErrorList(P.errors))
+		}
 	}
 }
 
