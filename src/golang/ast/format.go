@@ -2,746 +2,791 @@ package ast
 
 import (
 	//    "fmt"
+	"bytes"
 	s "golang/scanner"
+	"io"
 )
-
-type Formatter interface {
-	Format(uint) string
-}
 
 const indentStr = "    "
 
-// Return a string for N levels of indentation.
-func indent(n uint) (s string) {
-	for i := uint(0); i < n; i++ {
-		s += indentStr
-	}
+type FormatContext struct {
+	buf  bytes.Buffer
+	anon bool // output _ for annonymous parameters
+}
+
+// Initializes a format context.
+func (ctx *FormatContext) Init() *FormatContext {
+	ctx.buf = bytes.Buffer{}
+	ctx.anon = false
+	return ctx
+}
+
+func (ctx *FormatContext) EmitAnnonymousParams(b bool) (r bool) {
+	ctx.anon, r = b, ctx.anon
 	return
 }
 
-// Output a formatted source file.
-func (f *File) Format() (s string) {
-	s = "package " + f.PackageName + "\n"
+// Writes the internal buffer to an `io.Writer`
+func (ctx *FormatContext) Flush(w io.Writer) (int, error) {
+	return w.Write(ctx.buf.Bytes())
+}
+
+// Gets the internal buffer contents as a string.
+func (ctx *FormatContext) String() string {
+	return ctx.buf.String()
+}
+
+// Appends a byte slice to the internal buffer.
+func (ctx *FormatContext) Write(b []byte) (int, error) {
+	return ctx.buf.Write(b)
+}
+
+// Appends s tring to the internal buffer.
+func (ctx *FormatContext) WriteString(s string) (int, error) {
+	return ctx.buf.WriteString(s)
+}
+
+// Append bytes to the internal buffer ina variety of methods.
+func (ctx *FormatContext) WriteV(n uint, args ...interface{}) {
+	for _, a := range args {
+		switch v := a.(type) {
+		case string:
+			ctx.buf.WriteString(v)
+		case []byte:
+			ctx.buf.Write(v)
+		case func():
+			v()
+		case func(uint):
+			v(n)
+		case func(*FormatContext, uint):
+			v(ctx, n)
+		default:
+			panic("invalid argument type")
+		}
+	}
+}
+
+// Appends whitespace for `n` levels in indentation to the internal buffer.
+func (ctx *FormatContext) Indent(n uint) {
+	for i := uint(0); i < n; i++ {
+		ctx.buf.WriteString(indentStr)
+	}
+}
+
+// Formats a source file.
+func (f *File) Format(ctx *FormatContext) string {
+	ctx.WriteV(0, "package ", f.PackageName, "\n")
 
 	if len(f.Imports) > 0 {
 		if len(f.Imports) == 1 {
-			s += "\nimport " + f.Imports[0].Format(0)
+			ctx.WriteV(0, "\nimport ", f.Imports[0].Format)
 		} else {
-			s += "\nimport ("
+			ctx.WriteString("\nimport (")
 			for _, i := range f.Imports {
-				s += "\n" + indent(1) + i.Format(0)
+				ctx.WriteV(0, "\n", indentStr, i.Format)
 			}
-			s += "\n)"
+			ctx.WriteString("\n)")
 		}
 	}
 
 	for _, d := range f.Decls {
-		s += "\n" + d.Format(0)
+		ctx.WriteString("\n")
+		d.Format(ctx, 0)
 	}
 
-	return s + "\n"
+	ctx.WriteString("\n")
+
+	return ctx.String()
 }
 
-// Output formatted import clause with N levels of indentation.
-func (i *Import) Format(n uint) (s string) {
+// Formats an import clause with N levels of indentation.
+func (i *Import) Format(ctx *FormatContext, _ uint) {
 	if len(i.Name) > 0 {
-		s += i.Name + " "
+		ctx.WriteV(0, i.Name, " ")
 	}
-	s += string(i.Path)
-	return s
+	ctx.Write(i.Path)
 }
 
-// Output error node
-func (e *Error) Format(n uint) string {
-	return "<error>"
+// Formats an error node
+func (e *Error) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString("<error>")
 }
 
-// Output a formatted type group declaration
-func (c *TypeGroup) Format(n uint) string {
-	s := "type ("
+// Formats a group type declaration
+func (c *TypeGroup) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("type (")
 	for _, d := range c.Decls {
-		s += "\n" + indent(n+1) + d.formatInternal(n+1, true)
+		ctx.WriteString("\n")
+		ctx.Indent(n + 1)
+		d.formatInternal(ctx, n+1, true)
 	}
-	s += "\n" + indent(n) + ")"
-	return s
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
 }
 
-// Output a formatted type declaration.
-func (t *TypeDecl) Format(n uint) string {
-	return t.formatInternal(n, false)
+// Formats a type declaration.
+func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
+	t.formatInternal(ctx, n, false)
 }
 
-func (t *TypeDecl) formatInternal(n uint, group bool) (s string) {
+func (t *TypeDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
 	if !group {
-		s += "type "
+		ctx.WriteString("type ")
 	}
-	s += t.Name + " " + t.Type.Format(n)
-	return
+	ctx.WriteV(n, t.Name, " ", t.Type.Format)
 }
 
-// Output a formatted constant group declaration
-func (c *ConstGroup) Format(n uint) string {
-	s := "const ("
-	ind := "\n" + indent(n+1)
+// Formats a group constant declaration
+func (c *ConstGroup) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("const (")
 	for _, d := range c.Decls {
-		s += ind + d.formatInternal(n+1, true)
+		ctx.WriteV(n+1, "\n", ctx.Indent)
+		d.formatInternal(ctx, n+1, true)
 	}
-	s += "\n" + indent(n) + ")"
-	return s
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
 }
 
-// Output a formatted constant declaration.
-func (c *ConstDecl) Format(n uint) string {
-	return c.formatInternal(n, false)
+// Formats a constant declaration.
+func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
+	c.formatInternal(ctx, n, false)
 }
 
-func (c *ConstDecl) formatInternal(n uint, group bool) (s string) {
+func (c *ConstDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
 	if !group {
-		s += "const "
+		ctx.WriteString("const ")
 	}
-	s += c.Names[0]
+	ctx.WriteString(c.Names[0])
 	for i := 1; i < len(c.Names); i++ {
-		s += ", " + c.Names[i]
+		ctx.WriteV(0, ", ", c.Names[i])
 	}
 	if c.Type != nil {
-		s += " " + c.Type.Format(n+1)
+		ctx.WriteString(" ")
+		c.Type.Format(ctx, n+1)
 	}
 	if k := len(c.Values); k > 0 {
-		s += " = " + c.Values[0].Format(n+1)
+		ctx.WriteString(" = ")
+		c.Values[0].Format(ctx, n+1)
 		for i := 1; i < k; i++ {
-			s += ", " + c.Values[i].Format(n+1)
+			ctx.WriteString(", ")
+			c.Values[i].Format(ctx, n+1)
 		}
 	}
-	return s
 }
 
-// Output a formatted variable group declaration
-func (c *VarGroup) Format(n uint) string {
-	s := "var ("
-	ind := "\n" + indent(n+1)
+// Formats a group variable declaration.
+func (c *VarGroup) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("var (")
 	for _, d := range c.Decls {
-		s += ind + d.formatInternal(n+1, true)
+		ctx.WriteV(n+1, "\n", ctx.Indent)
+		d.formatInternal(ctx, n+1, true)
 	}
-	s += "\n" + indent(n) + ")"
-	return s
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
 }
 
-// Output a formatted variable declaration.
-func (c *VarDecl) Format(n uint) string {
-	return c.formatInternal(n, false)
+// Formats a variable declaration.
+func (c *VarDecl) Format(ctx *FormatContext, n uint) {
+	c.formatInternal(ctx, n, false)
 }
 
-func (c *VarDecl) formatInternal(n uint, group bool) (s string) {
+func (c *VarDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
 	if !group {
-		s += "var "
+		ctx.WriteString("var ")
 	}
-	s += c.Names[0]
+	ctx.WriteString(c.Names[0])
 	for i := 1; i < len(c.Names); i++ {
-		s += ", " + c.Names[i]
+		ctx.WriteV(0, ", ", c.Names[i])
 	}
 	if c.Type != nil {
-		s += " " + c.Type.Format(n+1)
+		ctx.WriteString(" ")
+		c.Type.Format(ctx, n+1)
 	}
 	if k := len(c.Init); k > 0 {
-		s += " = " + c.Init[0].Format(n+1)
+		ctx.WriteString(" = ")
+		c.Init[0].Format(ctx, n+1)
 		for i := 1; i < k; i++ {
-			s += ", " + c.Init[i].Format(n+1)
+			ctx.WriteString(", ")
+			c.Init[i].Format(ctx, n+1)
 		}
 	}
-	return s
 }
 
-// Output a formatted function declaration.
-func (f *FuncDecl) Format(n uint) string {
-	s := "func"
+// Formats a function declaration.
+func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("func")
 	if f.Recv != nil {
-		s += " " + f.Recv.Format(0)
+		ctx.WriteString(" ")
+		f.Recv.Format(ctx, 0)
 	}
-	s += " " + f.Name + formatSignature(f.Sig, n, false)
+	ctx.WriteV(0, " ", f.Name)
+	formatSignature(ctx, f.Sig, n)
 	if f.Body != nil {
-		return s + " " + f.Body.Format(n)
-	} else {
-		return s
+		ctx.WriteString(" ")
+		f.Body.Format(ctx, n)
 	}
 }
 
-// Output a formatted method receiver.
-func (r *Receiver) Format(n uint) string {
-	s := "("
+// Formats a method receiver.
+func (r *Receiver) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("(")
 	if len(r.Name) > 0 {
-		s += r.Name + " "
+		ctx.WriteV(0, r.Name, " ")
 	}
-	return s + r.Type.Format(n+1) + ")"
+	r.Type.Format(ctx, n+1)
+	ctx.WriteString(")")
 }
 
-// Output a formatted type.
-func (t *QualId) Format(n uint) (s string) {
+//
+// Formats types.
+//
+func (t *QualId) Format(ctx *FormatContext, n uint) {
 	if len(t.Pkg) > 0 {
-		s += t.Pkg + "."
+		ctx.WriteV(0, t.Pkg, ".")
 	}
-	s += t.Id
-	return
+	ctx.WriteString(t.Id)
 }
 
-func (t *ArrayType) Format(n uint) (s string) {
+func (t *ArrayType) Format(ctx *FormatContext, n uint) {
 	if t.Dim == nil {
-		s = "[...]"
+		ctx.WriteString("[...]")
 	} else {
-		s = "[" + t.Dim.Format(n+1) + "]"
+		ctx.WriteV(n+1, "[", t.Dim.Format, "]")
 	}
-	s += t.EltType.Format(n)
-	return
+	t.EltType.Format(ctx, n)
 }
 
-func (t *SliceType) Format(n uint) (s string) {
-	return "[]" + t.EltType.Format(n)
+func (t *SliceType) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("[]")
+	t.EltType.Format(ctx, n)
 }
 
-func (t *PtrType) Format(n uint) string {
-	return "*" + t.Base.Format(n)
+func (t *PtrType) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("*")
+	t.Base.Format(ctx, n)
 }
 
-func (t *MapType) Format(n uint) string {
-	return "map[" + t.KeyType.Format(0) + "]" + t.EltType.Format(n)
+func (t *MapType) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, "map[", t.KeyType.Format, "]", t.EltType.Format)
 }
 
-func (t *ChanType) Format(n uint) (s string) {
-	if !t.Send {
-		s += "<-"
+func (t *ChanType) Format(ctx *FormatContext, n uint) {
+	if t.Send {
+		ctx.WriteString("chan")
+	} else {
+		ctx.WriteString("<-chan")
 	}
-	s += "chan"
 	if !t.Recv {
-		s += "<- " + t.EltType.Format(n)
+		ctx.WriteString("<- ")
+		t.EltType.Format(ctx, n)
 	} else if ch, ok := t.EltType.(*ChanType); ok && !ch.Send {
-		s += " (" + ch.Format(n) + ")"
+		ctx.WriteV(n, " (", ch.Format, ")")
 	} else {
-		s += " " + t.EltType.Format(n)
+		ctx.WriteString(" ")
+		t.EltType.Format(ctx, n)
 	}
-	return
 }
 
-func (t *StructType) Format(n uint) string {
+func (t *StructType) Format(ctx *FormatContext, n uint) {
 	if len(t.Fields) == 0 {
-		return "struct{}"
-	}
-	sp := indent(n)
-	sp1 := indent(n + 1)
-	s := "struct {\n"
-	for _, f := range t.Fields {
-		s += sp1
-		s += formatIdList(f.Names)
-		s += f.Type.Format(n + 1)
-		if f.Tag != nil {
-			s += " " + string(f.Tag)
-		}
-		s += "\n"
-
-	}
-	s += sp + "}"
-	return s
-}
-
-func formatIdList(id []string) (s string) {
-	n := len(id)
-	for i, nm := range id {
-		if len(nm) > 0 {
-			s += nm
-			if i+1 < n {
-				s += ", "
-			}
-		}
-	}
-	if len(s) > 0 {
-		s += " "
-	}
-	return s
-}
-
-func (t *FuncType) Format1(n uint) string {
-	return "func" + formatSignature(t, n, true)
-}
-
-func (t *FuncType) Format(n uint) string {
-	return "func" + formatSignature(t, n, false)
-}
-
-func formatSignature(t *FuncType, n uint, anon bool) (s string) {
-	k := len(t.Params)
-	if k == 0 {
-		s = "()"
+		ctx.WriteString("struct{}")
 	} else {
-		s = "(" + formatParams(t.Params, n, anon) + ")"
-	}
-
-	k = len(t.Returns)
-	if k == 1 && len(t.Returns[0].Names) == 0 {
-		s += " " + t.Returns[0].Type.Format(n)
-	} else if k > 0 {
-		s += " (" + formatParams(t.Returns, n, false) + ")"
-	}
-	return
-}
-
-func formatParams(ps []*ParamDecl, n uint, anon bool) string {
-	s := ps[0].formatInternal(0, anon)
-	for i := 1; i < len(ps); i++ {
-		s += ", " + ps[i].formatInternal(0, anon)
-	}
-	return s
-}
-
-func (p *ParamDecl) Format(n uint) string {
-	return p.formatInternal(n, true)
-}
-
-func (p *ParamDecl) formatInternal(n uint, anon bool) string {
-	s := ""
-	if p.Names != nil {
-		s += p.Names[0]
-		for i := 1; i < len(p.Names); i++ {
-			s += ", " + p.Names[i]
+		ctx.WriteString("struct {\n")
+		for _, f := range t.Fields {
+			ctx.Indent(n + 1)
+			if m := len(f.Names); m > 0 {
+				ctx.WriteString(f.Names[0])
+				for i := 1; i < m; i++ {
+					ctx.WriteV(0, ", ", f.Names[i])
+				}
+				ctx.WriteString(" ")
+			}
+			f.Type.Format(ctx, n+1)
+			if f.Tag != nil {
+				ctx.WriteV(0, " ", f.Tag)
+			}
+			ctx.WriteString("\n")
 		}
-		s += " "
-	} else if anon {
-		s += "_ "
+		ctx.Indent(n)
+		ctx.WriteString("}")
+	}
+}
+
+func (t *FuncType) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("func")
+	formatSignature(ctx, t, n)
+}
+
+func formatSignature(ctx *FormatContext, t *FuncType, n uint) {
+	formatParams(ctx, t.Params, n)
+
+	k := len(t.Returns)
+	if k > 0 {
+		ctx.WriteString(" ")
+	}
+	if k == 1 && len(t.Returns[0].Names) == 0 {
+		t.Returns[0].Type.Format(ctx, n)
+	} else if k > 0 {
+		formatParams(ctx, t.Returns, n)
+	}
+}
+
+func formatParams(ctx *FormatContext, ps []*ParamDecl, n uint) {
+	ctx.WriteString("(")
+	if len(ps) > 0 {
+		ps[0].Format(ctx, 0)
+		for i := 1; i < len(ps); i++ {
+			ctx.WriteString(", ")
+			ps[i].Format(ctx, 0)
+		}
+	}
+	ctx.WriteString(")")
+}
+
+func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
+	if m := len(p.Names); m > 0 {
+		ctx.WriteString(p.Names[0])
+		for i := 1; i < m; i++ {
+			ctx.WriteV(0, ", ", p.Names[i])
+		}
+		ctx.WriteString(" ")
+	} else if ctx.anon {
+		ctx.WriteString("_ ")
 	}
 	if p.Variadic {
-		s += "..."
+		ctx.WriteString("...")
 	}
-	s += p.Type.Format(n + 1)
-	return s
+	p.Type.Format(ctx, n+1)
 }
 
-func (t *InterfaceType) Format(n uint) string {
+func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 	if len(t.Embed) == 0 && len(t.Methods) == 0 {
-		return "interface{}"
+		ctx.WriteString("interface{}")
+	} else {
+		ctx.WriteString("interface {")
+		for _, e := range t.Embed {
+			ctx.WriteV(n+1, "\n", ctx.Indent, e.Format)
+		}
+		for _, m := range t.Methods {
+			ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
+			formatSignature(ctx, m.Sig, n+1)
+		}
+		ctx.WriteV(n, "\n", ctx.Indent, "}")
 	}
-	s := "interface {"
-	ind := "\n" + indent(n+1)
-	for _, e := range t.Embed {
-		s += ind + e.Format(n+1)
-	}
-	for _, m := range t.Methods {
-		s += ind + m.Name + formatSignature(m.Sig, n+1, false)
-	}
-	s += "\n" + indent(n) + "}"
-	return s
 }
 
-// Output a formatted expression
-func (e *Literal) Format(n uint) string {
+//
+// Format expressions.
+//
+func (e *Literal) Format(ctx *FormatContext, _ uint) {
 	switch e.Kind {
 	case s.INTEGER, s.FLOAT:
-		return string(e.Value)
+		ctx.Write(e.Value)
 	case s.RUNE:
-		return "'" + string(e.Value) + "'"
+		ctx.WriteV(0, "'", e.Value, "'")
 	case s.IMAGINARY:
-		return string(e.Value) + "i"
+		ctx.WriteV(0, e.Value, "i")
 	case s.STRING:
-		return string(e.Value)
+		ctx.Write(e.Value)
 	default:
 		panic("invalid literal")
 	}
 }
 
-func (e *TypeAssertion) Format(n uint) (s string) {
-	s = e.Arg.Format(n)
+func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 	switch e.Arg.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		s = "(" + s + ")"
+		ctx.WriteV(n, "(", e.Arg.Format, ")")
+	default:
+		e.Arg.Format(ctx, n)
 	}
-	var t string
 	if e.Type == nil {
-		t = "type"
+		ctx.WriteString(".(type)")
 	} else {
-		t = e.Type.Format(n)
+		ctx.WriteV(n, ".(", e.Type.Format, ")")
 	}
-	s += ".(" + t + ")"
-	return
 }
 
-func (e *Selector) Format(n uint) (s string) {
-	s = e.Arg.Format(n)
+func (e *Selector) Format(ctx *FormatContext, n uint) {
 	switch e.Arg.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		s = "(" + s + ")"
+		ctx.WriteV(n, "(", e.Arg.Format, ")")
+	default:
+		e.Arg.Format(ctx, n)
 	}
-	s += "." + e.Id
-	return
+	ctx.WriteV(0, ".", e.Id)
 }
 
-func (e *IndexExpr) Format(n uint) (s string) {
-	s = e.Array.Format(n)
+func (e *IndexExpr) Format(ctx *FormatContext, n uint) {
 	switch e.Array.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		s = "(" + s + ")"
+		ctx.WriteV(n, "(", e.Array.Format, ")")
+	default:
+		e.Array.Format(ctx, n)
 	}
-	s += "[" + e.Idx.Format(n) + "]"
-	return
+	ctx.WriteV(n, "[", e.Idx.Format, "]")
 }
 
-func (e *SliceExpr) Format(n uint) (s string) {
-	s = e.Array.Format(n)
+func (e *SliceExpr) Format(ctx *FormatContext, n uint) {
 	switch e.Array.(type) {
+
 	case *UnaryExpr, *BinaryExpr:
-		s = "(" + s + ")"
+		ctx.WriteV(n, "(", e.Array.Format, ")")
+	default:
+		e.Array.Format(ctx, n)
 	}
-	s += "["
+	ctx.WriteString("[")
 	if e.Low != nil {
-		s += e.Low.Format(n) + " :"
+		e.Low.Format(ctx, n)
+		ctx.WriteString(" :")
 	} else {
-		s += ":"
+		ctx.WriteString(":")
 	}
 	if e.High != nil {
-		s += " " + e.High.Format(n)
+		ctx.WriteString(" ")
+		e.High.Format(ctx, n)
 	}
 	if e.Cap != nil {
-		s += " : " + e.Cap.Format(n)
+		ctx.WriteString(" : ")
+		e.Cap.Format(ctx, n)
 	}
-	s += "]"
-	return
+	ctx.WriteString("]")
 }
 
-func (e *MethodExpr) Format(n uint) string {
-	return "(" + e.Type.Format(n) + ")." + e.Id
+func (e *MethodExpr) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, "(", e.Type.Format, ").", e.Id)
 }
 
-func (e *CompLiteral) Format(n uint) (s string) {
+func (e *CompLiteral) Format(ctx *FormatContext, n uint) {
 	if e.Type != nil {
-		s = e.Type.Format(n)
+		e.Type.Format(ctx, n)
 	}
-	s += "{"
+	ctx.WriteString("{")
 	m := len(e.Elts)
-	for i, elt := range e.Elts {
-		s += elt.format()
-		if i+1 < m {
-			s += ", "
+	if m > 0 {
+		e.Elts[0].format(ctx)
+		for i := 1; i < m; i++ {
+			ctx.WriteString(", ")
+			e.Elts[i].format(ctx)
 		}
 	}
-	s += "}"
-	return
+	ctx.WriteString("}")
 }
 
-func (e *Element) format() (s string) {
+func (e *Element) format(ctx *FormatContext) {
 	if e.Key != nil {
-		s = e.Key.Format(0) + ": "
+		e.Key.Format(ctx, 0)
+		ctx.WriteString(": ")
 	}
-	s += e.Value.Format(0)
-	return
+	e.Value.Format(ctx, 0)
 }
 
-func (e *Conversion) Format(n uint) (s string) {
-	s = e.Type.Format(n)
+func (e *Conversion) Format(ctx *FormatContext, n uint) {
 	switch f := e.Type.(type) {
 	case *FuncType:
 		if len(f.Returns) == 0 {
-			s = "(" + s + ")"
+			ctx.WriteV(n, "(", e.Type.Format, ")")
+		} else {
+			e.Type.Format(ctx, n)
 		}
 	case *PtrType, *ChanType:
-		s = "(" + s + ")"
+		ctx.WriteV(n, "(", e.Type.Format, ")")
+	default:
+		e.Type.Format(ctx, n)
 	}
-	s += "(" + e.Arg.Format(n) + ")"
-	return
+	ctx.WriteV(n, "(", e.Arg.Format, ")")
 }
 
-func (e *Call) Format(n uint) string {
-	s := e.Func.Format(n)
+func (e *Call) Format(ctx *FormatContext, n uint) {
+	e.Func.Format(ctx, n)
 	if e.Type == nil && len(e.Args) == 0 {
-		return s + "()"
-	}
-	var nargs = len(e.Args)
-	s += "("
-	if e.Type != nil {
-		s += e.Type.Format(n)
+		ctx.WriteString("()")
+	} else {
+		var nargs = len(e.Args)
+		ctx.WriteString("(")
+		if e.Type != nil {
+			e.Type.Format(ctx, n)
+			if nargs > 0 {
+				ctx.WriteString(", ")
+			}
+		}
 		if nargs > 0 {
-			s += ", "
+			e.Args[0].Format(ctx, n)
+			for i := 1; i < nargs; i++ {
+				ctx.WriteString(", ")
+				e.Args[i].Format(ctx, n)
+			}
 		}
+		if e.Ellipsis {
+			ctx.WriteString("...")
+		}
+		ctx.WriteString(")")
 	}
-	for i := 0; i+1 < nargs; i++ {
-		s += e.Args[i].Format(n) + ", "
-	}
-	if nargs > 0 {
-		s += e.Args[nargs-1].Format(n)
-	}
-	if e.Ellipsis {
-		s += "..."
-	}
-	s += ")"
-	return s
 }
 
-func (e *FuncLiteral) Format(n uint) string {
-	return e.Sig.Format(n) + " " + e.Body.Format(n)
+func (e *FuncLiteral) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, e.Sig.Format, " ", e.Body.Format)
 }
 
-func (e *UnaryExpr) Format(n uint) string {
-	return s.TokenNames[e.Op] + e.Arg.Format(n)
+func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString(s.TokenNames[e.Op])
+	e.Arg.Format(ctx, n)
 }
 
-func (e *BinaryExpr) Format(n uint) string {
-	var a0, a1 string
+func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 	prec := opPrec[e.Op]
-	if ex, ok := e.Arg0.(*BinaryExpr); ok {
-		if opPrec[ex.Op] < prec {
-			a0 = "(" + ex.Format(n) + ")"
-		} else {
-			a0 = ex.Format(n)
-		}
+	if ex, ok := e.Arg0.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
+		ctx.WriteV(n, "(", ex.Format, ")")
 	} else {
-		a0 = e.Arg0.Format(n)
+		e.Arg0.Format(ctx, n)
 	}
-	if ex, ok := e.Arg1.(*BinaryExpr); ok {
-		if opPrec[ex.Op] < prec {
-			a1 = "(" + ex.Format(n) + ")"
-		} else {
-			a1 = ex.Format(n)
-		}
+	ctx.WriteV(0, " ", s.TokenNames[e.Op], " ")
+	if ex, ok := e.Arg1.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
+		ctx.WriteV(n, "(", ex.Format, ")")
 	} else {
-		a1 = e.Arg1.Format(n)
+		e.Arg1.Format(ctx, n)
 	}
-	return a0 + " " + s.TokenNames[e.Op] + " " + a1
 }
 
-// Output a formatted block
-func (b *Block) Format(n uint) string {
-	s := "{"
-	sp := "\n" + indent(n+1)
+func (b *Block) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("{")
 	empty := true
 	for i := range b.Stmts {
 		if _, ok := b.Stmts[i].(*EmptyStmt); !ok {
 			empty = false
-			s += sp + b.Stmts[i].Format(n+1)
+			ctx.WriteV(n+1, "\n", ctx.Indent, b.Stmts[i].Format)
 		}
 	}
 	if empty {
-		return s + "}"
+		ctx.WriteString("}")
 	} else {
-		return s + "\n" + indent(n) + "}"
+		ctx.WriteV(n, "\n", ctx.Indent, "}")
 	}
 }
 
-func (e *EmptyStmt) Format(n uint) string {
-	return ""
+func (e *EmptyStmt) Format(_ *FormatContext, _ uint) {
 }
 
-func (g *GoStmt) Format(n uint) string {
-	return "go " + g.Ex.Format(0)
+func (g *GoStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("go ")
+	g.Ex.Format(ctx, n)
 }
 
-func (r *ReturnStmt) Format(n uint) string {
-	s := "return"
+func (r *ReturnStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("return")
 	if len(r.Exs) > 0 {
-		s += " "
-		for i := range r.Exs {
-			s += r.Exs[i].Format(0)
-			if i+1 < len(r.Exs) {
-				s += ", "
-			}
+		ctx.WriteString(" ")
+		r.Exs[0].Format(ctx, n)
+		for i := 1; i < len(r.Exs); i++ {
+			ctx.WriteString(", ")
+			r.Exs[i].Format(ctx, n)
 		}
 	}
-	return s
 }
 
-func (b *BreakStmt) Format(n uint) string {
-	if len(b.Label) == 0 {
-		return "break"
-	} else {
-		return "break " + b.Label
+func (b *BreakStmt) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString("break")
+	if len(b.Label) > 0 {
+		ctx.WriteV(0, " ", b.Label)
 	}
 }
 
-func (c *ContinueStmt) Format(n uint) string {
-	if len(c.Label) == 0 {
-		return "continue"
-	} else {
-		return "continue " + c.Label
+func (c *ContinueStmt) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString("continue")
+	if len(c.Label) > 0 {
+		ctx.WriteV(0, " ", c.Label)
 	}
 }
 
-func (b *GotoStmt) Format(n uint) string {
-	return "goto " + b.Label
+func (b *GotoStmt) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteV(0, "goto ", b.Label)
 }
 
-func (b *FallthroughStmt) Format(n uint) string {
-	return "fallthrough"
+func (b *FallthroughStmt) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString("fallthrough")
 }
 
-func (s *SendStmt) Format(n uint) string {
-	return s.Ch.Format(0) + " <- " + s.Ex.Format(0)
+func (s *SendStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, s.Ch.Format, " <- ", s.Ex.Format)
 }
 
-func (s *IncStmt) Format(n uint) string {
-	return s.Ex.Format(0) + "++"
+func (s *IncStmt) Format(ctx *FormatContext, n uint) {
+	s.Ex.Format(ctx, n)
+	ctx.WriteString("++")
 }
 
-func (s *DecStmt) Format(n uint) string {
-	return s.Ex.Format(0) + "--"
+func (s *DecStmt) Format(ctx *FormatContext, n uint) {
+	s.Ex.Format(ctx, n)
+	ctx.WriteString("--")
 }
 
-func (a *AssignStmt) Format(n uint) string {
-	var out string
+func (a *AssignStmt) Format(ctx *FormatContext, n uint) {
 	m := len(a.LHS)
-	for i := 0; i < m; i++ {
-		out += a.LHS[i].Format(0)
-		if i+1 < m {
-			out += ", "
+	if m > 0 {
+		a.LHS[0].Format(ctx, n)
+		for i := 1; i < m; i++ {
+			ctx.WriteString(", ")
+			a.LHS[i].Format(ctx, n)
 		}
 	}
-	out += " " + s.TokenNames[a.Op] + " "
+	ctx.WriteV(0, " ", s.TokenNames[a.Op], " ")
 	m = len(a.RHS)
-	for i := 0; i < m; i++ {
-		out += a.RHS[i].Format(n)
-		if i+1 < m {
-			out += ", "
+	if m > 0 {
+		a.RHS[0].Format(ctx, n)
+		for i := 1; i < m; i++ {
+			ctx.WriteString(", ")
+			a.RHS[i].Format(ctx, n)
 		}
 	}
-	return out
 }
 
-func (e *ExprStmt) Format(n uint) string {
-	return e.Ex.Format(n)
+func (e *ExprStmt) Format(ctx *FormatContext, n uint) {
+	e.Ex.Format(ctx, n)
 }
 
-func (i *IfStmt) Format(n uint) string {
-	s := "if "
+func (i *IfStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("if ")
 	if i.S != nil {
-		s += i.S.Format(n) + "; "
+		i.S.Format(ctx, n)
+		ctx.WriteString("; ")
 	}
-	s += i.Ex.Format(n)
-	s += " " + i.Then.Format(n)
+	i.Ex.Format(ctx, n)
+	ctx.WriteString(" ")
+	i.Then.Format(ctx, n)
 	if i.Else != nil {
-		s += " else " + i.Else.Format(n)
+		ctx.WriteString(" else ")
+		i.Else.Format(ctx, n)
 	}
-	return s
 }
 
-func (f *ForStmt) Format(n uint) string {
+func (f *ForStmt) Format(ctx *FormatContext, n uint) {
 	if f.Init == nil && f.Cond == nil && f.Post == nil {
-		return "for " + f.Body.Format(n)
+		ctx.WriteString("for ")
+		f.Body.Format(ctx, n)
+		return
 	}
 	if f.Init == nil && f.Post == nil {
-		return "for " + f.Cond.Format(n) + " " + f.Body.Format(n)
+		ctx.WriteV(n, "for ", f.Cond.Format, " ", f.Body.Format)
+		return
 	}
-	s := "for "
+	ctx.WriteString("for ")
 	if f.Init != nil {
-		s += f.Init.Format(n + 1)
+		f.Init.Format(ctx, n+1)
 	}
 	if f.Cond != nil {
-		s += "; " + f.Cond.Format(n) + ";"
+		ctx.WriteV(n, "; ", f.Cond.Format, ";")
 	} else {
-		s += "; ;"
+		ctx.WriteString("; ;")
 	}
 	if f.Post != nil {
-		s += " " + f.Post.Format(n)
+		ctx.WriteString(" ")
+		f.Post.Format(ctx, n)
 	}
-	s += " " + f.Body.Format(n)
-	return s
+	ctx.WriteString(" ")
+	f.Body.Format(ctx, n)
 }
 
-func (f *ForRangeStmt) Format(n uint) string {
-	out := "for"
-	for i := range f.LHS {
-		out += " " + f.LHS[i].Format(n)
-		if i+1 < len(f.LHS) {
-			out += ","
+func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("for ")
+	if m := len(f.LHS); m > 0 {
+		f.LHS[0].Format(ctx, n)
+		for i := 1; i < m; i++ {
+			ctx.WriteString(", ")
+			f.LHS[i].Format(ctx, n)
 		}
+		ctx.WriteV(0, " ", s.TokenNames[f.Op], " ")
 	}
-	if len(f.LHS) > 0 {
-		out += " " + s.TokenNames[f.Op]
-	}
-	return out + " range " + f.Ex.Format(n) + " " + f.Body.Format(n)
+	ctx.WriteV(n, "range ", f.Ex.Format, " ", f.Body.Format)
 }
 
-func (d *DeferStmt) Format(n uint) string {
-	return "defer " + d.Ex.Format(n)
+func (d *DeferStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("defer ")
+	d.Ex.Format(ctx, n)
 }
 
-func (s *ExprSwitchStmt) Format(n uint) string {
-	out := "switch"
+func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("switch")
 	if s.Init != nil {
-		out += " " + s.Init.Format(n) + ";"
+		ctx.WriteV(n, " ", s.Init.Format, ";")
 	}
 	if s.Ex != nil {
-		out += " " + s.Ex.Format(n)
+		ctx.WriteString(" ")
+		s.Ex.Format(ctx, n)
 	}
 	if len(s.Cases) == 0 {
-		out += " {}"
-		return out
+		ctx.WriteString(" {}")
+		return
 	}
-	out += " {"
+	ctx.WriteString(" {")
 	for _, c := range s.Cases {
 		if c.Ex == nil {
-			out += "\n" + indent(n) + "default:"
+			ctx.WriteV(n, "\n", ctx.Indent, "default:")
 		} else {
-			out += "\n" + indent(n) + "case "
-			out += c.Ex[0].Format(0)
+			ctx.WriteV(n, "\n", ctx.Indent, "case ")
+			c.Ex[0].Format(ctx, n)
 			for i := 1; i < len(c.Ex); i++ {
-				out += ", " + c.Ex[i].Format(0)
+				ctx.WriteString(", ")
+				c.Ex[i].Format(ctx, 0)
 			}
-			out += ":"
+			ctx.WriteString(":")
 		}
 		for _, s := range c.Stmts {
 			if _, ok := s.(*EmptyStmt); !ok {
-				out += "\n" + indent(n+1) + s.Format(n+1)
+				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
 		}
 	}
-	out += "\n" + indent(n) + "}"
-	return out
+	ctx.WriteV(n, "\n", ctx.Indent, "}")
 }
 
-func (s *TypeSwitchStmt) Format(n uint) string {
-	out := "switch"
+func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("switch")
 	if s.Init != nil {
-		out += " " + s.Init.Format(n) + ";"
+		ctx.WriteV(n, " ", s.Init.Format, ";")
 	}
 	if len(s.Id) > 0 {
-		out += " " + s.Id + " :="
+		ctx.WriteV(0, " ", s.Id, " :=")
 	}
-	out += " " + s.Ex.Format(n) + ".(type)"
+	ctx.WriteV(0, " ", s.Ex.Format, ".(type)")
 	if len(s.Cases) == 0 {
-		out += " {}"
-		return out
+		ctx.WriteString(" {}")
+		return
 	}
-	out += " {"
+	ctx.WriteString(" {")
 	for _, c := range s.Cases {
 		if c.Type == nil {
-			out += "\n" + indent(n) + "default:"
+			ctx.WriteV(n, "\n", ctx.Indent, "default:")
 		} else {
-			out += "\n" + indent(n) + "case "
-			out += c.Type[0].Format(0)
+			ctx.WriteV(n, "\n", ctx.Indent, "case ")
+			c.Type[0].Format(ctx, n)
 			for i := 1; i < len(c.Type); i++ {
-				out += ", " + c.Type[i].Format(0)
+				ctx.WriteV(0, ", ", c.Type[i].Format)
 			}
-			out += ":"
+			ctx.WriteString(":")
 		}
 		for _, s := range c.Stmts {
 			if _, ok := s.(*EmptyStmt); !ok {
-				out += "\n" + indent(n+1) + s.Format(n+1)
+				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
 		}
 	}
-	out += "\n" + indent(n) + "}"
-	return out
+	ctx.WriteV(n, "\n", ctx.Indent, "}")
 }
 
-func (s *SelectStmt) Format(n uint) string {
-	out := "select {"
+func (s *SelectStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteString("select {")
 	if s.Clauses == nil {
-		return out + "}"
-	}
-	for _, c := range s.Clauses {
-		if c.Comm == nil {
-			out += "\n" + indent(n) + "default:"
-		} else {
-			out += "\n" + indent(n) + "case " + c.Comm.Format(n) + ":"
-		}
-		for _, s := range c.Stmts {
-			if _, ok := s.(*EmptyStmt); !ok {
-				out += "\n" + indent(n+1) + s.Format(n+1)
+		ctx.WriteString("}")
+	} else {
+		for _, c := range s.Clauses {
+			if c.Comm == nil {
+				ctx.WriteV(n, "\n", ctx.Indent, "default:")
+			} else {
+				ctx.WriteV(n, "\n", ctx.Indent, "case ", c.Comm.Format, ":")
+			}
+			for _, s := range c.Stmts {
+				if _, ok := s.(*EmptyStmt); !ok {
+					ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
+				}
 			}
 		}
+		ctx.WriteV(n, "\n", ctx.Indent, "}")
 	}
-	out += "\n" + indent(n) + "}"
-	return out
 }

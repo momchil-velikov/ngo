@@ -2,23 +2,27 @@ package ast
 
 import s "golang/scanner"
 
+type Node interface {
+	Format(*FormatContext, uint)
+}
+
 type Decl interface {
-	Formatter
+	Node
 	decl()
 }
 
 type TypeSpec interface {
-	Formatter
+	Node
 	typeSpec()
 }
 
 type Expr interface {
-	Formatter
+	Node
 	expr()
 }
 
 type Stmt interface {
-	Formatter
+	Node
 	stmt()
 }
 

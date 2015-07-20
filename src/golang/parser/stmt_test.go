@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"golang/ast"
 	"testing"
 )
 
@@ -33,7 +34,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -66,7 +68,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -98,7 +101,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -121,7 +125,8 @@ func foo(fn func(int) int) {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -158,7 +163,8 @@ func baz() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -185,7 +191,8 @@ func foo(fn func(int) int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -212,7 +219,8 @@ func foo(fn func(int) int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -238,7 +246,8 @@ func foo(fn func(int) int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -264,7 +273,8 @@ func foo(fn func(int) int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -293,7 +303,8 @@ func foo(in, out chan int, ch chan (<-chan int), i int) {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -322,7 +333,8 @@ func foo(i int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -359,7 +371,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -386,7 +399,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -413,7 +427,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -484,7 +499,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -607,7 +623,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -630,7 +647,8 @@ func foo(i int) int {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -679,7 +697,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -730,7 +749,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -779,7 +799,8 @@ func foo() {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}

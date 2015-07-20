@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"golang/ast"
 	"testing"
 )
 
@@ -96,7 +97,8 @@ import (
     s "baz"
 )
 `
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -123,7 +125,8 @@ import (
     "qux"
 )
 `
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -150,7 +153,8 @@ import (
     "qux"
 )
 `
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -164,7 +168,8 @@ import ( "foo"
     t
 `
 	t, e := Parse("import-error.go", src)
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	tst.Log(f)
 	if e != nil {
 		tst.Log(e)
@@ -177,7 +182,8 @@ package foo
 import ( "baz"; s ) 
 `
 	t, e := Parse("import-error1.go", src)
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	tst.Log(f)
 	if e != nil {
 		tst.Log(e)
@@ -211,7 +217,8 @@ type (
     e float64
 )
 `
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -232,7 +239,8 @@ type (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != src {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -250,7 +258,8 @@ type b []*[3]bar.T
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != src {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -268,7 +277,8 @@ type b []*[3]map[*int]bar.T
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != src {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -301,7 +311,9 @@ func TestChanType(tst *testing.T) {
 		P.init("chan-type.go", src[i])
 		s := P.parseType()
 		if P.errors == nil {
-			t := s.Format(0)
+			ctx := new(ast.FormatContext).Init()
+			s.Format(ctx, 0)
+			t := ctx.String()
 			if t != exp[i] {
 				tst.Error(t)
 			}
@@ -318,7 +330,8 @@ type b
 type c [string
 `
 	t, e := Parse("type-error-1.go", src)
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	tst.Log(f)
 	if e == nil {
 		tst.Error("Unexpected lack of error")
@@ -331,7 +344,8 @@ func TestTypeError2(tst *testing.T) {
 	src := `package foo
 type ( a uint; b[] ; c float64 )`
 	t, e := Parse("type-error-2.go", src)
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	tst.Log(f)
 	if e == nil {
 		tst.Error("Unexpected lack of error")
@@ -377,7 +391,8 @@ type T struct {
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -415,7 +430,8 @@ type S struct {
 		tst.Log(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -451,7 +467,8 @@ type T9 func(n int) func(p *T)
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -522,7 +539,10 @@ func TestParameters(tst *testing.T) {
 		P.init("params.go", src[i])
 		s := P.parseSignature()
 		if P.errors == nil {
-			t := s.Format1(0)
+			ctx := new(ast.FormatContext).Init()
+			ctx.EmitAnnonymousParams(true)
+			s.Format(ctx, 0)
+			t := ctx.String()
 			if t != exp[i] {
 				tst.Error(t)
 			}
@@ -555,7 +575,8 @@ type T5 func(a, [4]*<error>, c uint, d.)
 		tst.Log(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -595,7 +616,8 @@ type (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -639,7 +661,8 @@ const (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -678,7 +701,8 @@ const (
 		tst.Log(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -723,7 +747,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -762,7 +787,8 @@ var (
 		tst.Log(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -798,7 +824,8 @@ func (r *T) i(a, b uint) (r0 []*X, r1 bool) {}
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -829,7 +856,8 @@ func () i(a, uint) (r0 []*X)
 		tst.Log(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -853,7 +881,8 @@ var c = 1 + -1 + -3 - -4 * 5
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -871,7 +900,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != src {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -893,7 +923,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != src {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -988,7 +1019,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -1056,7 +1088,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
@@ -1111,7 +1144,8 @@ var (
 		tst.Error(e)
 	}
 
-	f := t.Format()
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
