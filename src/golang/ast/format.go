@@ -75,7 +75,7 @@ func (ctx *FormatContext) Indent(n uint) {
 
 // Formats a source file.
 func (f *File) Format(ctx *FormatContext) string {
-	ctx.WriteV(0, "package ", f.PackageName, "\n")
+	ctx.WriteV(0, "package ", f.Package, "\n")
 
 	if len(f.Imports) > 0 {
 		if len(f.Imports) == 1 {
@@ -218,9 +218,9 @@ func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 	}
 	ctx.WriteV(0, " ", f.Name)
 	formatSignature(ctx, f.Sig, n)
-	if f.Body != nil {
+	if f.Blk != nil {
 		ctx.WriteString(" ")
-		f.Body.Format(ctx, n)
+		f.Blk.Format(ctx, n)
 	}
 }
 
@@ -250,12 +250,12 @@ func (t *ArrayType) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteV(n+1, "[", t.Dim.Format, "]")
 	}
-	t.EltType.Format(ctx, n)
+	t.Elt.Format(ctx, n)
 }
 
 func (t *SliceType) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("[]")
-	t.EltType.Format(ctx, n)
+	t.Elt.Format(ctx, n)
 }
 
 func (t *PtrType) Format(ctx *FormatContext, n uint) {
@@ -264,7 +264,7 @@ func (t *PtrType) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *MapType) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, "map[", t.KeyType.Format, "]", t.EltType.Format)
+	ctx.WriteV(n, "map[", t.Key.Format, "]", t.Elt.Format)
 }
 
 func (t *ChanType) Format(ctx *FormatContext, n uint) {
@@ -275,12 +275,12 @@ func (t *ChanType) Format(ctx *FormatContext, n uint) {
 	}
 	if !t.Recv {
 		ctx.WriteString("<- ")
-		t.EltType.Format(ctx, n)
-	} else if ch, ok := t.EltType.(*ChanType); ok && !ch.Send {
+		t.Elt.Format(ctx, n)
+	} else if ch, ok := t.Elt.(*ChanType); ok && !ch.Send {
 		ctx.WriteV(n, " (", ch.Format, ")")
 	} else {
 		ctx.WriteString(" ")
-		t.EltType.Format(ctx, n)
+		t.Elt.Format(ctx, n)
 	}
 }
 
@@ -350,7 +350,7 @@ func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
 	} else if ctx.anon {
 		ctx.WriteString("_ ")
 	}
-	if p.Variadic {
+	if p.Var {
 		ctx.WriteString("...")
 	}
 	p.Type.Format(ctx, n+1)
@@ -391,11 +391,11 @@ func (e *Literal) Format(ctx *FormatContext, _ uint) {
 }
 
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
-	switch e.Arg.(type) {
+	switch e.X.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.Arg.Format, ")")
+		ctx.WriteV(n, "(", e.X.Format, ")")
 	default:
-		e.Arg.Format(ctx, n)
+		e.X.Format(ctx, n)
 	}
 	if e.Type == nil {
 		ctx.WriteString(".(type)")
@@ -405,43 +405,43 @@ func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *Selector) Format(ctx *FormatContext, n uint) {
-	switch e.Arg.(type) {
+	switch e.X.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.Arg.Format, ")")
+		ctx.WriteV(n, "(", e.X.Format, ")")
 	default:
-		e.Arg.Format(ctx, n)
+		e.X.Format(ctx, n)
 	}
 	ctx.WriteV(0, ".", e.Id)
 }
 
 func (e *IndexExpr) Format(ctx *FormatContext, n uint) {
-	switch e.Array.(type) {
+	switch e.X.(type) {
 	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.Array.Format, ")")
+		ctx.WriteV(n, "(", e.X.Format, ")")
 	default:
-		e.Array.Format(ctx, n)
+		e.X.Format(ctx, n)
 	}
-	ctx.WriteV(n, "[", e.Idx.Format, "]")
+	ctx.WriteV(n, "[", e.I.Format, "]")
 }
 
 func (e *SliceExpr) Format(ctx *FormatContext, n uint) {
-	switch e.Array.(type) {
+	switch e.X.(type) {
 
 	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.Array.Format, ")")
+		ctx.WriteV(n, "(", e.X.Format, ")")
 	default:
-		e.Array.Format(ctx, n)
+		e.X.Format(ctx, n)
 	}
 	ctx.WriteString("[")
-	if e.Low != nil {
-		e.Low.Format(ctx, n)
+	if e.Lo != nil {
+		e.Lo.Format(ctx, n)
 		ctx.WriteString(" :")
 	} else {
 		ctx.WriteString(":")
 	}
-	if e.High != nil {
+	if e.Hi != nil {
 		ctx.WriteString(" ")
-		e.High.Format(ctx, n)
+		e.Hi.Format(ctx, n)
 	}
 	if e.Cap != nil {
 		ctx.WriteString(" : ")
@@ -491,15 +491,15 @@ func (e *Conversion) Format(ctx *FormatContext, n uint) {
 	default:
 		e.Type.Format(ctx, n)
 	}
-	ctx.WriteV(n, "(", e.Arg.Format, ")")
+	ctx.WriteV(n, "(", e.X.Format, ")")
 }
 
 func (e *Call) Format(ctx *FormatContext, n uint) {
 	e.Func.Format(ctx, n)
-	if e.Type == nil && len(e.Args) == 0 {
+	if e.Type == nil && len(e.Xs) == 0 {
 		ctx.WriteString("()")
 	} else {
-		var nargs = len(e.Args)
+		var nargs = len(e.Xs)
 		ctx.WriteString("(")
 		if e.Type != nil {
 			e.Type.Format(ctx, n)
@@ -508,13 +508,13 @@ func (e *Call) Format(ctx *FormatContext, n uint) {
 			}
 		}
 		if nargs > 0 {
-			e.Args[0].Format(ctx, n)
+			e.Xs[0].Format(ctx, n)
 			for i := 1; i < nargs; i++ {
 				ctx.WriteString(", ")
-				e.Args[i].Format(ctx, n)
+				e.Xs[i].Format(ctx, n)
 			}
 		}
-		if e.Ellipsis {
+		if e.Ell {
 			ctx.WriteString("...")
 		}
 		ctx.WriteString(")")
@@ -522,39 +522,39 @@ func (e *Call) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *FuncLiteral) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, e.Sig.Format, " ", e.Body.Format)
+	ctx.WriteV(n, e.Sig.Format, " ", e.Blk.Format)
 }
 
 func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString(s.TokenNames[e.Op])
-	e.Arg.Format(ctx, n)
+	e.X.Format(ctx, n)
 }
 
 func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 	prec := opPrec[e.Op]
-	if ex, ok := e.Arg0.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
+	if ex, ok := e.X.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
 		ctx.WriteV(n, "(", ex.Format, ")")
 	} else {
-		e.Arg0.Format(ctx, n)
+		e.X.Format(ctx, n)
 	}
 	ctx.WriteV(0, " ", s.TokenNames[e.Op], " ")
-	if ex, ok := e.Arg1.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
+	if ex, ok := e.Y.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
 		ctx.WriteV(n, "(", ex.Format, ")")
 	} else {
-		e.Arg1.Format(ctx, n)
+		e.Y.Format(ctx, n)
 	}
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("{")
 	empty := true
-	for i := range b.Stmts {
-		if _, ok := b.Stmts[i].(*EmptyStmt); !ok {
+	for i := range b.Body {
+		if _, ok := b.Body[i].(*EmptyStmt); !ok {
 			empty = false
-			if s, ok := b.Stmts[i].(*LabeledStmt); ok {
+			if s, ok := b.Body[i].(*LabeledStmt); ok {
 				s.Format(ctx, n)
 			} else {
-				ctx.WriteV(n+1, "\n", ctx.Indent, b.Stmts[i].Format)
+				ctx.WriteV(n+1, "\n", ctx.Indent, b.Body[i].Format)
 			}
 		}
 	}
@@ -575,17 +575,17 @@ func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
 
 func (g *GoStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("go ")
-	g.Ex.Format(ctx, n)
+	g.X.Format(ctx, n)
 }
 
 func (r *ReturnStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("return")
-	if len(r.Exs) > 0 {
+	if len(r.Xs) > 0 {
 		ctx.WriteString(" ")
-		r.Exs[0].Format(ctx, n)
-		for i := 1; i < len(r.Exs); i++ {
+		r.Xs[0].Format(ctx, n)
+		for i := 1; i < len(r.Xs); i++ {
 			ctx.WriteString(", ")
-			r.Exs[i].Format(ctx, n)
+			r.Xs[i].Format(ctx, n)
 		}
 	}
 }
@@ -613,16 +613,16 @@ func (b *FallthroughStmt) Format(ctx *FormatContext, _ uint) {
 }
 
 func (s *SendStmt) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, s.Ch.Format, " <- ", s.Ex.Format)
+	ctx.WriteV(n, s.Ch.Format, " <- ", s.X.Format)
 }
 
 func (s *IncStmt) Format(ctx *FormatContext, n uint) {
-	s.Ex.Format(ctx, n)
+	s.X.Format(ctx, n)
 	ctx.WriteString("++")
 }
 
 func (s *DecStmt) Format(ctx *FormatContext, n uint) {
-	s.Ex.Format(ctx, n)
+	s.X.Format(ctx, n)
 	ctx.WriteString("--")
 }
 
@@ -647,16 +647,16 @@ func (a *AssignStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *ExprStmt) Format(ctx *FormatContext, n uint) {
-	e.Ex.Format(ctx, n)
+	e.X.Format(ctx, n)
 }
 
 func (i *IfStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("if ")
-	if i.S != nil {
-		i.S.Format(ctx, n)
+	if i.Init != nil {
+		i.Init.Format(ctx, n)
 		ctx.WriteString("; ")
 	}
-	i.Ex.Format(ctx, n)
+	i.Cond.Format(ctx, n)
 	ctx.WriteString(" ")
 	i.Then.Format(ctx, n)
 	if i.Else != nil {
@@ -668,11 +668,11 @@ func (i *IfStmt) Format(ctx *FormatContext, n uint) {
 func (f *ForStmt) Format(ctx *FormatContext, n uint) {
 	if f.Init == nil && f.Cond == nil && f.Post == nil {
 		ctx.WriteString("for ")
-		f.Body.Format(ctx, n)
+		f.Blk.Format(ctx, n)
 		return
 	}
 	if f.Init == nil && f.Post == nil {
-		ctx.WriteV(n, "for ", f.Cond.Format, " ", f.Body.Format)
+		ctx.WriteV(n, "for ", f.Cond.Format, " ", f.Blk.Format)
 		return
 	}
 	ctx.WriteString("for ")
@@ -689,7 +689,7 @@ func (f *ForStmt) Format(ctx *FormatContext, n uint) {
 		f.Post.Format(ctx, n)
 	}
 	ctx.WriteString(" ")
-	f.Body.Format(ctx, n)
+	f.Blk.Format(ctx, n)
 }
 
 func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
@@ -702,12 +702,12 @@ func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
 		}
 		ctx.WriteV(0, " ", s.TokenNames[f.Op], " ")
 	}
-	ctx.WriteV(n, "range ", f.Ex.Format, " ", f.Body.Format)
+	ctx.WriteV(n, "range ", f.Range.Format, " ", f.Blk.Format)
 }
 
 func (d *DeferStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("defer ")
-	d.Ex.Format(ctx, n)
+	d.X.Format(ctx, n)
 }
 
 func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
@@ -715,9 +715,9 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 	if s.Init != nil {
 		ctx.WriteV(n, " ", s.Init.Format, ";")
 	}
-	if s.Ex != nil {
+	if s.X != nil {
 		ctx.WriteString(" ")
-		s.Ex.Format(ctx, n)
+		s.X.Format(ctx, n)
 	}
 	if len(s.Cases) == 0 {
 		ctx.WriteString(" {}")
@@ -725,18 +725,18 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 	}
 	ctx.WriteString(" {")
 	for _, c := range s.Cases {
-		if c.Ex == nil {
+		if c.Xs == nil {
 			ctx.WriteV(n, "\n", ctx.Indent, "default:")
 		} else {
 			ctx.WriteV(n, "\n", ctx.Indent, "case ")
-			c.Ex[0].Format(ctx, n)
-			for i := 1; i < len(c.Ex); i++ {
+			c.Xs[0].Format(ctx, n)
+			for i := 1; i < len(c.Xs); i++ {
 				ctx.WriteString(", ")
-				c.Ex[i].Format(ctx, 0)
+				c.Xs[i].Format(ctx, 0)
 			}
 			ctx.WriteString(":")
 		}
-		for _, s := range c.Stmts {
+		for _, s := range c.Body {
 			if _, ok := s.(*EmptyStmt); !ok {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
@@ -753,24 +753,24 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 	if len(s.Id) > 0 {
 		ctx.WriteV(0, " ", s.Id, " :=")
 	}
-	ctx.WriteV(0, " ", s.Ex.Format, ".(type)")
+	ctx.WriteV(0, " ", s.X.Format, ".(type)")
 	if len(s.Cases) == 0 {
 		ctx.WriteString(" {}")
 		return
 	}
 	ctx.WriteString(" {")
 	for _, c := range s.Cases {
-		if c.Type == nil {
+		if c.Types == nil {
 			ctx.WriteV(n, "\n", ctx.Indent, "default:")
 		} else {
 			ctx.WriteV(n, "\n", ctx.Indent, "case ")
-			c.Type[0].Format(ctx, n)
-			for i := 1; i < len(c.Type); i++ {
-				ctx.WriteV(0, ", ", c.Type[i].Format)
+			c.Types[0].Format(ctx, n)
+			for i := 1; i < len(c.Types); i++ {
+				ctx.WriteV(0, ", ", c.Types[i].Format)
 			}
 			ctx.WriteString(":")
 		}
-		for _, s := range c.Stmts {
+		for _, s := range c.Body {
 			if _, ok := s.(*EmptyStmt); !ok {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
@@ -781,16 +781,16 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 
 func (s *SelectStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("select {")
-	if s.Clauses == nil {
+	if s.Comms == nil {
 		ctx.WriteString("}")
 	} else {
-		for _, c := range s.Clauses {
+		for _, c := range s.Comms {
 			if c.Comm == nil {
 				ctx.WriteV(n, "\n", ctx.Indent, "default:")
 			} else {
 				ctx.WriteV(n, "\n", ctx.Indent, "case ", c.Comm.Format, ":")
 			}
-			for _, s := range c.Stmts {
+			for _, s := range c.Body {
 				if _, ok := s.(*EmptyStmt); !ok {
 					ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 				}

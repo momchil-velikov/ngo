@@ -14,8 +14,8 @@ package foo`
 		tst.Error(e)
 	}
 
-	if t.PackageName != "foo" {
-		tst.Errorf("Unexpected package name `%s`", t.PackageName)
+	if t.Package != "foo" {
+		tst.Errorf("Unexpected package name `%s`", t.Package)
 	}
 }
 
@@ -55,8 +55,8 @@ import "fmt"
 		tst.Error(e)
 	}
 
-	if t.PackageName != "foo" {
-		tst.Errorf("Unexpected package name `%s`", t.PackageName)
+	if t.Package != "foo" {
+		tst.Errorf("Unexpected package name `%s`", t.Package)
 	}
 
 	if len(t.Imports) != 1 {
@@ -80,8 +80,8 @@ import  ( "fmt"; . "foo"
 		tst.Error(e)
 	}
 
-	if t.PackageName != "foo" {
-		tst.Errorf("Unexpected package name `%s`", t.PackageName)
+	if t.Package != "foo" {
+		tst.Errorf("Unexpected package name `%s`", t.Package)
 	}
 
 	if len(t.Imports) != 4 {

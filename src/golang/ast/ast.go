@@ -11,9 +11,9 @@ type Decl interface {
 	decl()
 }
 
-type TypeSpec interface {
+type Type interface {
 	Node
-	typeSpec()
+	typ()
 }
 
 type Expr interface {
@@ -28,9 +28,9 @@ type Stmt interface {
 
 // Source file
 type File struct {
-	PackageName string
-	Imports     []Import
-	Decls       []Decl
+	Package string
+	Imports []Import
+	Decls   []Decl
 }
 
 type Import struct {
@@ -42,15 +42,15 @@ type Import struct {
 type Error struct {
 }
 
-func (e Error) decl()     {}
-func (e Error) typeSpec() {}
-func (e Error) expr()     {}
-func (e Error) stmt()     {}
+func (e Error) decl() {}
+func (e Error) typ()  {}
+func (e Error) expr() {}
+func (e Error) stmt() {}
 
 // Declarations
 type TypeDecl struct {
 	Name string
-	Type TypeSpec
+	Type Type
 }
 
 func (d TypeDecl) decl() {}
@@ -65,7 +65,7 @@ func (d TypeGroup) stmt() {}
 
 type ConstDecl struct {
 	Names  []string
-	Type   TypeSpec
+	Type   Type
 	Values []Expr
 }
 
@@ -81,7 +81,7 @@ func (d ConstGroup) stmt() {}
 
 type VarDecl struct {
 	Names []string
-	Type  TypeSpec
+	Type  Type
 	Init  []Expr
 }
 
@@ -97,14 +97,14 @@ func (d VarGroup) stmt() {}
 
 type Receiver struct {
 	Name string
-	Type TypeSpec
+	Type Type
 }
 
 type FuncDecl struct {
 	Name string
 	Recv *Receiver
 	Sig  *FuncType
-	Body *Block
+	Blk  *Block
 }
 
 func (d FuncDecl) decl() {}
@@ -133,80 +133,79 @@ type Element struct {
 }
 
 type CompLiteral struct {
-	Type TypeSpec
+	Type Type
 	Elts []*Element
 }
 
 func (e CompLiteral) expr() {}
 
 type Call struct {
-	Func     Expr
-	Type     TypeSpec
-	Args     []Expr
-	Ellipsis bool
+	Func Expr
+	Type Type
+	Xs   []Expr
+	Ell  bool
 }
 
 func (e Call) expr() {}
 
 type Conversion struct {
-	Type TypeSpec
-	Arg  Expr
+	Type Type
+	X    Expr
 }
 
 func (e Conversion) expr() {}
 
 type MethodExpr struct {
-	Type TypeSpec
+	Type Type
 	Id   string
 }
 
 func (e MethodExpr) expr() {}
 
 type FuncLiteral struct {
-	Sig  *FuncType
-	Body *Block
+	Sig *FuncType
+	Blk *Block
 }
 
 func (e FuncLiteral) expr() {}
 
 type TypeAssertion struct {
-	Type TypeSpec
-	Arg  Expr
+	Type Type
+	X    Expr
 }
 
 func (e TypeAssertion) expr() {}
 
 type Selector struct {
-	Arg Expr
-	Id  string
+	X  Expr
+	Id string
 }
 
 func (e Selector) expr() {}
 
 type IndexExpr struct {
-	Array Expr
-	Idx   Expr
+	X, I Expr
 }
 
 func (e IndexExpr) expr() {}
 
 type SliceExpr struct {
-	Array          Expr
-	Low, High, Cap Expr
+	X           Expr
+	Lo, Hi, Cap Expr
 }
 
 func (e SliceExpr) expr() {}
 
 type UnaryExpr struct {
-	Op  uint
-	Arg Expr
+	Op uint
+	X  Expr
 }
 
 func (ex UnaryExpr) expr() {}
 
 type BinaryExpr struct {
-	Op         uint
-	Arg0, Arg1 Expr
+	Op   uint
+	X, Y Expr
 }
 
 func (ex BinaryExpr) expr() {}
@@ -216,44 +215,44 @@ type QualId struct {
 	Pkg, Id string
 }
 
-func (t QualId) typeSpec() {}
-func (t QualId) expr()     {}
+func (t QualId) typ()  {}
+func (t QualId) expr() {}
 
 type ArrayType struct {
-	Dim     Expr
-	EltType TypeSpec
+	Dim Expr
+	Elt Type
 }
 
-func (t ArrayType) typeSpec() {}
+func (t ArrayType) typ() {}
 
 type SliceType struct {
-	EltType TypeSpec
+	Elt Type
 }
 
-func (t SliceType) typeSpec() {}
+func (t SliceType) typ() {}
 
 type PtrType struct {
-	Base TypeSpec
+	Base Type
 }
 
-func (t PtrType) typeSpec() {}
+func (t PtrType) typ() {}
 
 type MapType struct {
-	KeyType, EltType TypeSpec
+	Key, Elt Type
 }
 
-func (t MapType) typeSpec() {}
+func (t MapType) typ() {}
 
 type ChanType struct {
 	Send, Recv bool
-	EltType    TypeSpec
+	Elt        Type
 }
 
-func (t ChanType) typeSpec() {}
+func (t ChanType) typ() {}
 
 type FieldDecl struct {
 	Names []string
-	Type  TypeSpec
+	Type  Type
 	Tag   []byte
 }
 
@@ -261,12 +260,12 @@ type StructType struct {
 	Fields []*FieldDecl
 }
 
-func (t StructType) typeSpec() {}
+func (t StructType) typ() {}
 
 type ParamDecl struct {
-	Names    []string
-	Type     TypeSpec
-	Variadic bool
+	Names []string
+	Type  Type
+	Var   bool
 }
 
 type FuncType struct {
@@ -274,7 +273,7 @@ type FuncType struct {
 	Returns []*ParamDecl
 }
 
-func (f FuncType) typeSpec() {}
+func (f FuncType) typ() {}
 
 type MethodSpec struct {
 	Name string
@@ -286,7 +285,7 @@ type InterfaceType struct {
 	Methods []*MethodSpec
 }
 
-func (t InterfaceType) typeSpec() {}
+func (t InterfaceType) typ() {}
 
 // Statements
 
@@ -295,7 +294,7 @@ type EmptyStmt struct{}
 func (e EmptyStmt) stmt() {}
 
 type Block struct {
-	Stmts []Stmt
+	Body []Stmt
 }
 
 func (b Block) stmt() {}
@@ -308,13 +307,13 @@ type LabeledStmt struct {
 func (l LabeledStmt) stmt() {}
 
 type GoStmt struct {
-	Ex Expr
+	X Expr
 }
 
 func (b GoStmt) stmt() {}
 
 type ReturnStmt struct {
-	Exs []Expr
+	Xs []Expr
 }
 
 func (b ReturnStmt) stmt() {}
@@ -343,19 +342,19 @@ func (b FallthroughStmt) stmt() {}
 
 type SendStmt struct {
 	Ch Expr
-	Ex Expr
+	X  Expr
 }
 
 func (b SendStmt) stmt() {}
 
 type IncStmt struct {
-	Ex Expr
+	X Expr
 }
 
 func (b IncStmt) stmt() {}
 
 type DecStmt struct {
-	Ex Expr
+	X Expr
 }
 
 func (b DecStmt) stmt() {}
@@ -369,14 +368,14 @@ type AssignStmt struct {
 func (a AssignStmt) stmt() {}
 
 type ExprStmt struct {
-	Ex Expr
+	X Expr
 }
 
 func (e ExprStmt) stmt() {}
 
 type IfStmt struct {
-	S    Stmt
-	Ex   Expr
+	Init Stmt
+	Cond Expr
 	Then *Block
 	Else Stmt
 }
@@ -387,60 +386,60 @@ type ForStmt struct {
 	Init Stmt
 	Cond Expr
 	Post Stmt
-	Body *Block
+	Blk  *Block
 }
 
 func (f ForStmt) stmt() {}
 
 type ForRangeStmt struct {
-	Op   uint
-	LHS  []Expr
-	Ex   Expr
-	Body *Block
+	Op    uint
+	LHS   []Expr
+	Range Expr
+	Blk   *Block
 }
 
 func (f ForRangeStmt) stmt() {}
 
 type DeferStmt struct {
-	Ex Expr
+	X Expr
 }
 
 func (d DeferStmt) stmt() {}
 
 type ExprCaseClause struct {
-	Ex    []Expr
-	Stmts []Stmt
+	Xs   []Expr
+	Body []Stmt
 }
 
 type ExprSwitchStmt struct {
 	Init  Stmt
-	Ex    Expr
+	X     Expr
 	Cases []ExprCaseClause
 }
 
 func (d ExprSwitchStmt) stmt() {}
 
 type TypeCaseClause struct {
-	Type  []TypeSpec
-	Stmts []Stmt
+	Types []Type
+	Body  []Stmt
 }
 
 type TypeSwitchStmt struct {
 	Init  Stmt
 	Id    string
-	Ex    Expr
+	X     Expr
 	Cases []TypeCaseClause
 }
 
 func (d TypeSwitchStmt) stmt() {}
 
 type CommClause struct {
-	Comm  Stmt
-	Stmts []Stmt
+	Comm Stmt
+	Body []Stmt
 }
 
 type SelectStmt struct {
-	Clauses []CommClause
+	Comms []CommClause
 }
 
 func (s SelectStmt) stmt() {}
