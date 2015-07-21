@@ -1,24 +1,23 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"golang/ast"
 	"golang/parser"
 	"io/ioutil"
 	"os"
 )
 
 func main() {
-	in, err := ioutil.ReadAll(bufio.NewReader(os.Stdin))
-	if err != nil {
+	if in, err := ioutil.ReadAll(os.Stdin); err == nil {
+		if f, err := parser.Parse("stdin", string(in)); err == nil {
+			ctx := new(ast.FormatContext).Init()
+			f.Format(ctx)
+			ctx.Flush(os.Stdout)
+		} else {
+			fmt.Fprintln(os.Stderr, "parsefilt:", err)
+		}
+	} else {
 		fmt.Fprintln(os.Stderr, "parsefilt:", err)
 	}
-	f, err := parser.Parse("stdin", string(in))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "parsefilt:", err)
-	}
-	out := f.Format()
-	w := bufio.NewWriter(os.Stdout)
-	w.WriteString(out)
-	w.Flush()
 }
