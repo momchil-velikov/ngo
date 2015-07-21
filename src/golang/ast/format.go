@@ -391,12 +391,7 @@ func (e *Literal) Format(ctx *FormatContext, _ uint) {
 }
 
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
-	switch e.X.(type) {
-	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.X.Format, ")")
-	default:
-		e.X.Format(ctx, n)
-	}
+	e.X.Format(ctx, n)
 	if e.Type == nil {
 		ctx.WriteString(".(type)")
 	} else {
@@ -405,33 +400,15 @@ func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *Selector) Format(ctx *FormatContext, n uint) {
-	switch e.X.(type) {
-	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.X.Format, ")")
-	default:
-		e.X.Format(ctx, n)
-	}
-	ctx.WriteV(0, ".", e.Id)
+	ctx.WriteV(n, e.X.Format, ".", e.Id)
 }
 
 func (e *IndexExpr) Format(ctx *FormatContext, n uint) {
-	switch e.X.(type) {
-	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.X.Format, ")")
-	default:
-		e.X.Format(ctx, n)
-	}
-	ctx.WriteV(n, "[", e.I.Format, "]")
+	ctx.WriteV(n, e.X.Format, "[", e.I.Format, "]")
 }
 
 func (e *SliceExpr) Format(ctx *FormatContext, n uint) {
-	switch e.X.(type) {
-
-	case *UnaryExpr, *BinaryExpr:
-		ctx.WriteV(n, "(", e.X.Format, ")")
-	default:
-		e.X.Format(ctx, n)
-	}
+	e.X.Format(ctx, n)
 	ctx.WriteString("[")
 	if e.Lo != nil {
 		e.Lo.Format(ctx, n)
@@ -452,6 +429,10 @@ func (e *SliceExpr) Format(ctx *FormatContext, n uint) {
 
 func (e *MethodExpr) Format(ctx *FormatContext, n uint) {
 	ctx.WriteV(n, "(", e.Type.Format, ").", e.Id)
+}
+
+func (x *ParensExpr) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, "(", x.X.Format, ")")
 }
 
 func (e *CompLiteral) Format(ctx *FormatContext, n uint) {
@@ -531,18 +512,7 @@ func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
-	prec := opPrec[e.Op]
-	if ex, ok := e.X.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
-		ctx.WriteV(n, "(", ex.Format, ")")
-	} else {
-		e.X.Format(ctx, n)
-	}
-	ctx.WriteV(0, " ", s.TokenNames[e.Op], " ")
-	if ex, ok := e.Y.(*BinaryExpr); ok && opPrec[ex.Op] < prec {
-		ctx.WriteV(n, "(", ex.Format, ")")
-	} else {
-		e.Y.Format(ctx, n)
-	}
+	ctx.WriteV(n, e.X.Format, " ", s.TokenNames[e.Op], " ", e.Y.Format)
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {

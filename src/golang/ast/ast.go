@@ -47,7 +47,9 @@ func (e Error) typ()  {}
 func (e Error) expr() {}
 func (e Error) stmt() {}
 
+//
 // Declarations
+//
 type TypeDecl struct {
 	Name string
 	Type Type
@@ -109,7 +111,9 @@ type FuncDecl struct {
 
 func (d FuncDecl) decl() {}
 
+//
 // Expressions
+//
 
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
@@ -162,6 +166,12 @@ type MethodExpr struct {
 
 func (e MethodExpr) expr() {}
 
+type ParensExpr struct {
+	X Expr
+}
+
+func (e ParensExpr) expr() {}
+
 type FuncLiteral struct {
 	Sig *FuncType
 	Blk *Block
@@ -210,7 +220,9 @@ type BinaryExpr struct {
 
 func (ex BinaryExpr) expr() {}
 
+//
 // Types
+//
 type QualId struct {
 	Pkg, Id string
 }
@@ -287,8 +299,9 @@ type InterfaceType struct {
 
 func (t InterfaceType) typ() {}
 
+//
 // Statements
-
+//
 type EmptyStmt struct{}
 
 func (e EmptyStmt) stmt() {}

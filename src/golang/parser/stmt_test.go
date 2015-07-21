@@ -468,9 +468,9 @@ if p.token == ']' {
 
 func foo() {
     if true {}
-    if s := S{1, 2}; s.x > 1 {}
+    if s := (S{1, 2}); s.x > 1 {}
     if fn := func(i int) bool {
-        if s := S{1, 2}; s.x < i {
+        if s := (S{1, 2}); s.x < i {
             return true
         } else {
             return false
@@ -540,29 +540,25 @@ for init() ; cond() ; post() {
 for p.token != s.EOF && p.token != t1 && p.token != t2 {
   p.next()
 }
-
 for s:= (S{1, 2}); s.x > 0; tweak(&s) {
-loop(s)
+  loop(s)
 }
-
 for x, y := 1, 1; x < n; x, y = y, x + y {
   fmt.Println(x)
 }
-
-for i := range(a) {
+for i := range a {
   fmt.Println(a[i])
 }
-for i, v := range(a) {
+for i, v := range a {
   fmt.Println(i, v)
 }
-for _, v := range(a) {
+for _, v := range a {
   fmt.Println(v)
 }
 i := 0
 for range a {  fmt.Println(i, a[i]);i++}
 }
 `
-
 	exp := `package main
 
 func foo() {
@@ -596,7 +592,7 @@ func foo() {
     for p.token != s.EOF && p.token != t1 && p.token != t2 {
         p.next()
     }
-    for s := S{1, 2}; s.x > 0; tweak(&s) {
+    for s := (S{1, 2}); s.x > 0; tweak(&s) {
         loop(s)
     }
     for x, y := 1, 1; x < n; x, y = y, x + y {

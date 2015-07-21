@@ -994,6 +994,8 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 			} else {
 				return nil, t
 			}
+		} else {
+			x = &ast.ParensExpr{X: x}
 		}
 	case '[', s.STRUCT, s.MAP: // Conversion, CompositeLit
 		t = p.parseType()
@@ -1030,8 +1032,8 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		p.error("token cannot start neither expression nor type")
 		x = &ast.Error{}
 	}
-	// Parse the left-recursive alternatives for PrimaryExpr, folding the left-
-	// hand parts in the variable `EX`.
+	// Parse the left-recursive alternatives for PrimaryExpr, folding the
+	// left-hand parts in the variable `X`.
 	for {
 		switch p.token {
 		case '.': // TypeAssertion or Selector

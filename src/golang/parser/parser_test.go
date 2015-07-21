@@ -874,7 +874,7 @@ var c = 1 + -1 + (-3 - -4 * 5)
 
 var a = 1 + -1 * (-3 - -4 * 5)
 var b = (1 + -1) * (-3 - -4 * 5)
-var c = 1 + -1 + -3 - -4 * 5
+var c = 1 + -1 + (-3 - -4 * 5)
 `
 	t, e := Parse("expr-1.go", src)
 	if e != nil {
@@ -968,7 +968,7 @@ var (
 
 var (
     a = *uint(1)
-    b = *uint(a)
+    b = (*uint)(a)
     c = []uint(b)
     cc = []uint(b)
     d = (*[]uint)(c)
