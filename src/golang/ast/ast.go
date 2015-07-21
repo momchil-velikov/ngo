@@ -300,6 +300,13 @@ type Block struct {
 
 func (b Block) stmt() {}
 
+type LabeledStmt struct {
+	Label string
+	Stmt  Stmt
+}
+
+func (l LabeledStmt) stmt() {}
+
 type GoStmt struct {
 	Ex Expr
 }

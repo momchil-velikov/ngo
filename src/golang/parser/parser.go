@@ -1314,6 +1314,20 @@ func (p *parser) parseStmt() ast.Stmt {
 	}
 }
 
+// LabeledStmt = Label ":" Statement .
+// Label       = identifier .
+func (p *parser) parseLabeledStmt(x ast.Expr) ast.Stmt {
+	id := ""
+	q, ok := x.(*ast.QualId)
+	if !ok || len(q.Pkg) > 0 {
+		p.error("a label must consiste of single identifier")
+	} else {
+		id = q.Id
+	}
+	p.match(':')
+	return &ast.LabeledStmt{Label: id, Stmt: p.parseStmt()}
+}
+
 // GoStmt = "go" Expression .
 func (p *parser) parseGoStmt() ast.Stmt {
 	p.match(s.GO)
@@ -1653,13 +1667,6 @@ func (p *parser) parseForStmt() ast.Stmt {
 func (p *parser) parseDeferStmt() ast.Stmt {
 	p.match(s.DEFER)
 	return &ast.DeferStmt{p.parseExpr()}
-}
-
-// LabeledStmt = Label ":" Statement .
-// Label       = identifier .
-func (p *parser) parseLabeledStmt(id ast.Expr) ast.Stmt {
-	p.match(':')
-	return p.parseStmt()
 }
 
 // SimpleStmt =

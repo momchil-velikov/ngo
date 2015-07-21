@@ -805,3 +805,38 @@ func foo() {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestLabeledStmt(tst *testing.T) {
+	src := `package main
+
+func foo(n uint) {
+L1: n++
+  if n > 2 {
+     L2: n--
+  }
+}
+`
+
+	exp := `package main
+
+func foo(n uint) {
+L1:
+    n++
+    if n > 2 {
+    L2:
+        n--
+    }
+}
+`
+	t, e := Parse("labeled-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+
+}

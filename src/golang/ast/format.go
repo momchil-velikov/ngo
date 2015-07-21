@@ -551,7 +551,11 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 	for i := range b.Stmts {
 		if _, ok := b.Stmts[i].(*EmptyStmt); !ok {
 			empty = false
-			ctx.WriteV(n+1, "\n", ctx.Indent, b.Stmts[i].Format)
+			if s, ok := b.Stmts[i].(*LabeledStmt); ok {
+				s.Format(ctx, n)
+			} else {
+				ctx.WriteV(n+1, "\n", ctx.Indent, b.Stmts[i].Format)
+			}
 		}
 	}
 	if empty {
@@ -562,6 +566,11 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *EmptyStmt) Format(_ *FormatContext, _ uint) {
+}
+
+func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
+	ctx.WriteV(n, "\n", ctx.Indent, s.Label, ":")
+	ctx.WriteV(n+1, "\n", ctx.Indent, s.Stmt.Format)
 }
 
 func (g *GoStmt) Format(ctx *FormatContext, n uint) {
