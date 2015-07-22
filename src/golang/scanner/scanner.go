@@ -6,14 +6,15 @@ import (
 )
 
 type Scanner struct {
-	Name              string // Name of the source, e.g. a file name
-	Err               error
-	Value             []byte // Value of the last token
-	TOff, TLine, TPos int    // Byte offset, line number, line position of the last token
-	src               []byte // source characters
-	off, line, pos    int    // Curent byte offset, line number and line position
-	lineOff           int    // Current line offset
-	needSemi          bool
+	Name     string // Name of the source, e.g. a file name
+	Err      error
+	srcmap   SourceMap
+	Value    []byte // Value of the last token
+	TOff     int    // Byte offset of the last token
+	src      []byte // source characters
+	off      int    // Curent byte offset
+	lineOff  int    // Current line offset
+	needSemi bool
 }
 
 func New(name string, src string) *Scanner {
@@ -25,8 +26,15 @@ func New(name string, src string) *Scanner {
 func (s *Scanner) Init(name string, src []byte) {
 	s.Name = name
 	s.src = src
-	s.line = 1
-	s.pos = 1
+}
+
+func (s *Scanner) findSourcePosition(off int) (int, int) {
+	if ln, col := s.srcmap.Position(off); ln > 0 {
+		return ln, col
+	} else {
+		return s.srcmap.LineCount() + 1, off - s.lineOff + 1
+	}
+
 }
 
 func (s *Scanner) error(msg string) uint {
@@ -45,7 +53,8 @@ func (s *Scanner) error(msg string) uint {
 
 	line = append(line, "|<- "...)
 	line = append(line, s.src[s.off:off]...)
-	s.Err = makeError(s.Name, s.line, s.pos, msg, string(line))
+	ln, pos := s.findSourcePosition(s.off)
+	s.Err = makeError(s.Name, ln, pos, msg, string(line))
 	return ERROR
 }
 
@@ -69,33 +78,34 @@ func (s *Scanner) next() rune {
 	r, sz := s.peekAt(s.off)
 	if sz > 0 {
 		s.off += sz
-		s.pos++
 		if r == NL {
-			s.pos = 1
-			s.line++
+			s.srcmap.addLine(s.off - s.lineOff)
 			s.lineOff = s.off
 		}
 	}
 	return r
 }
 
-// Return the one byte rune at the current offset
-func (s *Scanner) peekChar() rune {
-	if s.off == len(s.src) {
+// Return the one byte rune at the given offset
+func (s *Scanner) peekCharAt(off int) rune {
+	if off >= len(s.src) {
 		return EOF
 	} else {
-		return rune(s.src[s.off])
+		return rune(s.src[off])
 	}
+}
+
+// Return the one byte rune at the current offset
+func (s *Scanner) peekChar() rune {
+	return s.peekCharAt(s.off)
 }
 
 func (s *Scanner) nextChar() rune {
 	r := s.peekChar()
 	if r != EOF {
 		s.off++
-		s.pos++
 		if r == NL {
-			s.pos = 1
-			s.line++
+			s.srcmap.addLine(s.off - s.lineOff)
 		}
 	}
 	return r
@@ -115,7 +125,7 @@ func (s *Scanner) skipLineComment() rune {
 // before the comment ends. Return NL if the comment contains newlines or
 // SPACE otherwise.
 func (s *Scanner) skipBlockComment() rune {
-	line := s.line
+	line := s.srcmap.LineCount() + 1
 
 	var r rune
 	for r = s.next(); r != EOF; r = s.next() {
@@ -131,7 +141,7 @@ func (s *Scanner) skipBlockComment() rune {
 	if r == EOF {
 		return EOF
 	} else {
-		if line < s.line {
+		if line < s.srcmap.LineCount()+1 {
 			return NL
 		} else {
 			return SPACE
@@ -418,7 +428,7 @@ L:
 
 	r := s.peek()
 
-	s.TOff, s.TLine, s.TPos = s.off, s.line, s.pos
+	s.TOff = s.off
 	if isWhitespace(r) {
 		s.next()
 		if r == NL {
@@ -597,27 +607,22 @@ L:
 		s.nextChar()
 		s.needSemi = true
 		return uint(r)
-	case '.': // ., ...
-		s.nextChar()
-		r = s.peekChar()
-		if r == '.' {
+	case '.': // ., ..., .<fraction>
+		r = s.peekCharAt(s.off + 1)
+		if r == '.' && s.peekCharAt(s.off+2) == '.' {
 			s.nextChar()
-			r = s.peekChar()
-			if r == '.' {
-				s.nextChar()
-				return DOTS
-			}
-			s.off--
-			s.pos--
+			s.nextChar()
+			s.nextChar()
+			return DOTS
 		} else if isDecDigit(r) {
-			// Scan numeric literal
-			s.off--
 			t, v := s.scanNumeric()
 			s.Value = v
 			s.needSemi = true
 			return t
+		} else {
+			s.nextChar()
+			return '.'
 		}
-		return '.'
 	case ':': // :, :=
 		s.nextChar()
 		r = s.peekChar()

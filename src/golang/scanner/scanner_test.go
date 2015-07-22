@@ -561,3 +561,25 @@ func TestBug20150725T222756(t *testing.T) {
 	tok := s.Get()
 	expectToken(t, tok, EOF)
 }
+
+func TestSourceMap(t *testing.T) {
+	src := `a b /* alala */
+c
+// alalal
+d e
+// alalalal
+// fofofof
+f
+`
+	//	off := []int{0, 2, 16, 28, 30, 556}
+	s := New("test-position.go", src)
+	i := 0
+	tok := s.Get()
+	for tok != ERROR && tok != EOF {
+		//		if s.TOff != off[i] {
+		t.Log("wrong token offset: token:", TokenNames[tok], "off:", s.TOff)
+		//		}
+		tok = s.Get()
+		i++
+	}
+}
