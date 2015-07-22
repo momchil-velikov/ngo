@@ -536,3 +536,16 @@ func TestRegression20140121222305(t *testing.T) {
 		t.Log(s.Err)
 	}
 }
+
+func TestBug20150722T232927(t *testing.T) {
+	src := `x /* */
+            +1`
+	exp := []uint{ID, ';', '+', INTEGER, ';'}
+	s := New("Bug20150722T232927.go", src)
+	for i := range exp {
+		tok := s.Get()
+		expectToken(t, tok, exp[i])
+	}
+	tok := s.Get()
+	expectToken(t, tok, EOF)
+}

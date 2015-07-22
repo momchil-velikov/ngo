@@ -486,6 +486,7 @@ L:
 			} else if r == NL && needSemi {
 				return ';'
 			}
+			s.needSemi = needSemi
 			goto L
 		}
 		return '/'
