@@ -87,8 +87,10 @@ func (p *parser) expectError(exp, act uint) {
 }
 
 // Get the next token from the scanner.
-func (p *parser) next() {
+func (p *parser) next() int {
+	off := p.scan.TOff
 	p.token = p.scan.Get()
+	return off
 }
 
 // Check the next token is TOKEN. Return true if so, otherwise emit an error and
@@ -102,32 +104,32 @@ func (p *parser) expect(token uint) bool {
 	}
 }
 
-// Advance to the next token iff the current one is TOKEN.
-func (p *parser) match(token uint) bool {
+// Advance to the next token iff the current one is TOKEN. Returns the token
+// offset before the advance.
+func (p *parser) match(token uint) int {
 	if p.expect(token) {
-		p.next()
-		return true
+		return p.next()
 	} else {
-		return false
+		return 0
 	}
 }
 
 // Advances to the next token iff the current one is TOKEN. Returns token
 // value.
-func (p *parser) matchRaw(token uint) []byte {
+func (p *parser) matchRaw(token uint) ([]byte, int) {
 	if p.expect(token) {
-		value := p.scan.Value
-		p.next()
-		return value
+		v := p.scan.Value
+		return v, p.next()
 	} else {
-		return nil
+		return nil, 0
 	}
 }
 
 // Advances to the next token iff the current one is TOKEN. Returns token
 // value as string.
-func (p *parser) matchString(token uint) string {
-	return string(p.matchRaw(token))
+func (p *parser) matchString(token uint) (string, int) {
+	b, o := p.matchRaw(token)
+	return string(b), o
 }
 
 // Skip tokens, until given token found, then consume it. Report an error
@@ -170,15 +172,21 @@ func (p *parser) syncDecl() {
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 func (p *parser) parseFile() *ast.File {
+	var off int
+
 	// Parse package name
+	if p.token == s.PACKAGE {
+		off = p.scan.TOff
+	}
 	name := p.parsePackageClause()
 	if len(name) == 0 {
 		return nil
 	}
 
-	if !p.match(';') {
+	if !p.expect(';') {
 		return nil
 	}
+	p.next()
 
 	// Parse import declaration(s)
 	is := p.parseImportDecls()
@@ -188,7 +196,7 @@ func (p *parser) parseFile() *ast.File {
 
 	p.match(s.EOF)
 
-	return &ast.File{Package: name, Imports: is, Decls: ds}
+	return &ast.File{Off: off, Package: name, Imports: is, Decls: ds}
 }
 
 // Parse a package clause. Return the package name or an empty string on error.
@@ -197,7 +205,8 @@ func (p *parser) parseFile() *ast.File {
 // PackageName    = identifier .
 func (p *parser) parsePackageClause() string {
 	p.match(s.PACKAGE)
-	return p.matchString(s.ID)
+	pkg, _ := p.matchString(s.ID)
+	return pkg
 }
 
 // Parse import declarations(s).
@@ -205,13 +214,13 @@ func (p *parser) parsePackageClause() string {
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
 func (p *parser) parseImportDecls() (imps []ast.Decl) {
 	for p.token == s.IMPORT {
-		p.match(s.IMPORT)
+		off := p.match(s.IMPORT)
 		if p.token == '(' {
 			p.next()
-			grp := &ast.DeclGroup{Kind: s.IMPORT}
+			grp := &ast.DeclGroup{Off: off, Kind: s.IMPORT}
 			for p.token != s.EOF && p.token != ')' {
-				if name, path := p.parseImportSpec(); len(path) > 0 {
-					grp.Decls = append(grp.Decls, &ast.Import{Name: name, Path: path})
+				if i := p.parseImportSpec(); i != nil {
+					grp.Decls = append(grp.Decls, i)
 				}
 				if p.token != ')' {
 					p.sync2(';', ')')
@@ -220,8 +229,8 @@ func (p *parser) parseImportDecls() (imps []ast.Decl) {
 			p.match(')')
 			imps = append(imps, grp)
 		} else {
-			if name, path := p.parseImportSpec(); len(path) > 0 {
-				imps = append(imps, &ast.Import{Name: name, Path: path})
+			if i := p.parseImportSpec(); i != nil {
+				imps = append(imps, i)
 			}
 		}
 		p.sync(';')
@@ -233,17 +242,22 @@ func (p *parser) parseImportDecls() (imps []ast.Decl) {
 //
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-func (p *parser) parseImportSpec() (name string, path []byte) {
+func (p *parser) parseImportSpec() ast.Decl {
+	var name string
+	off := p.scan.TOff
 	if p.token == '.' {
 		name = "."
 		p.next()
 	} else if p.token == s.ID {
-		name = p.matchString(s.ID)
+		name, _ = p.matchString(s.ID)
 	} else {
 		name = ""
 	}
-	path = p.matchRaw(s.STRING)
-	return
+	if path, _ := p.matchRaw(s.STRING); path == nil {
+		return nil
+	} else {
+		return &ast.Import{Off: off, Name: name, Path: path}
+	}
 }
 
 // Parse toplevel declaration(s)
@@ -280,10 +294,10 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 func (p *parser) parseTypeDecl() ast.Decl {
-	p.match(s.TYPE)
+	off := p.match(s.TYPE)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Kind: s.TYPE}
+		grp := &ast.DeclGroup{Off: off, Kind: s.TYPE}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Decls = append(grp.Decls, p.parseTypeSpec())
 			if p.token != ')' {
@@ -299,9 +313,9 @@ func (p *parser) parseTypeDecl() ast.Decl {
 
 // TypeSpec = identifier Type .
 func (p *parser) parseTypeSpec() *ast.TypeDecl {
-	id := p.matchString(s.ID)
+	id, off := p.matchString(s.ID)
 	t := p.parseType()
-	return &ast.TypeDecl{Name: id, Type: t}
+	return &ast.TypeDecl{Off: off, Name: id, Type: t}
 }
 
 // Determine if the given TOKEN could be a beginning of a typespec.
@@ -321,7 +335,7 @@ func isTypeLookahead(token uint) bool {
 func (p *parser) parseType() ast.Type {
 	switch p.token {
 	case s.ID:
-		return p.parseQualId()
+		return p.parseIdent()
 
 	// ArrayType   = "[" ArrayLength "]" ElementType .
 	// ArrayLength = Expression .
@@ -331,52 +345,52 @@ func (p *parser) parseType() ast.Type {
 	// only in composite literal expressions.
 	// ArrayLength = Expression | "..." .
 	case '[':
-		p.next()
+		off := p.next()
 		if p.token == ']' {
 			p.next()
-			return &ast.SliceType{Elt: p.parseType()}
+			return &ast.SliceType{Off: off, Elt: p.parseType()}
 		} else if p.token == s.DOTS {
 			p.next()
 			p.match(']')
-			return &ast.ArrayType{Elt: p.parseType()}
+			return &ast.ArrayType{Off: off, Elt: p.parseType()}
 		} else {
 			e := p.parseExpr()
 			p.match(']')
 			t := p.parseType()
-			return &ast.ArrayType{Dim: e, Elt: t}
+			return &ast.ArrayType{Off: off, Dim: e, Elt: t}
 		}
 
 	// PointerType = "*" BaseType .
 	// BaseType = Type .
 	case '*':
-		p.next()
-		return &ast.PtrType{Base: p.parseType()}
+		off := p.next()
+		return &ast.PtrType{Off: off, Base: p.parseType()}
 
 	// MapType     = "map" "[" KeyType "]" ElementType .
 	// KeyType     = Type .
 	case s.MAP:
-		p.next()
+		off := p.next()
 		p.match('[')
 		k := p.parseType()
 		p.match(']')
 		t := p.parseType()
-		return &ast.MapType{Key: k, Elt: t}
+		return &ast.MapType{Off: off, Key: k, Elt: t}
 
 	// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
 	case s.RECV:
-		p.next()
+		off := p.next()
 		p.match(s.CHAN)
 		t := p.parseType()
-		return &ast.ChanType{Send: false, Recv: true, Elt: t}
+		return &ast.ChanType{Off: off, Send: false, Recv: true, Elt: t}
 	case s.CHAN:
-		p.next()
+		off := p.next()
 		send, recv := true, true
 		if p.token == s.RECV {
 			p.next()
 			send, recv = true, false
 		}
 		t := p.parseType()
-		return &ast.ChanType{Send: send, Recv: recv, Elt: t}
+		return &ast.ChanType{Off: off, Send: send, Recv: recv, Elt: t}
 
 	case s.STRUCT:
 		return p.parseStructType()
@@ -395,27 +409,27 @@ func (p *parser) parseType() ast.Type {
 
 	default:
 		p.error("expected typespec")
-		return &ast.Error{}
+		return &ast.Error{p.scan.TOff}
 	}
 }
 
 // TypeName = identifier | QualifiedIdent .
-func (p *parser) parseQualId() *ast.QualId {
-	pkg := p.matchString(s.ID)
+func (p *parser) parseIdent() *ast.Ident {
+	pkg, off := p.matchString(s.ID)
 	var id string
 	if p.token == '.' {
 		p.next()
-		id = p.matchString(s.ID)
+		id, _ = p.matchString(s.ID)
 	} else {
 		pkg, id = "", pkg
 	}
-	return &ast.QualId{Pkg: pkg, Id: id}
+	return &ast.Ident{Off: off, Pkg: pkg, Id: id}
 }
 
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
 func (p *parser) parseStructType() *ast.StructType {
 	var fs []*ast.FieldDecl
-	p.match(s.STRUCT)
+	off := p.match(s.STRUCT)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
 		fs = append(fs, p.parseFieldDecl())
@@ -424,49 +438,53 @@ func (p *parser) parseStructType() *ast.StructType {
 		}
 	}
 	p.match('}')
-	return &ast.StructType{Fields: fs}
+	return &ast.StructType{Off: off, Fields: fs}
 }
 
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
 func (p *parser) parseFieldDecl() *ast.FieldDecl {
+
 	if p.token == '*' {
 		// Anonymous field.
-		p.next()
-		pt := &ast.PtrType{Base: p.parseQualId()}
-		tag := p.parseTagOpt()
-		return &ast.FieldDecl{Type: pt, Tag: tag}
-	} else if p.token == s.ID {
-		pkg := p.matchString(s.ID)
+		off := p.next()
+		pt := &ast.PtrType{Off: off, Base: p.parseIdent()}
+		return &ast.FieldDecl{Type: pt, Tag: p.parseTagOpt()}
+	}
+
+	if p.token == s.ID {
+		name, off := p.matchString(s.ID)
+		id := &ast.Ident{Off: off, Id: name}
+
+		// If the field decl begins with a qualified-id, it's parsed as an
+		// anonymous field.
 		if p.token == '.' {
-			// If the field decl begins with a qualified-id, it's parsed as an
-			// anonymous field.
 			p.next()
-			id := p.matchString(s.ID)
-			t := &ast.QualId{Pkg: pkg, Id: id}
-			tag := p.parseTagOpt()
-			return &ast.FieldDecl{Type: t, Tag: tag}
-		} else if p.token == s.STRING || p.token == ';' || p.token == '}' {
-			// If it's only a single identifier, with no separate type
-			// declaration, it's also an anonymous filed.
-			t := &ast.QualId{Id: pkg}
-			tag := p.parseTagOpt()
-			return &ast.FieldDecl{Type: t, Tag: tag}
-		} else {
-			ids := p.parseIdList(pkg)
-			t := p.parseType()
-			tag := p.parseTagOpt()
-			return &ast.FieldDecl{Names: ids, Type: t, Tag: tag}
+			id.Pkg = id.Id
+			id.Id, _ = p.matchString(s.ID)
+			return &ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+		}
+
+		// If it's only a single identifier, with no separate type
+		// declaration, it's also an anonymous filed.
+		if p.token == s.STRING || p.token == ';' || p.token == '}' {
+			return &ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+		}
+
+		return &ast.FieldDecl{
+			Names: p.parseIdList(id),
+			Type:  p.parseType(),
+			Tag:   p.parseTagOpt(),
 		}
 	}
 	p.error("Invalid field declaration")
-	return &ast.FieldDecl{Type: &ast.Error{}}
+	return &ast.FieldDecl{Type: &ast.Error{Off: p.scan.TOff}}
 }
 
 func (p *parser) parseTagOpt() (tag []byte) {
 	if p.token == s.STRING {
-		tag = p.matchRaw(s.STRING)
+		tag, _ = p.matchRaw(s.STRING)
 	} else {
 		tag = nil
 	}
@@ -474,18 +492,17 @@ func (p *parser) parseTagOpt() (tag []byte) {
 }
 
 // IdentifierList = identifier { "," identifier } .
-func (p *parser) parseIdList(id string) (ids []string) {
-	if len(id) == 0 {
-		id = p.matchString(s.ID)
+func (p *parser) parseIdList(id *ast.Ident) (ids []*ast.Ident) {
+	if id == nil {
+		name, off := p.matchString(s.ID)
+		id = &ast.Ident{Off: off, Id: name}
 	}
-	if len(id) > 0 {
-		ids = append(ids, id)
-	}
+	ids = append(ids, id)
 	for p.token == ',' {
 		p.next()
-		id = p.matchString(s.ID)
-		if len(id) > 0 {
-			ids = append(ids, id)
+		name, off := p.matchString(s.ID)
+		if len(name) > 0 {
+			ids = append(ids, &ast.Ident{Off: off, Id: name})
 		}
 	}
 	return ids
@@ -493,8 +510,10 @@ func (p *parser) parseIdList(id string) (ids []string) {
 
 // FunctionType = "func" Signature .
 func (p *parser) parseFuncType() *ast.FuncType {
-	p.match(s.FUNC)
-	return p.parseSignature()
+	off := p.match(s.FUNC)
+	t := p.parseSignature()
+	t.Off = off
+	return t
 }
 
 // Signature = Parameters [ Result ] .
@@ -505,7 +524,8 @@ func (p *parser) parseSignature() *ast.FuncType {
 	if p.token == '(' {
 		rs = p.parseParameters()
 	} else if isTypeLookahead(p.token) {
-		rs = []*ast.ParamDecl{&ast.ParamDecl{Type: p.parseType()}}
+		off := p.scan.TOff
+		rs = []*ast.ParamDecl{&ast.ParamDecl{Off: off, Type: p.parseType()}}
 	}
 	return &ast.FuncType{Params: ps, Returns: rs}
 }
@@ -514,7 +534,7 @@ func (p *parser) parseSignature() *ast.FuncType {
 // ParameterList = ParameterDecl { "," ParameterDecl } .
 func (p *parser) parseParameters() []*ast.ParamDecl {
 	var (
-		ids []string
+		ids []*ast.Ident
 		ds  []*ast.ParamDecl
 	)
 	p.match('(')
@@ -527,13 +547,13 @@ func (p *parser) parseParameters() []*ast.ParamDecl {
 		if t != nil {
 			ds = appendParamTypes(ds, ids)
 			ds = append(ds, &ast.ParamDecl{Type: t, Var: v})
-			ids = nil
+			ids = ids[:0]
 		} else {
 			ids = append(ids, id)
 			if p.token != ',' && p.token != ')' {
 				id, t, v = p.parseIdOrType()
 				if t == nil {
-					t = &ast.QualId{Id: id}
+					t = id
 				}
 				ds = append(ds, &ast.ParamDecl{Names: ids, Type: t, Var: v})
 				ids = nil
@@ -550,21 +570,21 @@ func (p *parser) parseParameters() []*ast.ParamDecl {
 
 // Parses an identifier or a type. A qualified identifier is considered a
 // type.
-func (p *parser) parseIdOrType() (string, ast.Type, bool) {
+func (p *parser) parseIdOrType() (*ast.Ident, ast.Type, bool) {
 	if p.token == s.ID {
-		id := p.matchString(s.ID)
+		id, off := p.matchString(s.ID)
 		if p.token == '.' {
 			p.next()
 			pkg := id
 			if p.token == s.ID {
-				id = p.matchString(s.ID)
+				id, _ = p.matchString(s.ID)
 			} else {
 				p.error("incomplete qualified id")
 				id = ""
 			}
-			return "", &ast.QualId{Pkg: pkg, Id: id}, false
+			return nil, &ast.Ident{Off: off, Pkg: pkg, Id: id}, false
 		}
-		return id, nil, false
+		return &ast.Ident{Off: off, Id: id}, nil, false
 	}
 	v := false
 	if p.token == s.DOTS {
@@ -572,14 +592,14 @@ func (p *parser) parseIdOrType() (string, ast.Type, bool) {
 		v = true
 	}
 	t := p.parseType() // FIXME: parenthesized types not allowed
-	return "", t, v
+	return nil, t, v
 }
 
 // Converts an identifier list to a list of parameter declarations, taking
 // each identifier to be a type name.
-func appendParamTypes(ds []*ast.ParamDecl, ids []string) []*ast.ParamDecl {
+func appendParamTypes(ds []*ast.ParamDecl, ids []*ast.Ident) []*ast.ParamDecl {
 	for _, id := range ids {
-		ds = append(ds, &ast.ParamDecl{Type: &ast.QualId{Id: id}})
+		ds = append(ds, &ast.ParamDecl{Type: id})
 	}
 	return ds
 }
@@ -590,20 +610,22 @@ func appendParamTypes(ds []*ast.ParamDecl, ids []string) []*ast.ParamDecl {
 // InterfaceTypeName  = TypeName .
 func (p *parser) parseInterfaceType() *ast.InterfaceType {
 	var ms []*ast.MethodSpec
-	p.match(s.INTERFACE)
+	off := p.match(s.INTERFACE)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
 		var m *ast.MethodSpec
-		id := p.matchString(s.ID)
-		if p.token == '.' {
-			p.next()
-			name := p.matchString(s.ID)
-			m = &ast.MethodSpec{Type: &ast.QualId{Pkg: id, Id: name}}
-		} else if p.token == '(' {
+		id, off := p.matchString(s.ID)
+		name := &ast.Ident{Off: off, Id: id}
+		if p.token == '(' {
 			sig := p.parseSignature()
-			m = &ast.MethodSpec{Name: id, Type: sig}
+			m = &ast.MethodSpec{Name: name, Type: sig}
 		} else {
-			m = &ast.MethodSpec{Type: &ast.QualId{Id: id}}
+			if p.token == '.' {
+				p.next()
+				name.Pkg = name.Id
+				name.Id, _ = p.matchString(s.ID)
+			}
+			m = &ast.MethodSpec{Type: name}
 		}
 		ms = append(ms, m)
 		if p.token != '}' {
@@ -611,15 +633,15 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 		}
 	}
 	p.match('}')
-	return &ast.InterfaceType{Methods: ms}
+	return &ast.InterfaceType{Off: off, Methods: ms}
 }
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 func (p *parser) parseConstDecl() ast.Decl {
-	p.match(s.CONST)
+	off := p.match(s.CONST)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Kind: s.CONST}
+		grp := &ast.DeclGroup{Off: off, Kind: s.CONST}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Decls = append(grp.Decls, p.parseConstSpec())
 			if p.token != ')' {
@@ -639,7 +661,7 @@ func (p *parser) parseConstSpec() *ast.ConstDecl {
 		t  ast.Type
 		es []ast.Expr
 	)
-	ids := p.parseIdList("")
+	ids := p.parseIdList(nil)
 	if isTypeLookahead(p.token) {
 		t = p.parseType()
 	}
@@ -652,10 +674,10 @@ func (p *parser) parseConstSpec() *ast.ConstDecl {
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 func (p *parser) parseVarDecl() ast.Decl {
-	p.match(s.VAR)
+	off := p.match(s.VAR)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Kind: s.VAR}
+		grp := &ast.DeclGroup{Off: off, Kind: s.VAR}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Decls = append(grp.Decls, p.parseVarSpec())
 			if p.token != ')' {
@@ -675,7 +697,7 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 		t  ast.Type
 		es []ast.Expr
 	)
-	ids := p.parseIdList("")
+	ids := p.parseIdList(nil)
 	if isTypeLookahead(p.token) {
 		t = p.parseType()
 	}
@@ -692,40 +714,44 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 // Function     = Signature FunctionBody .
 // FunctionBody = Block .
 func (p *parser) parseFuncDecl() ast.Decl {
+	foff := p.match(s.FUNC)
 	var r *ast.Receiver
-	p.match(s.FUNC)
 	if p.token == '(' {
 		r = p.parseReceiver()
 	}
-	name := p.matchString(s.ID)
+	name, off := p.matchString(s.ID)
 	sig := p.parseSignature()
 	var blk *ast.Block
 	if p.token == '{' {
 		blk = p.parseBlock()
 	}
-	return &ast.FuncDecl{Name: name, Recv: r, Sig: sig, Blk: blk}
+	return &ast.FuncDecl{
+		Off:  foff,
+		Name: &ast.Ident{Off: off, Id: name},
+		Recv: r,
+		Sig:  sig,
+		Blk:  blk,
+	}
 }
 
 // Receiver     = "(" [ identifier ] [ "*" ] BaseTypeName ")" .
 // BaseTypeName = identifier .
 func (p *parser) parseReceiver() *ast.Receiver {
 	p.match('(')
-	var n string
+	var id *ast.Ident
 	if p.token == s.ID {
-		n = p.matchString(s.ID)
+		name, off := p.matchString(s.ID)
+		id = &ast.Ident{Off: off, Id: name}
 	}
-	ptr := false
+
+	var t ast.Type
 	if p.token == '*' {
-		p.next()
-		ptr = true
+		t = &ast.PtrType{Off: p.next(), Base: p.parseIdent()}
+	} else {
+		t = p.parseIdent()
 	}
-	t := p.matchString(s.ID)
 	p.sync2(')', ';')
-	var tp ast.Type = &ast.QualId{Id: t}
-	if ptr {
-		tp = &ast.PtrType{Base: tp}
-	}
-	return &ast.Receiver{Name: n, Type: tp}
+	return &ast.Receiver{Name: id, Type: t}
 }
 
 // ExpressionList = Expression { "," Expression } .
@@ -762,7 +788,7 @@ func (p *parser) parseExpr() ast.Expr {
 		return e
 	}
 	p.error("Type not allowed in this context")
-	return &ast.Error{}
+	return &ast.Error{p.scan.TOff}
 }
 
 // Expression = UnaryExpr | Expression binary_op UnaryExpr .
@@ -904,26 +930,27 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 	switch p.token {
 	case '+', '-', '!', '^', '&':
 		op := p.token
-		p.next()
+		off := p.next()
 		x, _ := p.parseUnaryExprOrType()
-		return &ast.UnaryExpr{Op: op, X: x}, nil
+		return &ast.UnaryExpr{Off: off, Op: op, X: x}, nil
 	case '*':
-		p.next()
+		off := p.next()
 		if x, t := p.parseUnaryExprOrType(); t == nil {
-			return &ast.UnaryExpr{Op: '*', X: x}, nil
+			return &ast.UnaryExpr{Off: off, Op: '*', X: x}, nil
 		} else {
-			return nil, &ast.PtrType{Base: t}
+			return nil, &ast.PtrType{Off: off, Base: t}
 		}
 	case s.RECV:
-		p.next()
+		off := p.next()
 		if x, t := p.parseUnaryExprOrType(); t == nil {
-			return &ast.UnaryExpr{Op: s.RECV, X: x}, nil
+			return &ast.UnaryExpr{Off: off, Op: s.RECV, X: x}, nil
 		} else if ch, ok := t.(*ast.ChanType); ok {
 			ch.Recv, ch.Send = true, false
+			ch.Off = off
 			return nil, ch
 		} else {
 			p.error("invalid receive operation")
-			return &ast.Error{}, nil
+			return &ast.Error{p.scan.TOff}, nil
 		}
 	default:
 		return p.parsePrimaryExprOrType()
@@ -932,11 +959,11 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 
 func (p *parser) needType(x ast.Expr) (ast.Type, bool) {
 	switch t := x.(type) {
-	case *ast.QualId:
+	case *ast.Ident:
 		return t, true
 	case *ast.Selector:
-		if x, ok := t.X.(*ast.QualId); ok && len(x.Pkg) == 0 {
-			return &ast.QualId{Pkg: x.Id, Id: t.Id}, true
+		if x, ok := t.X.(*ast.Ident); ok && len(x.Pkg) == 0 {
+			return &ast.Ident{Off: x.Off, Pkg: x.Id, Id: t.Id}, true
 		}
 	}
 	return nil, false
@@ -976,16 +1003,17 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 	// Handle initial Operand, Conversion or a BuiltinCall
 	switch p.token {
 	case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
-		id := p.matchString(s.ID)
+		name, off := p.matchString(s.ID)
+		id := &ast.Ident{Off: off, Id: name}
 		if p.token == '{' && p.brackets > 0 {
-			x = p.parseCompositeLiteral(&ast.QualId{Id: id})
+			x = p.parseCompositeLiteral(id)
 		} else if p.token == '(' {
-			x = p.parseCall(&ast.QualId{Id: id})
+			x = p.parseCall(id)
 		} else {
-			x = &ast.QualId{Id: id}
+			x = id
 		}
 	case '(': // Expression, MethodExpr, Conversion
-		p.next()
+		off := p.next()
 		p.beginBrackets()
 		x, t = p.parseExprOrType()
 		p.endBrackets()
@@ -997,7 +1025,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 				return nil, t
 			}
 		} else {
-			x = &ast.ParensExpr{X: x}
+			x = &ast.ParensExpr{Off: off, X: x}
 		}
 	case '[', s.STRUCT, s.MAP: // Conversion, CompositeLit
 		t = p.parseType()
@@ -1028,11 +1056,11 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		}
 	case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE, s.STRING: // BasicLiteral
 		k := p.token
-		v := p.matchRaw(k)
-		return &ast.Literal{Kind: k, Value: v}, nil
+		v, off := p.matchRaw(k)
+		return &ast.Literal{Off: off, Kind: k, Value: v}, nil
 	default:
 		p.error("token cannot start neither expression nor type")
-		x = &ast.Error{}
+		x = &ast.Error{p.scan.TOff}
 	}
 	// Parse the left-recursive alternatives for PrimaryExpr, folding the
 	// left-hand parts in the variable `X`.
@@ -1047,7 +1075,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 			} else {
 				// PrimaryExpr Selector
 				// Selector = "." identifier .
-				id := p.matchString(s.ID)
+				id, _ := p.matchString(s.ID)
 				x = &ast.Selector{X: x, Id: id}
 			}
 		case '[':
@@ -1235,10 +1263,10 @@ func (p *parser) parseIndexOrSlice(x ast.Expr) ast.Expr {
 // Block = "{" StatementList "}" .
 func (p *parser) parseBlock() *ast.Block {
 	//	defer p.trace("Block")()
-	p.match('{')
+	off := p.match('{')
 	st := p.parseStatementList()
 	p.match('}')
-	return &ast.Block{Body: st}
+	return &ast.Block{Off: off, Body: st}
 }
 
 // StatementList = { Statement ";" } .
@@ -1257,7 +1285,8 @@ func (p *parser) syncEndStatement() {
 	if p.token == '}' {
 		return
 	}
-	if p.match(';') {
+	if p.expect(';') {
+		p.next()
 		return
 	}
 	for p.token != s.EOF && p.token != ';' && p.token != '}' &&
@@ -1313,7 +1342,7 @@ func (p *parser) parseStmt() ast.Stmt {
 	case s.DEFER:
 		return p.parseDeferStmt()
 	case ';':
-		return &ast.EmptyStmt{}
+		return &ast.EmptyStmt{p.scan.TOff}
 	}
 
 	e := p.parseExpr()
@@ -1327,69 +1356,70 @@ func (p *parser) parseStmt() ast.Stmt {
 // LabeledStmt = Label ":" Statement .
 // Label       = identifier .
 func (p *parser) parseLabeledStmt(x ast.Expr) ast.Stmt {
+	off := p.match(':')
 	id := ""
-	q, ok := x.(*ast.QualId)
-	if !ok || len(q.Pkg) > 0 {
-		p.error("a label must consiste of single identifier")
-	} else {
+	if q, ok := x.(*ast.Ident); ok {
+		if len(q.Pkg) > 0 {
+			p.error("a label must consist of single identifier")
+		}
+		off = q.Off
 		id = q.Id
 	}
-	p.match(':')
-	return &ast.LabeledStmt{Label: id, Stmt: p.parseStmt()}
+	return &ast.LabeledStmt{Off: off, Label: id, Stmt: p.parseStmt()}
 }
 
 // GoStmt = "go" Expression .
 func (p *parser) parseGoStmt() ast.Stmt {
-	p.match(s.GO)
-	x := p.parseExpr()
-	return &ast.GoStmt{X: x}
+	return &ast.GoStmt{Off: p.match(s.GO), X: p.parseExpr()}
 }
 
 // ReturnStmt = "return" [ ExpressionList ] .
 func (p *parser) parseReturnStmt() ast.Stmt {
-	p.match(s.RETURN)
+	off := p.match(s.RETURN)
 	if p.token != ';' && p.token != '}' {
-		return &ast.ReturnStmt{Xs: p.parseExprList(nil)}
+		return &ast.ReturnStmt{Off: off, Xs: p.parseExprList(nil)}
 	} else {
-		return &ast.ReturnStmt{}
+		return &ast.ReturnStmt{Off: off}
 	}
 }
 
 // BreakStmt = "break" [ Label ] .
 func (p *parser) parseBreakStmt() ast.Stmt {
-	p.match(s.BREAK)
+	off := p.match(s.BREAK)
 	if p.token == s.ID {
-		return &ast.BreakStmt{Label: p.matchString(s.ID)}
+		label, _ := p.matchString(s.ID)
+		return &ast.BreakStmt{Off: off, Label: label}
 	} else {
-		return &ast.BreakStmt{}
+		return &ast.BreakStmt{Off: off}
 	}
 }
 
 // ContinueStmt = "continue" [ Label ] .
 func (p *parser) parseContinueStmt() ast.Stmt {
-	p.match(s.CONTINUE)
+	off := p.match(s.CONTINUE)
 	if p.token == s.ID {
-		return &ast.ContinueStmt{Label: p.matchString(s.ID)}
+		label, _ := p.matchString(s.ID)
+		return &ast.ContinueStmt{Off: off, Label: label}
 	} else {
-		return &ast.ContinueStmt{}
+		return &ast.ContinueStmt{Off: off}
 	}
 }
 
 // GotoStmt = "goto" Label .
 func (p *parser) parseGotoStmt() ast.Stmt {
-	p.match(s.GOTO)
-	return &ast.GotoStmt{Label: p.matchString(s.ID)}
+	off := p.match(s.GOTO)
+	label, _ := p.matchString(s.ID)
+	return &ast.GotoStmt{Off: off, Label: label}
 }
 
 // FallthroughStmt = "fallthrough" .
 func (p *parser) parseFallthroughStmt() ast.Stmt {
-	p.match(s.FALLTHROUGH)
-	return &ast.FallthroughStmt{}
+	return &ast.FallthroughStmt{Off: p.match(s.FALLTHROUGH)}
 }
 
 // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 func (p *parser) parseIfStmt() ast.Stmt {
-	p.match(s.IF)
+	off := p.match(s.IF)
 	b := p.setBrackets(0)
 	var init ast.Stmt
 	x := p.parseExpr()
@@ -1408,9 +1438,9 @@ func (p *parser) parseIfStmt() ast.Stmt {
 		} else {
 			els = p.parseBlock()
 		}
-		return &ast.IfStmt{Init: init, Cond: x, Then: then, Else: els}
+		return &ast.IfStmt{Off: off, Init: init, Cond: x, Then: then, Else: els}
 	} else {
-		return &ast.IfStmt{Init: init, Cond: x, Then: then}
+		return &ast.IfStmt{Off: off, Init: init, Cond: x, Then: then}
 	}
 }
 
@@ -1431,7 +1461,7 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 			lhs, rhs := a.LHS[0], a.RHS[0]
 			if y, ok := isTypeSwitchGuardExpr(rhs); ok {
 				id := ""
-				if z, ok := lhs.(*ast.QualId); !ok || len(z.Pkg) > 0 {
+				if z, ok := lhs.(*ast.Ident); !ok || len(z.Pkg) > 0 {
 					id = ""
 					p.error("invalid identifier in type switch")
 				} else {
@@ -1452,54 +1482,54 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 // TypeSwitchStmt = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" {TypeCaseClause} "}" .
 // TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
 func (p *parser) parseSwitchStmt() ast.Stmt {
-	p.match(s.SWITCH)
+	off := p.match(s.SWITCH)
 
 	b := p.setBrackets(0)
 	defer p.setBrackets(b)
 
 	if p.token == '{' {
-		return p.parseExprSwitchStmt(nil, nil)
+		return p.parseExprSwitchStmt(off, nil, nil)
 	}
 
 	x := p.parseExpr()
 	if p.token == '{' {
 		if y, ok := isTypeSwitchGuardExpr(x); ok {
-			return p.parseTypeSwitchStmt(nil, "", y)
+			return p.parseTypeSwitchStmt(off, nil, "", y)
 		} else {
-			return p.parseExprSwitchStmt(nil, x)
+			return p.parseExprSwitchStmt(off, nil, x)
 		}
 	}
 
 	init := p.parseSimpleStmt(x)
 	if p.token == '{' {
 		if id, y, ok := p.isTypeSwitchGuardStmt(init); ok {
-			return p.parseTypeSwitchStmt(nil, id, y)
+			return p.parseTypeSwitchStmt(off, nil, id, y)
 		}
 	}
 	p.match(';')
 
 	if p.token == '{' {
-		return p.parseExprSwitchStmt(init, nil)
+		return p.parseExprSwitchStmt(off, init, nil)
 	}
 
 	x = p.parseExpr()
 	if p.token == '{' {
-		return p.parseExprSwitchStmt(init, x)
+		return p.parseExprSwitchStmt(off, init, x)
 	}
 
 	stmt := p.parseSimpleStmt(x)
 	if id, y, ok := p.isTypeSwitchGuardStmt(stmt); ok {
-		return p.parseTypeSwitchStmt(init, id, y)
+		return p.parseTypeSwitchStmt(off, init, id, y)
 	}
 
 	p.error("invalid switch expression")
 	p.sync('{')
-	return p.parseExprSwitchStmt(init, nil)
+	return p.parseExprSwitchStmt(off, init, nil)
 }
 
 // ExprCaseClause = ExprSwitchCase ":" StatementList .
 // ExprSwitchCase = "case" ExpressionList | "default" .
-func (p *parser) parseExprSwitchStmt(init ast.Stmt, x ast.Expr) ast.Stmt {
+func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stmt {
 	var (
 		cs  []ast.ExprCaseClause
 		def bool
@@ -1521,12 +1551,12 @@ func (p *parser) parseExprSwitchStmt(init ast.Stmt, x ast.Expr) ast.Stmt {
 		cs = append(cs, ast.ExprCaseClause{Xs: xs, Body: p.parseStatementList()})
 	}
 	p.match('}')
-	return &ast.ExprSwitchStmt{Init: init, X: x, Cases: cs}
+	return &ast.ExprSwitchStmt{Off: off, Init: init, X: x, Cases: cs}
 }
 
 // TypeCaseClause  = TypeSwitchCase ":" StatementList .
 // TypeSwitchCase  = "case" TypeList | "default" .
-func (p *parser) parseTypeSwitchStmt(init ast.Stmt, id string, x ast.Expr) ast.Stmt {
+func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Expr) ast.Stmt {
 	def := false
 	var cs []ast.TypeCaseClause
 	p.match('{')
@@ -1546,7 +1576,7 @@ func (p *parser) parseTypeSwitchStmt(init ast.Stmt, id string, x ast.Expr) ast.S
 		cs = append(cs, ast.TypeCaseClause{Types: ts, Body: p.parseStatementList()})
 	}
 	p.match('}')
-	return &ast.TypeSwitchStmt{Init: init, Id: id, X: x, Cases: cs}
+	return &ast.TypeSwitchStmt{Off: off, Init: init, Id: id, X: x, Cases: cs}
 }
 
 // TypeList = Type { "," Type } .
@@ -1570,7 +1600,7 @@ func (p *parser) parseTypeList() (ts []ast.Type) {
 func (p *parser) parseSelectStmt() ast.Stmt {
 	def := false
 	var cs []ast.CommClause
-	p.match(s.SELECT)
+	off := p.match(s.SELECT)
 	p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
@@ -1588,7 +1618,7 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 		cs = append(cs, ast.CommClause{Comm: c, Body: p.parseStatementList()})
 	}
 	p.match('}')
-	return &ast.SelectStmt{Comms: cs}
+	return &ast.SelectStmt{Off: off, Comms: cs}
 }
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
@@ -1598,19 +1628,24 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 // PostStmt = SimpleStmt .
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 func (p *parser) parseForStmt() ast.Stmt {
-	p.match(s.FOR)
+	off := p.match(s.FOR)
 	b := p.setBrackets(0)
 	defer p.setBrackets(b)
 
 	if p.token == '{' {
 		// infinite loop: "for { ..."
-		return &ast.ForStmt{Blk: p.parseBlock()}
+		return &ast.ForStmt{Off: off, Blk: p.parseBlock()}
 	}
 
 	if p.token == s.RANGE {
 		// range for: "for range ex { ..."
 		p.next()
-		return &ast.ForRangeStmt{Op: '=', Range: p.parseExpr(), Blk: p.parseBlock()}
+		return &ast.ForRangeStmt{
+			Off:   off,
+			Op:    '=',
+			Range: p.parseExpr(),
+			Blk:   p.parseBlock(),
+		}
 	}
 
 	if p.token == ';' {
@@ -1627,19 +1662,20 @@ func (p *parser) parseForStmt() ast.Stmt {
 		if p.token != '{' {
 			post = p.parseSimpleStmt(p.parseExpr())
 		}
-		return &ast.ForStmt{Cond: x, Post: post, Blk: p.parseBlock()}
+		return &ast.ForStmt{Off: off, Cond: x, Post: post, Blk: p.parseBlock()}
 	}
 
 	x := p.parseExpr()
 	if p.token == '{' {
 		// "while" loop "for cond { ..."
-		return &ast.ForStmt{Cond: x, Blk: p.parseBlock()}
+		return &ast.ForStmt{Off: off, Cond: x, Blk: p.parseBlock()}
 	}
 
 	init := p.parseSimpleStmtOrRange(x)
 	x = nil
 	if r, ok := init.(*ast.ForRangeStmt); ok {
 		// range for
+		r.Off = off
 		r.Blk = p.parseBlock()
 		return r
 	}
@@ -1654,13 +1690,12 @@ func (p *parser) parseForStmt() ast.Stmt {
 	if p.token != '{' {
 		post = p.parseSimpleStmt(p.parseExpr())
 	}
-	return &ast.ForStmt{Init: init, Cond: x, Post: post, Blk: p.parseBlock()}
+	return &ast.ForStmt{Off: off, Init: init, Cond: x, Post: post, Blk: p.parseBlock()}
 }
 
 // DeferStmt = "defer" Expression .
 func (p *parser) parseDeferStmt() ast.Stmt {
-	p.match(s.DEFER)
-	return &ast.DeferStmt{p.parseExpr()}
+	return &ast.DeferStmt{Off: p.match(s.DEFER), X: p.parseExpr()}
 }
 
 // SimpleStmt =
@@ -1693,7 +1728,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	}
 
 	p.error("Invalid statement")
-	return &ast.Error{}
+	return &ast.Error{p.scan.TOff}
 }
 
 // Parses a SimpleStmt or a RangeClause. Used by `parseForStmt` to
@@ -1728,14 +1763,14 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 		}
 	}
 	p.error("Invalid statement")
-	return &ast.Error{}
+	return &ast.Error{p.scan.TOff}
 }
 
 // SendStmt = Channel "<-" Expression .
 // Channel  = Expression .
 func (p *parser) parseSendStmt(ch ast.Expr) ast.Stmt {
 	p.match(s.RECV)
-	return &ast.SendStmt{ch, p.parseExpr()}
+	return &ast.SendStmt{Ch: ch, X: p.parseExpr()}
 }
 
 // IncDecStmt = Expression ( "++" | "--" ) .
@@ -1765,5 +1800,5 @@ func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 func (p *parser) parseRangeClause(op uint, lhs []ast.Expr) *ast.ForRangeStmt {
 	p.match(s.RANGE)
-	return &ast.ForRangeStmt{op, lhs, p.parseExpr(), nil}
+	return &ast.ForRangeStmt{Op: op, LHS: lhs, Range: p.parseExpr()}
 }

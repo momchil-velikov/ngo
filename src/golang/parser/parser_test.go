@@ -682,12 +682,12 @@ const (
 const a = <error>
 const a = 2
 const a float32 = 4
-const b float64 = 2
+const , b float64 = 2
 const c
 const (
     u = v, <error>
     u float32 = 4
-    v float64 = 2
+    , v float64 = 2
     w
     x
 )
@@ -768,12 +768,12 @@ var (
 var a = <error>
 var a = 2
 var a float32 = 4
-var b float64 = 2
+var , b float64 = 2
 var c
 var (
     a = a, <error>
     a float32 = 4
-    b float64 = 2
+    , b float64 = 2
     c
     d
 )

@@ -2,16 +2,28 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	s "golang/scanner"
 	"io"
+)
+
+type posFlagsT uint
+
+const (
+	StmtPos posFlagsT = 1 << iota
+	IdentPos
+	ExprPos
+	TypePos
+	DeclPos
 )
 
 const indentStr = "    "
 
 type FormatContext struct {
-	buf   bytes.Buffer
-	anon  bool   // output _ for annonymous parameters
-	group string // declaration kind for declaration groups
+	buf      bytes.Buffer
+	anon     bool      // output _ for annonymous parameters
+	posFlags posFlagsT // output positions for the AST nodes specified in posFlags
+	group    string    // declaration kind for declaration groups
 }
 
 // Initializes a format context.
@@ -24,6 +36,31 @@ func (ctx *FormatContext) Init() *FormatContext {
 func (ctx *FormatContext) EmitAnnonymousParams(b bool) (r bool) {
 	ctx.anon, r = b, ctx.anon
 	return
+}
+
+func (ctx *FormatContext) EmitSourcePositions(f posFlagsT) (r posFlagsT) {
+	ctx.posFlags, r = f, ctx.posFlags
+	return
+}
+
+func (ctx *FormatContext) stmtPositions() bool {
+	return (ctx.posFlags & StmtPos) != 0
+}
+
+func (ctx *FormatContext) identPositions() bool {
+	return (ctx.posFlags & IdentPos) != 0
+}
+
+func (ctx *FormatContext) exprPositions() bool {
+	return (ctx.posFlags & ExprPos) != 0
+}
+
+func (ctx *FormatContext) typePositions() bool {
+	return (ctx.posFlags & TypePos) != 0
+}
+
+func (ctx *FormatContext) declPositions() bool {
+	return (ctx.posFlags & DeclPos) != 0
 }
 
 // Writes the internal buffer to an `io.Writer`
@@ -50,6 +87,8 @@ func (ctx *FormatContext) WriteString(s string) (int, error) {
 func (ctx *FormatContext) WriteV(n uint, args ...interface{}) {
 	for _, a := range args {
 		switch v := a.(type) {
+		case int:
+			ctx.buf.WriteString(fmt.Sprintf("%d", v))
 		case string:
 			ctx.buf.WriteString(v)
 		case []byte:
@@ -106,7 +145,11 @@ func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
 	default:
 		panic("invalid declaration group kind")
 	}
-	ctx.WriteV(n, ctx.group, " (")
+	if ctx.declPositions() {
+		ctx.WriteV(n, "/* #", g.Off, " */", ctx.group, " (")
+	} else {
+		ctx.WriteV(n, ctx.group, " (")
+	}
 	for _, d := range g.Decls {
 		ctx.WriteV(n+1, "\n", ctx.Indent, d.Format)
 	}
@@ -117,7 +160,11 @@ func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
 // Formats an import clause with N levels of indentation.
 func (i *Import) Format(ctx *FormatContext, _ uint) {
 	if len(ctx.group) == 0 {
-		ctx.WriteString("import ")
+		if ctx.declPositions() {
+			ctx.WriteV(0, "/* #", i.Off, " */import ")
+		} else {
+			ctx.WriteString("import ")
+		}
 	}
 	if len(i.Name) > 0 {
 		ctx.WriteV(0, i.Name, " ")
@@ -133,7 +180,11 @@ func (e *Error) Format(ctx *FormatContext, _ uint) {
 // Formats a type declaration.
 func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
 	if len(ctx.group) == 0 {
-		ctx.WriteString("type ")
+		if ctx.declPositions() {
+			ctx.WriteV(0, "/* #", t.Off, " */type ")
+		} else {
+			ctx.WriteString("type ")
+		}
 	}
 	ctx.WriteV(n, t.Name, " ", t.Type.Format)
 }
@@ -143,9 +194,9 @@ func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
 	if len(ctx.group) == 0 {
 		ctx.WriteString("const ")
 	}
-	ctx.WriteString(c.Names[0])
+	c.Names[0].Format(ctx, n)
 	for i := 1; i < len(c.Names); i++ {
-		ctx.WriteV(0, ", ", c.Names[i])
+		ctx.WriteV(0, ", ", c.Names[i].Format)
 	}
 	if c.Type != nil {
 		ctx.WriteString(" ")
@@ -166,9 +217,9 @@ func (c *VarDecl) Format(ctx *FormatContext, n uint) {
 	if len(ctx.group) == 0 {
 		ctx.WriteString("var ")
 	}
-	ctx.WriteString(c.Names[0])
+	c.Names[0].Format(ctx, n)
 	for i := 1; i < len(c.Names); i++ {
-		ctx.WriteV(0, ", ", c.Names[i])
+		ctx.WriteV(0, ", ", c.Names[i].Format)
 	}
 	if c.Type != nil {
 		ctx.WriteString(" ")
@@ -186,12 +237,16 @@ func (c *VarDecl) Format(ctx *FormatContext, n uint) {
 
 // Formats a function declaration.
 func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
+	if ctx.declPositions() {
+		ctx.WriteV(0, "/* #", f.Off, " */")
+	}
 	ctx.WriteString("func")
 	if f.Recv != nil {
 		ctx.WriteString(" ")
 		f.Recv.Format(ctx, 0)
 	}
-	ctx.WriteV(0, " ", f.Name)
+	ctx.WriteString(" ")
+	f.Name.Format(ctx, n)
 	formatSignature(ctx, f.Sig, n)
 	if f.Blk != nil {
 		ctx.WriteString(" ")
@@ -202,8 +257,9 @@ func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 // Formats a method receiver.
 func (r *Receiver) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("(")
-	if len(r.Name) > 0 {
-		ctx.WriteV(0, r.Name, " ")
+	if r.Name != nil {
+		r.Name.Format(ctx, n)
+		ctx.WriteString(" ")
 	}
 	r.Type.Format(ctx, n+1)
 	ctx.WriteString(")")
@@ -212,7 +268,10 @@ func (r *Receiver) Format(ctx *FormatContext, n uint) {
 //
 // Formats types.
 //
-func (t *QualId) Format(ctx *FormatContext, n uint) {
+func (t *Ident) Format(ctx *FormatContext, n uint) {
+	if ctx.identPositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	if len(t.Pkg) > 0 {
 		ctx.WriteV(0, t.Pkg, ".")
 	}
@@ -220,6 +279,9 @@ func (t *QualId) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *ArrayType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	if t.Dim == nil {
 		ctx.WriteString("[...]")
 	} else {
@@ -229,20 +291,32 @@ func (t *ArrayType) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *SliceType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	ctx.WriteString("[]")
 	t.Elt.Format(ctx, n)
 }
 
 func (t *PtrType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	ctx.WriteString("*")
 	t.Base.Format(ctx, n)
 }
 
 func (t *MapType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	ctx.WriteV(n, "map[", t.Key.Format, "]", t.Elt.Format)
 }
 
 func (t *ChanType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	if t.Send {
 		ctx.WriteString("chan")
 	} else {
@@ -260,6 +334,9 @@ func (t *ChanType) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *StructType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	if len(t.Fields) == 0 {
 		ctx.WriteString("struct{}")
 	} else {
@@ -267,9 +344,10 @@ func (t *StructType) Format(ctx *FormatContext, n uint) {
 		for _, f := range t.Fields {
 			ctx.Indent(n + 1)
 			if m := len(f.Names); m > 0 {
-				ctx.WriteString(f.Names[0])
+				f.Names[0].Format(ctx, n)
 				for i := 1; i < m; i++ {
-					ctx.WriteV(0, ", ", f.Names[i])
+					ctx.WriteString(", ")
+					f.Names[i].Format(ctx, n)
 				}
 				ctx.WriteString(" ")
 			}
@@ -285,6 +363,9 @@ func (t *StructType) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *FuncType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	ctx.WriteString("func")
 	formatSignature(ctx, t, n)
 }
@@ -317,9 +398,10 @@ func formatParams(ctx *FormatContext, ps []*ParamDecl, n uint) {
 
 func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
 	if m := len(p.Names); m > 0 {
-		ctx.WriteString(p.Names[0])
+		p.Names[0].Format(ctx, n)
 		for i := 1; i < m; i++ {
-			ctx.WriteV(0, ", ", p.Names[i])
+			ctx.WriteString(", ")
+			p.Names[i].Format(ctx, n)
 		}
 		ctx.WriteString(" ")
 	} else if ctx.anon {
@@ -332,15 +414,18 @@ func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
 	if len(t.Methods) == 0 {
 		ctx.WriteString("interface{}")
 	} else {
 		ctx.WriteString("interface {")
 		for _, m := range t.Methods {
-			if len(m.Name) == 0 {
+			if m.Name == nil {
 				ctx.WriteV(n+1, "\n", ctx.Indent, m.Type.Format)
 			} else {
-				ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
+				ctx.WriteV(n+1, "\n", ctx.Indent, m.Name.Format)
 				formatSignature(ctx, m.Type.(*FuncType), n+1)
 			}
 		}
@@ -352,6 +437,9 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 // Format expressions.
 //
 func (e *Literal) Format(ctx *FormatContext, _ uint) {
+	if ctx.exprPositions() {
+		ctx.WriteV(0, "/* #", e.Off, " */")
+	}
 	switch e.Kind {
 	case s.INTEGER, s.FLOAT:
 		ctx.Write(e.Value)
@@ -408,6 +496,9 @@ func (e *MethodExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (x *ParensExpr) Format(ctx *FormatContext, n uint) {
+	if ctx.exprPositions() {
+		ctx.WriteV(n, "/* #", x.Off, " */")
+	}
 	ctx.WriteV(n, "(", x.X.Format, ")")
 }
 
@@ -483,6 +574,9 @@ func (e *FuncLiteral) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
+	if ctx.exprPositions() {
+		ctx.WriteV(n, "/* #", e.Off, " */")
+	}
 	ctx.WriteString(s.TokenNames[e.Op])
 	e.X.Format(ctx, n)
 }
@@ -492,10 +586,18 @@ func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", b.Off, " */")
+	}
 	ctx.WriteString("{")
 	empty := true
 	for i := range b.Body {
-		if _, ok := b.Body[i].(*EmptyStmt); !ok {
+		if s, ok := b.Body[i].(*EmptyStmt); ok {
+			if ctx.stmtPositions() {
+				empty = false
+				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
+			}
+		} else {
 			empty = false
 			if s, ok := b.Body[i].(*LabeledStmt); ok {
 				s.Format(ctx, n)
@@ -511,20 +613,33 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 	}
 }
 
-func (e *EmptyStmt) Format(_ *FormatContext, _ uint) {
+func (e *EmptyStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", e.Off, " */")
+	}
 }
 
 func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, "\n", ctx.Indent, s.Label, ":")
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "\n", ctx.Indent, "/* #", s.Off, " */", s.Label, ":")
+	} else {
+		ctx.WriteV(n, "\n", ctx.Indent, s.Label, ":")
+	}
 	ctx.WriteV(n+1, "\n", ctx.Indent, s.Stmt.Format)
 }
 
 func (g *GoStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", g.Off, " */")
+	}
 	ctx.WriteString("go ")
 	g.X.Format(ctx, n)
 }
 
 func (r *ReturnStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", r.Off, " */")
+	}
 	ctx.WriteString("return")
 	if len(r.Xs) > 0 {
 		ctx.WriteString(" ")
@@ -537,6 +652,9 @@ func (r *ReturnStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (b *BreakStmt) Format(ctx *FormatContext, _ uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(0, "/* #", b.Off, " */")
+	}
 	ctx.WriteString("break")
 	if len(b.Label) > 0 {
 		ctx.WriteV(0, " ", b.Label)
@@ -544,6 +662,9 @@ func (b *BreakStmt) Format(ctx *FormatContext, _ uint) {
 }
 
 func (c *ContinueStmt) Format(ctx *FormatContext, _ uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(0, "/* #", c.Off, " */")
+	}
 	ctx.WriteString("continue")
 	if len(c.Label) > 0 {
 		ctx.WriteV(0, " ", c.Label)
@@ -551,10 +672,16 @@ func (c *ContinueStmt) Format(ctx *FormatContext, _ uint) {
 }
 
 func (b *GotoStmt) Format(ctx *FormatContext, _ uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(0, "/* #", b.Off, " */")
+	}
 	ctx.WriteV(0, "goto ", b.Label)
 }
 
 func (b *FallthroughStmt) Format(ctx *FormatContext, _ uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(0, "/* #", b.Off, " */")
+	}
 	ctx.WriteString("fallthrough")
 }
 
@@ -597,6 +724,9 @@ func (e *ExprStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (i *IfStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", i.Off, " */")
+	}
 	ctx.WriteString("if ")
 	if i.Init != nil {
 		i.Init.Format(ctx, n)
@@ -612,6 +742,9 @@ func (i *IfStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (f *ForStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", f.Off, " */")
+	}
 	if f.Init == nil && f.Cond == nil && f.Post == nil {
 		ctx.WriteString("for ")
 		f.Blk.Format(ctx, n)
@@ -639,6 +772,9 @@ func (f *ForStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", f.Off, " */")
+	}
 	ctx.WriteString("for ")
 	if m := len(f.LHS); m > 0 {
 		f.LHS[0].Format(ctx, n)
@@ -652,11 +788,17 @@ func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (d *DeferStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", d.Off, " */")
+	}
 	ctx.WriteString("defer ")
 	d.X.Format(ctx, n)
 }
 
 func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", s.Off, " */")
+	}
 	ctx.WriteString("switch")
 	if s.Init != nil {
 		ctx.WriteV(n, " ", s.Init.Format, ";")
@@ -683,7 +825,9 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 			ctx.WriteString(":")
 		}
 		for _, s := range c.Body {
-			if _, ok := s.(*EmptyStmt); !ok {
+			if _, ok := s.(*EmptyStmt); ok {
+				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
+			} else {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
 		}
@@ -692,6 +836,9 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", s.Off, " */")
+	}
 	ctx.WriteString("switch")
 	if s.Init != nil {
 		ctx.WriteV(n, " ", s.Init.Format, ";")
@@ -726,6 +873,9 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (s *SelectStmt) Format(ctx *FormatContext, n uint) {
+	if ctx.stmtPositions() {
+		ctx.WriteV(n, "/* #", s.Off, " */")
+	}
 	ctx.WriteString("select {")
 	if s.Comms == nil {
 		ctx.WriteString("}")
