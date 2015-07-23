@@ -84,10 +84,6 @@ import  ( "fmt"; . "foo"
 		tst.Errorf("Unexpected package name `%s`", t.Package)
 	}
 
-	if len(t.Imports) != 4 {
-		tst.Error("Expected exactly three imports")
-	}
-
 	exp := `package foo
 
 import (
@@ -118,12 +114,12 @@ import ( "baz"; "xyzzy" ; ) ; import "qux"
 
 	exp := `package foo
 
+import "bar"
 import (
-    "bar"
     "baz"
     "xyzzy"
-    "qux"
 )
+import "qux"
 `
 	ctx := new(ast.FormatContext).Init()
 	f := t.Format(ctx)
@@ -146,12 +142,12 @@ import ( "baz"; "xyzzy" ) ; import "qux"
 
 	exp := `package foo
 
+import "bar"
 import (
-    "bar"
     "baz"
     "xyzzy"
-    "qux"
 )
+import "qux"
 `
 	ctx := new(ast.FormatContext).Init()
 	f := t.Format(ctx)

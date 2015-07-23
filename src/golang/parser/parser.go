@@ -202,23 +202,25 @@ func (p *parser) parsePackageClause() string {
 // Parse import declarations(s).
 //
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
-func (p *parser) parseImportDecls() (imports []ast.Import) {
+func (p *parser) parseImportDecls() (imps []ast.Decl) {
 	for p.token == s.IMPORT {
 		p.match(s.IMPORT)
 		if p.token == '(' {
 			p.next()
+			grp := &ast.DeclGroup{Kind: s.IMPORT}
 			for p.token != s.EOF && p.token != ')' {
 				if name, path := p.parseImportSpec(); len(path) > 0 {
-					imports = append(imports, ast.Import{Name: name, Path: path})
+					grp.Decls = append(grp.Decls, &ast.Import{Name: name, Path: path})
 				}
 				if p.token != ')' {
 					p.sync2(';', ')')
 				}
 			}
 			p.match(')')
+			imps = append(imps, grp)
 		} else {
 			if name, path := p.parseImportSpec(); len(path) > 0 {
-				imports = append(imports, ast.Import{Name: name, Path: path})
+				imps = append(imps, &ast.Import{Name: name, Path: path})
 			}
 		}
 		p.sync(';')
@@ -280,15 +282,15 @@ func (p *parser) parseTypeDecl() ast.Decl {
 	p.match(s.TYPE)
 	if p.token == '(' {
 		p.next()
-		var ts []*ast.TypeDecl
+		grp := &ast.DeclGroup{Kind: s.TYPE}
 		for p.token != s.EOF && p.token != ')' {
-			ts = append(ts, p.parseTypeSpec())
+			grp.Decls = append(grp.Decls, p.parseTypeSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}
 		}
 		p.match(')')
-		return &ast.TypeGroup{Decls: ts}
+		return grp
 	} else {
 		return p.parseTypeSpec()
 	}
@@ -617,15 +619,15 @@ func (p *parser) parseConstDecl() ast.Decl {
 	p.match(s.CONST)
 	if p.token == '(' {
 		p.next()
-		var cs []*ast.ConstDecl
+		grp := &ast.DeclGroup{Kind: s.CONST}
 		for p.token != s.EOF && p.token != ')' {
-			cs = append(cs, p.parseConstSpec())
+			grp.Decls = append(grp.Decls, p.parseConstSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}
 		}
 		p.match(')')
-		return &ast.ConstGroup{Decls: cs}
+		return grp
 	} else {
 		return p.parseConstSpec()
 	}
@@ -653,15 +655,15 @@ func (p *parser) parseVarDecl() ast.Decl {
 	p.match(s.VAR)
 	if p.token == '(' {
 		p.next()
-		var vs []*ast.VarDecl
+		grp := &ast.DeclGroup{Kind: s.VAR}
 		for p.token != s.EOF && p.token != ')' {
-			vs = append(vs, p.parseVarSpec())
+			grp.Decls = append(grp.Decls, p.parseVarSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}
 		}
 		p.match(')')
-		return &ast.VarGroup{Decls: vs}
+		return grp
 	} else {
 		return p.parseVarSpec()
 	}

@@ -1,7 +1,6 @@
 package ast
 
 import (
-	//    "fmt"
 	"bytes"
 	s "golang/scanner"
 	"io"
@@ -10,8 +9,9 @@ import (
 const indentStr = "    "
 
 type FormatContext struct {
-	buf  bytes.Buffer
-	anon bool // output _ for annonymous parameters
+	buf   bytes.Buffer
+	anon  bool   // output _ for annonymous parameters
+	group string // declaration kind for declaration groups
 }
 
 // Initializes a format context.
@@ -77,16 +77,9 @@ func (ctx *FormatContext) Indent(n uint) {
 func (f *File) Format(ctx *FormatContext) string {
 	ctx.WriteV(0, "package ", f.Package, "\n")
 
-	if len(f.Imports) > 0 {
-		if len(f.Imports) == 1 {
-			ctx.WriteV(0, "\nimport ", f.Imports[0].Format)
-		} else {
-			ctx.WriteString("\nimport (")
-			for _, i := range f.Imports {
-				ctx.WriteV(0, "\n", indentStr, i.Format)
-			}
-			ctx.WriteString("\n)")
-		}
+	for _, i := range f.Imports {
+		ctx.WriteString("\n")
+		i.Format(ctx, 0)
 	}
 
 	for _, d := range f.Decls {
@@ -99,8 +92,33 @@ func (f *File) Format(ctx *FormatContext) string {
 	return ctx.String()
 }
 
+// Formats a declaration group.
+func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
+	switch g.Kind {
+	case s.IMPORT:
+		ctx.group = "import"
+	case s.TYPE:
+		ctx.group = "type"
+	case s.CONST:
+		ctx.group = "const"
+	case s.VAR:
+		ctx.group = "var"
+	default:
+		panic("invalid declaration group kind")
+	}
+	ctx.WriteV(n, ctx.group, " (")
+	for _, d := range g.Decls {
+		ctx.WriteV(n+1, "\n", ctx.Indent, d.Format)
+	}
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
+	ctx.group = ""
+}
+
 // Formats an import clause with N levels of indentation.
 func (i *Import) Format(ctx *FormatContext, _ uint) {
+	if len(ctx.group) == 0 {
+		ctx.WriteString("import ")
+	}
 	if len(i.Name) > 0 {
 		ctx.WriteV(0, i.Name, " ")
 	}
@@ -112,46 +130,17 @@ func (e *Error) Format(ctx *FormatContext, _ uint) {
 	ctx.WriteString("<error>")
 }
 
-// Formats a group type declaration
-func (c *TypeGroup) Format(ctx *FormatContext, n uint) {
-	ctx.WriteString("type (")
-	for _, d := range c.Decls {
-		ctx.WriteString("\n")
-		ctx.Indent(n + 1)
-		d.formatInternal(ctx, n+1, true)
-	}
-	ctx.WriteV(n, "\n", ctx.Indent, ")")
-}
-
 // Formats a type declaration.
 func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
-	t.formatInternal(ctx, n, false)
-}
-
-func (t *TypeDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
-	if !group {
+	if len(ctx.group) == 0 {
 		ctx.WriteString("type ")
 	}
 	ctx.WriteV(n, t.Name, " ", t.Type.Format)
 }
 
-// Formats a group constant declaration
-func (c *ConstGroup) Format(ctx *FormatContext, n uint) {
-	ctx.WriteString("const (")
-	for _, d := range c.Decls {
-		ctx.WriteV(n+1, "\n", ctx.Indent)
-		d.formatInternal(ctx, n+1, true)
-	}
-	ctx.WriteV(n, "\n", ctx.Indent, ")")
-}
-
 // Formats a constant declaration.
 func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
-	c.formatInternal(ctx, n, false)
-}
-
-func (c *ConstDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
-	if !group {
+	if len(ctx.group) == 0 {
 		ctx.WriteString("const ")
 	}
 	ctx.WriteString(c.Names[0])
@@ -172,23 +161,9 @@ func (c *ConstDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
 	}
 }
 
-// Formats a group variable declaration.
-func (c *VarGroup) Format(ctx *FormatContext, n uint) {
-	ctx.WriteString("var (")
-	for _, d := range c.Decls {
-		ctx.WriteV(n+1, "\n", ctx.Indent)
-		d.formatInternal(ctx, n+1, true)
-	}
-	ctx.WriteV(n, "\n", ctx.Indent, ")")
-}
-
 // Formats a variable declaration.
 func (c *VarDecl) Format(ctx *FormatContext, n uint) {
-	c.formatInternal(ctx, n, false)
-}
-
-func (c *VarDecl) formatInternal(ctx *FormatContext, n uint, group bool) {
-	if !group {
+	if len(ctx.group) == 0 {
 		ctx.WriteString("var ")
 	}
 	ctx.WriteString(c.Names[0])

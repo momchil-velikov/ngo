@@ -29,14 +29,24 @@ type Stmt interface {
 // Source file
 type File struct {
 	Package string
-	Imports []Import
+	Imports []Decl
 	Decls   []Decl
 }
+
+type DeclGroup struct {
+	Kind  uint
+	Decls []Decl
+}
+
+func (d DeclGroup) decl() {}
+func (d DeclGroup) stmt() {}
 
 type Import struct {
 	Name string
 	Path []byte
 }
+
+func (d Import) decl() {}
 
 // Universal error node
 type Error struct {
@@ -58,13 +68,6 @@ type TypeDecl struct {
 func (d TypeDecl) decl() {}
 func (d TypeDecl) stmt() {}
 
-type TypeGroup struct {
-	Decls []*TypeDecl
-}
-
-func (d TypeGroup) decl() {}
-func (d TypeGroup) stmt() {}
-
 type ConstDecl struct {
 	Names  []string
 	Type   Type
@@ -74,13 +77,6 @@ type ConstDecl struct {
 func (d ConstDecl) decl() {}
 func (d ConstDecl) stmt() {}
 
-type ConstGroup struct {
-	Decls []*ConstDecl
-}
-
-func (d ConstGroup) decl() {}
-func (d ConstGroup) stmt() {}
-
 type VarDecl struct {
 	Names []string
 	Type  Type
@@ -89,13 +85,6 @@ type VarDecl struct {
 
 func (v VarDecl) decl() {}
 func (v VarDecl) stmt() {}
-
-type VarGroup struct {
-	Decls []*VarDecl
-}
-
-func (d VarGroup) decl() {}
-func (d VarGroup) stmt() {}
 
 type Receiver struct {
 	Name string
