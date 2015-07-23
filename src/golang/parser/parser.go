@@ -76,7 +76,8 @@ func (p *parser) trace(args ...interface{}) func() {
 
 // Append an error message to the parser error messages list
 func (p *parser) error(msg string) {
-	e := parseError{p.scan.Name, p.scan.TLine, p.scan.TPos, msg}
+	ln, col := p.scan.Position(p.scan.TOff)
+	e := parseError{p.scan.Name, ln, col, msg}
 	p.errors = append(p.errors, e)
 }
 

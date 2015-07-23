@@ -28,13 +28,12 @@ func (s *Scanner) Init(name string, src []byte) {
 	s.src = src
 }
 
-func (s *Scanner) findSourcePosition(off int) (int, int) {
-	if ln, col := s.srcmap.Position(off); ln > 0 {
-		return ln, col
-	} else {
+func (s *Scanner) Position(off int) (int, int) {
+	if off >= s.lineOff {
 		return s.srcmap.LineCount() + 1, off - s.lineOff + 1
+	} else {
+		return s.srcmap.Position(off)
 	}
-
 }
 
 func (s *Scanner) error(msg string) uint {
@@ -53,7 +52,7 @@ func (s *Scanner) error(msg string) uint {
 
 	line = append(line, "|<- "...)
 	line = append(line, s.src[s.off:off]...)
-	ln, pos := s.findSourcePosition(s.off)
+	ln, pos := s.Position(s.off)
 	s.Err = makeError(s.Name, ln, pos, msg, string(line))
 	return ERROR
 }
