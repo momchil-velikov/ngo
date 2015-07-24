@@ -332,16 +332,17 @@ func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
-	if len(t.Embed) == 0 && len(t.Methods) == 0 {
+	if len(t.Methods) == 0 {
 		ctx.WriteString("interface{}")
 	} else {
 		ctx.WriteString("interface {")
-		for _, e := range t.Embed {
-			ctx.WriteV(n+1, "\n", ctx.Indent, e.Format)
-		}
 		for _, m := range t.Methods {
-			ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
-			formatSignature(ctx, m.Sig, n+1)
+			if len(m.Name) == 0 {
+				ctx.WriteV(n+1, "\n", ctx.Indent, m.Type.Format)
+			} else {
+				ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
+				formatSignature(ctx, m.Type.(*FuncType), n+1)
+			}
 		}
 		ctx.WriteV(n, "\n", ctx.Indent, "}")
 	}

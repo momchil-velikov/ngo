@@ -278,11 +278,10 @@ func (f FuncType) typ() {}
 
 type MethodSpec struct {
 	Name string
-	Sig  *FuncType
+	Type Type
 }
 
 type InterfaceType struct {
-	Embed   []*QualId
 	Methods []*MethodSpec
 }
 

@@ -588,30 +588,29 @@ func appendParamTypes(ds []*ast.ParamDecl, ids []string) []*ast.ParamDecl {
 // MethodName         = identifier .
 // InterfaceTypeName  = TypeName .
 func (p *parser) parseInterfaceType() *ast.InterfaceType {
-	var (
-		emb  []*ast.QualId
-		meth []*ast.MethodSpec
-	)
+	var ms []*ast.MethodSpec
 	p.match(s.INTERFACE)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
+		var m *ast.MethodSpec
 		id := p.matchString(s.ID)
 		if p.token == '.' {
 			p.next()
 			name := p.matchString(s.ID)
-			emb = append(emb, &ast.QualId{Pkg: id, Id: name})
+			m = &ast.MethodSpec{Type: &ast.QualId{Pkg: id, Id: name}}
 		} else if p.token == '(' {
 			sig := p.parseSignature()
-			meth = append(meth, &ast.MethodSpec{Name: id, Sig: sig})
+			m = &ast.MethodSpec{Name: id, Type: sig}
 		} else {
-			emb = append(emb, &ast.QualId{Id: id})
+			m = &ast.MethodSpec{Type: &ast.QualId{Id: id}}
 		}
+		ms = append(ms, m)
 		if p.token != '}' {
 			p.sync2(';', '}')
 		}
 	}
 	p.match('}')
-	return &ast.InterfaceType{Embed: emb, Methods: meth}
+	return &ast.InterfaceType{Methods: ms}
 }
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .

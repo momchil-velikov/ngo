@@ -584,9 +584,9 @@ type (
     T3 interface{}
     T4 interface {T3; Foo();  Bar(a interface{});  }
     T5 interface {
+        T4
         Baz (T3, T4) (r foo.T5)
         foo.T3
-        T4
     }
 )
 
@@ -601,9 +601,9 @@ type (
         Bar(a interface{})
     }
     T5 interface {
-        foo.T3
         T4
         Baz(T3, T4) (r foo.T5)
+        foo.T3
     }
 )
 `
