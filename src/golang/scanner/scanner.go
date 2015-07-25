@@ -251,6 +251,9 @@ func (s *Scanner) scanNumeric() (uint, []byte) {
 		r = s.peekChar()
 		if r == '.' || r == 'e' || r == 'E' {
 			return s.scanFraction(start)
+		} else if r == 'i' {
+			s.nextChar()
+			return IMAGINARY, s.src[start : s.off-1]
 		} else {
 			return INTEGER, s.src[start:s.off]
 		}

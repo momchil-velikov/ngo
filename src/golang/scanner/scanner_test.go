@@ -549,3 +549,15 @@ func TestBug20150722T232927(t *testing.T) {
 	tok := s.Get()
 	expectToken(t, tok, EOF)
 }
+
+func TestBug20150725T222756(t *testing.T) {
+	src := `1i 11i 0i`
+	exp := []uint{IMAGINARY, IMAGINARY, IMAGINARY, ';'}
+	s := New("Bug20150725T222756.go", src)
+	for i := range exp {
+		tok := s.Get()
+		expectToken(t, tok, exp[i])
+	}
+	tok := s.Get()
+	expectToken(t, tok, EOF)
+}
