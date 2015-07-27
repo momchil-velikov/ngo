@@ -11,6 +11,7 @@ type posFlagsT uint
 
 const (
 	StmtPos posFlagsT = 1 << iota
+	BlockPos
 	IdentPos
 	ExprPos
 	TypePos
@@ -45,6 +46,10 @@ func (ctx *FormatContext) EmitSourcePositions(f posFlagsT) (r posFlagsT) {
 
 func (ctx *FormatContext) stmtPositions() bool {
 	return (ctx.posFlags & StmtPos) != 0
+}
+
+func (ctx *FormatContext) blockPositions() bool {
+	return (ctx.posFlags & BlockPos) != 0
 }
 
 func (ctx *FormatContext) identPositions() bool {
@@ -586,8 +591,8 @@ func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
-	if ctx.stmtPositions() {
-		ctx.WriteV(n, "/* #", b.Off, " */")
+	if ctx.blockPositions() {
+		ctx.WriteV(n, "/* #", b.Begin, " */")
 	}
 	ctx.WriteString("{")
 	empty := true
@@ -606,10 +611,16 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 			}
 		}
 	}
-	if empty {
-		ctx.WriteString("}")
+	if ctx.blockPositions() {
+		if !empty {
+			ctx.WriteV(n, "\n", ctx.Indent)
+		}
+		ctx.WriteV(n, "/* #", b.End, " */}")
 	} else {
-		ctx.WriteV(n, "\n", ctx.Indent, "}")
+		if !empty {
+			ctx.WriteV(n, "\n", ctx.Indent)
+		}
+		ctx.WriteString("}")
 	}
 }
 
@@ -808,10 +819,18 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 		s.X.Format(ctx, n)
 	}
 	if len(s.Cases) == 0 {
-		ctx.WriteString(" {}")
+		if ctx.blockPositions() {
+			ctx.WriteV(n, " /* #", s.Begin, " */{/* #", s.End, " */}")
+		} else {
+			ctx.WriteString(" {}")
+		}
 		return
 	}
-	ctx.WriteString(" {")
+	if ctx.blockPositions() {
+		ctx.WriteV(n, " /* #", s.Begin, " */{")
+	} else {
+		ctx.WriteString(" {")
+	}
 	for _, c := range s.Cases {
 		if c.Xs == nil {
 			ctx.WriteV(n, "\n", ctx.Indent, "default:")
@@ -832,7 +851,12 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 			}
 		}
 	}
-	ctx.WriteV(n, "\n", ctx.Indent, "}")
+	ctx.WriteV(n, "\n", ctx.Indent)
+	if ctx.blockPositions() {
+		ctx.WriteV(n, "/* #", s.End, " */}")
+	} else {
+		ctx.WriteString("}")
+	}
 }
 
 func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
@@ -848,10 +872,18 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 	}
 	ctx.WriteV(0, " ", s.X.Format, ".(type)")
 	if len(s.Cases) == 0 {
-		ctx.WriteString(" {}")
+		if ctx.blockPositions() {
+			ctx.WriteV(n, " /* #", s.Begin, " */{/* #", s.End, " */}")
+		} else {
+			ctx.WriteString(" {}")
+		}
 		return
 	}
-	ctx.WriteString(" {")
+	if ctx.blockPositions() {
+		ctx.WriteV(n, " /* #", s.Begin, " */{")
+	} else {
+		ctx.WriteString(" {")
+	}
 	for _, c := range s.Cases {
 		if c.Types == nil {
 			ctx.WriteV(n, "\n", ctx.Indent, "default:")
@@ -869,29 +901,48 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 			}
 		}
 	}
-	ctx.WriteV(n, "\n", ctx.Indent, "}")
+	ctx.WriteV(n, "\n", ctx.Indent)
+	if ctx.blockPositions() {
+		ctx.WriteV(n, "/* #", s.End, " */}")
+	} else {
+		ctx.WriteString("}")
+	}
 }
 
 func (s *SelectStmt) Format(ctx *FormatContext, n uint) {
 	if ctx.stmtPositions() {
 		ctx.WriteV(n, "/* #", s.Off, " */")
 	}
-	ctx.WriteString("select {")
-	if s.Comms == nil {
-		ctx.WriteString("}")
+	ctx.WriteString("select ")
+	if len(s.Comms) == 0 {
+		if ctx.blockPositions() {
+			ctx.WriteV(n, "/* #", s.Begin, " */{/* #", s.End, " */}")
+		} else {
+			ctx.WriteString("{}")
+		}
+		return
+	}
+	if ctx.blockPositions() {
+		ctx.WriteV(n, "/* #", s.Begin, " */{")
 	} else {
-		for _, c := range s.Comms {
-			if c.Comm == nil {
-				ctx.WriteV(n, "\n", ctx.Indent, "default:")
-			} else {
-				ctx.WriteV(n, "\n", ctx.Indent, "case ", c.Comm.Format, ":")
-			}
-			for _, s := range c.Body {
-				if _, ok := s.(*EmptyStmt); !ok {
-					ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
-				}
+		ctx.WriteString("{")
+	}
+	for _, c := range s.Comms {
+		if c.Comm == nil {
+			ctx.WriteV(n, "\n", ctx.Indent, "default:")
+		} else {
+			ctx.WriteV(n, "\n", ctx.Indent, "case ", c.Comm.Format, ":")
+		}
+		for _, s := range c.Body {
+			if _, ok := s.(*EmptyStmt); !ok {
+				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
 		}
-		ctx.WriteV(n, "\n", ctx.Indent, "}")
+	}
+	ctx.WriteV(n, "\n", ctx.Indent)
+	if ctx.blockPositions() {
+		ctx.WriteV(n, "/* #", s.End, " */}")
+	} else {
+		ctx.WriteString("}")
 	}
 }

@@ -110,7 +110,7 @@ func (p *parser) match(token uint) int {
 	if p.expect(token) {
 		return p.next()
 	} else {
-		return 0
+		return p.scan.TOff
 	}
 }
 
@@ -1263,10 +1263,10 @@ func (p *parser) parseIndexOrSlice(x ast.Expr) ast.Expr {
 // Block = "{" StatementList "}" .
 func (p *parser) parseBlock() *ast.Block {
 	//	defer p.trace("Block")()
-	off := p.match('{')
+	begin := p.match('{')
 	st := p.parseStatementList()
-	p.match('}')
-	return &ast.Block{Off: off, Body: st}
+	end := p.match('}')
+	return &ast.Block{Begin: begin, End: end, Body: st}
 }
 
 // StatementList = { Statement ";" } .
@@ -1534,7 +1534,7 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 		cs  []ast.ExprCaseClause
 		def bool
 	)
-	p.match('{')
+	begin := p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1550,8 +1550,10 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 		p.match(':')
 		cs = append(cs, ast.ExprCaseClause{Xs: xs, Body: p.parseStatementList()})
 	}
-	p.match('}')
-	return &ast.ExprSwitchStmt{Off: off, Init: init, X: x, Cases: cs}
+	end := p.match('}')
+	return &ast.ExprSwitchStmt{
+		Off: off, Begin: begin, End: end, Init: init, X: x, Cases: cs,
+	}
 }
 
 // TypeCaseClause  = TypeSwitchCase ":" StatementList .
@@ -1559,7 +1561,7 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Expr) ast.Stmt {
 	def := false
 	var cs []ast.TypeCaseClause
-	p.match('{')
+	begin := p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1575,8 +1577,10 @@ func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Ex
 		p.match(':')
 		cs = append(cs, ast.TypeCaseClause{Types: ts, Body: p.parseStatementList()})
 	}
-	p.match('}')
-	return &ast.TypeSwitchStmt{Off: off, Init: init, Id: id, X: x, Cases: cs}
+	end := p.match('}')
+	return &ast.TypeSwitchStmt{
+		Off: off, Begin: begin, End: end, Init: init, Id: id, X: x, Cases: cs,
+	}
 }
 
 // TypeList = Type { "," Type } .
@@ -1601,7 +1605,7 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 	def := false
 	var cs []ast.CommClause
 	off := p.match(s.SELECT)
-	p.match('{')
+	begin := p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1617,8 +1621,8 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 		p.match(':')
 		cs = append(cs, ast.CommClause{Comm: c, Body: p.parseStatementList()})
 	}
-	p.match('}')
-	return &ast.SelectStmt{Off: off, Comms: cs}
+	end := p.match('}')
+	return &ast.SelectStmt{Off: off, Begin: begin, End: end, Comms: cs}
 }
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .

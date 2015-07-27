@@ -353,12 +353,12 @@ func (e EmptyStmt) stmt()          {}
 func (s *EmptyStmt) Position() int { return s.Off }
 
 type Block struct {
-	Off  int
-	Body []Stmt
+	Begin, End int // positions of the opening and the closing brace
+	Body       []Stmt
 }
 
 func (b Block) stmt()          {}
-func (b *Block) Position() int { return b.Off }
+func (b *Block) Position() int { return b.Begin }
 
 type LabeledStmt struct {
 	Off   int
@@ -501,10 +501,11 @@ type ExprCaseClause struct {
 }
 
 type ExprSwitchStmt struct {
-	Off   int
-	Init  Stmt
-	X     Expr
-	Cases []ExprCaseClause
+	Off        int // position of the `switch` keyword
+	Begin, End int // positions of the opening and the closing braces
+	Init       Stmt
+	X          Expr
+	Cases      []ExprCaseClause
 }
 
 func (d ExprSwitchStmt) stmt()          {}
@@ -516,11 +517,12 @@ type TypeCaseClause struct {
 }
 
 type TypeSwitchStmt struct {
-	Off   int
-	Init  Stmt
-	Id    string
-	X     Expr
-	Cases []TypeCaseClause
+	Off        int // position of the `switch` keyword
+	Begin, End int // positions of the opening and the closing braces
+	Init       Stmt
+	Id         string
+	X          Expr
+	Cases      []TypeCaseClause
 }
 
 func (d TypeSwitchStmt) stmt()          {}
@@ -532,8 +534,9 @@ type CommClause struct {
 }
 
 type SelectStmt struct {
-	Off   int
-	Comms []CommClause
+	Off        int // position of the `select` keyword
+	Begin, End int // positions of the opening and the closing braces
+	Comms      []CommClause
 }
 
 func (s SelectStmt) stmt()          {}
