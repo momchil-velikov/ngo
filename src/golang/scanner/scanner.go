@@ -6,15 +6,16 @@ import (
 )
 
 type Scanner struct {
-	Name     string // Name of the source, e.g. a file name
-	Err      error
-	srcmap   SourceMap
-	Value    []byte // Value of the last token
-	TOff     int    // Byte offset of the last token
-	src      []byte // source characters
-	off      int    // Curent byte offset
-	lineOff  int    // Current line offset
-	needSemi bool
+	Name      string // Name of the source, e.g. a file name
+	Err       error
+	srcmap    SourceMap
+	Value     []byte // Value of the last token
+	TOff      int    // Byte offset of the last token
+	src       []byte // source characters
+	off       int    // Curent byte offset
+	lineOff   int    // Current line offset
+	needSemi  bool   // emit semicolon at next newline
+	forceSemi bool   // emit semicolon as the next token
 }
 
 func New(name string, src string) *Scanner {
@@ -112,18 +113,21 @@ func (s *Scanner) nextChar() rune {
 
 // Skip until end of line. Return NL or EOF if end of source reached
 // before the comment ends.
-func (s *Scanner) skipLineComment() rune {
-	r := s.next()
-	for r != EOF && r != NL {
-		r = s.next()
+func (s *Scanner) scanLineComment() (rune, []byte) {
+	start := s.TOff
+	r, sz := s.peekAt(s.off)
+	for sz > 0 && r != EOF && r != NL {
+		s.off += sz
+		r, sz = s.peekAt(s.off)
 	}
-	return r
+	return r, s.src[start:s.off]
 }
 
 // Skip until the end of a block comment. Return EOF if end of source reached
 // before the comment ends. Return NL if the comment contains newlines or
 // SPACE otherwise.
-func (s *Scanner) skipBlockComment() rune {
+func (s *Scanner) scanBlockComment() (rune, []byte) {
+	start := s.TOff
 	line := s.srcmap.LineCount() + 1
 
 	var r rune
@@ -138,12 +142,13 @@ func (s *Scanner) skipBlockComment() rune {
 	}
 
 	if r == EOF {
-		return EOF
+		return EOF, nil
 	} else {
+		v := s.src[start:s.off]
 		if line < s.srcmap.LineCount()+1 {
-			return NL
+			return NL, v
 		} else {
-			return SPACE
+			return SPACE, v
 		}
 	}
 }
@@ -413,33 +418,42 @@ func (s *Scanner) scanRawString() (uint, []byte) {
 func (s *Scanner) Get() uint {
 	s.Err = nil
 
-L:
-	needSemi := s.needSemi
-
-	if s.off == len(s.src) {
-		if needSemi {
-			s.needSemi = false
-			return ';'
-		} else {
-			return EOF
-		}
+	// Emit a forced semicolon after block comment
+	if s.forceSemi {
+		s.forceSemi = false
+		s.needSemi = false
+		return ';'
 	}
 
-	r := s.peek()
+	// Skip over whitespace and insert semicolons
+	var r rune
+	for {
+		if s.off == len(s.src) {
+			if s.needSemi {
+				s.needSemi = false
+				return ';'
+			} else {
+				return EOF
+			}
+		}
 
-	s.TOff = s.off
-	if isWhitespace(r) {
+		r = s.peek()
+		if !isWhitespace(r) {
+			break
+		}
+
 		s.next()
 		if r == NL {
-			if needSemi {
+			if s.needSemi {
 				s.needSemi = false
 				return ';'
 			}
 		}
-		goto L
 	}
 
+	needSemi := s.needSemi
 	s.needSemi = false
+	s.TOff = s.off
 
 	switch r {
 	case '+': // +, +=, ++
@@ -482,24 +496,28 @@ L:
 			return DIV_ASSIGN
 		} else if r == '/' {
 			s.nextChar()
-			r = s.skipLineComment()
-			if r == EOF {
+			if r, v := s.scanLineComment(); r == EOF {
 				return s.error("EOF in comment")
+			} else { // r == NL
+				s.needSemi = needSemi
+				s.Value = v
+				return LINE_COMMENT
 			}
-			if r == NL && needSemi {
-				return ';'
-			}
-			goto L
 		} else if r == '*' {
 			s.nextChar()
-			r = s.skipBlockComment()
-			if r == EOF {
+			if r, v := s.scanBlockComment(); r == EOF {
 				return s.error("EOF in comment")
-			} else if r == NL && needSemi {
-				return ';'
+			} else {
+				s.Value = v
+				s.needSemi = needSemi
+				if needSemi && r == NL {
+					// Block comments, which contain one or more newlines act
+					// as a newline. Since we are returning the comment itself
+					// now on, the next token force emit a semicolon.
+					s.forceSemi = true
+				}
+				return BLOCK_COMMENT
 			}
-			s.needSemi = needSemi
-			goto L
 		}
 		return '/'
 	case '%': // %, %=

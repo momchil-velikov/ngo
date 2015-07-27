@@ -24,6 +24,10 @@ func transcan(in io.Reader, out io.Writer) error {
 			fmt.Fprint(out, v, "i ")
 		case scanner.RUNE:
 			fmt.Fprintf(out, "'%s' ", v)
+		case scanner.LINE_COMMENT:
+			fmt.Fprintln(out, v)
+		case scanner.BLOCK_COMMENT:
+			fmt.Fprint(out, v)
 		default:
 			fmt.Fprint(out, scanner.TokenNames[tok], " ")
 		}

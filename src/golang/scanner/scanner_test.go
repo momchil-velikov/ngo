@@ -63,6 +63,8 @@ func TestLineComment2(t *testing.T) {
 
 	s := New("line comments", input)
 	tok := s.Get()
+	expectToken(t, tok, LINE_COMMENT)
+	tok = s.Get()
 	expectToken(t, tok, ID)
 }
 
@@ -73,10 +75,10 @@ func TestLineComment3(t *testing.T) {
 	s := New("line comments", input)
 	tok := s.Get()
 	expectToken(t, tok, ID)
-
+	tok = s.Get()
+	expectToken(t, tok, LINE_COMMENT)
 	tok = s.Get()
 	expectToken(t, tok, ';')
-
 	tok = s.Get()
 	expectToken(t, tok, ID)
 }
@@ -110,6 +112,8 @@ func TestBlockComment3(t *testing.T) {
 
 	s := New("block comments", input)
 	tok := s.Get()
+	expectToken(t, tok, BLOCK_COMMENT)
+	tok = s.Get()
 	expectToken(t, tok, EOF)
 }
 
@@ -118,7 +122,7 @@ func TestBlockComment4(t *testing.T) {
     alala */ b`
 
 	s := New("block comments", input)
-	tokens := [...]uint{ID, '+', ID, ';', EOF}
+	tokens := [...]uint{ID, '+', BLOCK_COMMENT, ID, ';', EOF}
 	for _, exp := range tokens {
 		tok := s.Get()
 		expectToken(t, tok, exp)
@@ -129,7 +133,7 @@ func TestBlockComment5(t *testing.T) {
 	input := `a + /* allalaaalala */ b`
 
 	s := New("block comments", input)
-	tokens := [...]uint{ID, '+', ID, ';', EOF}
+	tokens := [...]uint{ID, '+', BLOCK_COMMENT, ID, ';', EOF}
 	for _, exp := range tokens {
 		tok := s.Get()
 		expectToken(t, tok, exp)
@@ -141,7 +145,20 @@ func TestBlockComment6(t *testing.T) {
     alala */ b`
 
 	s := New("block comments", input)
-	tokens := [...]uint{ID, ';', ID, ';', EOF}
+	tokens := [...]uint{ID, BLOCK_COMMENT, ';', ID, ';', EOF}
+	for _, exp := range tokens {
+		tok := s.Get()
+		expectToken(t, tok, exp)
+	}
+}
+
+func TestBlockComment7(t *testing.T) {
+	input := `a /* x
+*//* y
+*/b`
+
+	s := New("block comments", input)
+	tokens := [...]uint{ID, BLOCK_COMMENT, ';', BLOCK_COMMENT, ID, ';', EOF}
 	for _, exp := range tokens {
 		tok := s.Get()
 		expectToken(t, tok, exp)
@@ -522,6 +539,8 @@ func TestRegession20140119165305(t *testing.T) {
 	input := `/***/`
 	s := New("regression20140119", input)
 	tok := s.Get()
+	expectToken(t, tok, BLOCK_COMMENT)
+	tok = s.Get()
 	expectToken(t, tok, EOF)
 }
 
@@ -540,7 +559,7 @@ func TestRegression20140121222305(t *testing.T) {
 func TestBug20150722T232927(t *testing.T) {
 	src := `x /* */
             +1`
-	exp := []uint{ID, ';', '+', INTEGER, ';'}
+	exp := []uint{ID, BLOCK_COMMENT, ';', '+', INTEGER, ';'}
 	s := New("Bug20150722T232927.go", src)
 	for i := range exp {
 		tok := s.Get()

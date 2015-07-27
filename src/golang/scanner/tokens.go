@@ -85,6 +85,9 @@ const (
 	STRING
 	RUNE
 
+	LINE_COMMENT
+	BLOCK_COMMENT
+
 	ERROR
 
 	SPACE = '\u0020'
@@ -204,6 +207,9 @@ var TokenNames = map[uint]string{
 	IMAGINARY: "<imaginary>",
 	STRING:    "<string>",
 	RUNE:      "<rune>",
+
+	LINE_COMMENT:  "<line-comment>",
+	BLOCK_COMMENT: "<block-comment>",
 
 	ERROR: "<error>",
 }
