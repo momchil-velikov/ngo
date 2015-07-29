@@ -47,6 +47,7 @@ func TestOperations2(t *testing.T) {
 		'.', ':', DEFINE}
 	testOps(t, input, tokens[:])
 }
+
 func TestLineComment1(t *testing.T) {
 	input := `// allalaa`
 
@@ -81,6 +82,23 @@ func TestLineComment3(t *testing.T) {
 	expectToken(t, tok, ';')
 	tok = s.Get()
 	expectToken(t, tok, ID)
+}
+
+func TestLineComment4(t *testing.T) {
+	file, err := os.Open("test-invalid-encoding-1.txt")
+	if err != nil {
+		t.Error(err)
+	}
+	defer file.Close()
+	input, err := ioutil.ReadAll(file)
+	if err != nil {
+		t.Error(err)
+	}
+	s := New("line comments", string(input))
+	tok := s.Get()
+	if expectToken(t, tok, ERROR) {
+		t.Log(s.Err)
+	}
 }
 
 func TestBlockComment1(t *testing.T) {
@@ -162,6 +180,23 @@ func TestBlockComment7(t *testing.T) {
 	for _, exp := range tokens {
 		tok := s.Get()
 		expectToken(t, tok, exp)
+	}
+}
+
+func TestBlockComment8(t *testing.T) {
+	file, err := os.Open("test-invalid-encoding.txt")
+	if err != nil {
+		t.Error(err)
+	}
+	defer file.Close()
+	input, err := ioutil.ReadAll(file)
+	if err != nil {
+		t.Error(err)
+	}
+	s := New("block comments", string(input))
+	tok := s.Get()
+	if expectToken(t, tok, ERROR) {
+		t.Log(s.Err)
 	}
 }
 

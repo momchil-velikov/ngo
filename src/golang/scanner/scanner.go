@@ -116,7 +116,7 @@ func (s *Scanner) nextChar() rune {
 func (s *Scanner) scanLineComment() (rune, []byte) {
 	start := s.TOff
 	r, sz := s.peekAt(s.off)
-	for sz > 0 && r != EOF && r != NL {
+	for sz > 0 && r != EOF && r != NL && r != utf8.RuneError {
 		s.off += sz
 		r, sz = s.peekAt(s.off)
 	}
@@ -131,7 +131,7 @@ func (s *Scanner) scanBlockComment() (rune, []byte) {
 	line := s.srcmap.LineCount() + 1
 
 	var r rune
-	for r = s.next(); r != EOF; r = s.next() {
+	for r = s.next(); r != EOF && r != utf8.RuneError; r = s.next() {
 		if r == '*' {
 			r = s.peek()
 			if r == '/' {
@@ -141,8 +141,8 @@ func (s *Scanner) scanBlockComment() (rune, []byte) {
 		}
 	}
 
-	if r == EOF {
-		return EOF, nil
+	if r == EOF || r == utf8.RuneError {
+		return r, nil
 	} else {
 		v := s.src[start:s.off]
 		if line < s.srcmap.LineCount()+1 {
@@ -496,7 +496,9 @@ func (s *Scanner) Get() uint {
 			return DIV_ASSIGN
 		} else if r == '/' {
 			s.nextChar()
-			if r, v := s.scanLineComment(); r == EOF {
+			if r, v := s.scanLineComment(); r == utf8.RuneError {
+				return s.error(fmt.Sprintf("Invalid character: |%c|", r))
+			} else if r == EOF {
 				return s.error("EOF in comment")
 			} else { // r == NL
 				s.needSemi = needSemi
@@ -505,7 +507,9 @@ func (s *Scanner) Get() uint {
 			}
 		} else if r == '*' {
 			s.nextChar()
-			if r, v := s.scanBlockComment(); r == EOF {
+			if r, v := s.scanBlockComment(); r == utf8.RuneError {
+				return s.error(fmt.Sprintf("Invalid character: |%c|", r))
+			} else if r == EOF {
 				return s.error("EOF in comment")
 			} else {
 				s.Value = v
@@ -513,7 +517,7 @@ func (s *Scanner) Get() uint {
 				if needSemi && r == NL {
 					// Block comments, which contain one or more newlines act
 					// as a newline. Since we are returning the comment itself
-					// now on, the next token force emit a semicolon.
+					// now, on the next token force emit a semicolon.
 					s.forceSemi = true
 				}
 				return BLOCK_COMMENT
