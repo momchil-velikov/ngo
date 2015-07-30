@@ -90,6 +90,9 @@ func (p *parser) expectError(exp, act uint) {
 func (p *parser) next() int {
 	off := p.scan.TOff
 	p.token = p.scan.Get()
+	for p.token == s.LINE_COMMENT || p.token == s.BLOCK_COMMENT {
+		p.token = p.scan.Get()
+	}
 	return off
 }
 
