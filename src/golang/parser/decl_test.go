@@ -425,3 +425,31 @@ func () i(a, uint) (r0 []*X)
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestBug20150730T124314(tst *testing.T) {
+	src := `package p
+var (
+  a = func() { var b = func() { var c } }
+)`
+
+	exp := `package p
+
+var (
+    a = func() {
+            var b = func() {
+                    var c
+                }
+        }
+)
+`
+	t, e := Parse("bug-2015-07-30T12:43:14.go", src)
+	if e != nil {
+		tst.Log(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}

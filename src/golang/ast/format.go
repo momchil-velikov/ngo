@@ -591,6 +591,8 @@ func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
+	grp := ctx.group
+	ctx.group = ""
 	if ctx.blockPositions() {
 		ctx.WriteV(n, "/* #", b.Begin, " */")
 	}
@@ -622,6 +624,7 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 		}
 		ctx.WriteString("}")
 	}
+	ctx.group = grp
 }
 
 func (e *EmptyStmt) Format(ctx *FormatContext, n uint) {
