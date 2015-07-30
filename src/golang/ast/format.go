@@ -639,7 +639,16 @@ func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteV(n, "\n", ctx.Indent, s.Label, ":")
 	}
-	ctx.WriteV(n+1, "\n", ctx.Indent, s.Stmt.Format)
+
+	if e, ok := s.Stmt.(*EmptyStmt); ok {
+		if ctx.stmtPositions() {
+			ctx.WriteV(n+1, "\n", ctx.Indent, e.Format)
+		}
+	} else if l, ok := s.Stmt.(*LabeledStmt); ok {
+		l.Format(ctx, n)
+	} else {
+		ctx.WriteV(n+1, "\n", ctx.Indent, s.Stmt.Format)
+	}
 }
 
 func (g *GoStmt) Format(ctx *FormatContext, n uint) {

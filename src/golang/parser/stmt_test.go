@@ -834,5 +834,34 @@ L1:
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
+}
 
+func TestLabeledEmptyStmt(tst *testing.T) {
+	src := `package main
+
+func f() {
+L1: goto L1; L2: L3: ; goto L2
+}
+`
+
+	exp := `package main
+
+func f() {
+L1:
+    goto L1
+L2:
+L3:
+    goto L2
+}
+`
+	t, e := Parse("labeled-empty-stmt.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
 }
