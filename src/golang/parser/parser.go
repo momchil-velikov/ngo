@@ -10,8 +10,9 @@ import (
 )
 
 type parser struct {
-	errors []error
-	scan   s.Scanner
+	errors   []error
+	scan     s.Scanner
+	comments []ast.Comment
 
 	token    uint // current token
 	level    int
@@ -91,6 +92,7 @@ func (p *parser) next() int {
 	off := p.scan.TOff
 	p.token = p.scan.Get()
 	for p.token == s.LINE_COMMENT || p.token == s.BLOCK_COMMENT {
+		p.comments = append(p.comments, ast.Comment{Off: p.scan.TOff, Text: p.scan.Value})
 		p.token = p.scan.Get()
 	}
 	return off
@@ -199,7 +201,13 @@ func (p *parser) parseFile() *ast.File {
 
 	p.match(s.EOF)
 
-	return &ast.File{Off: off, Package: name, Imports: is, Decls: ds}
+	return &ast.File{
+		Off:      off,
+		Package:  name,
+		Imports:  is,
+		Decls:    ds,
+		Comments: p.comments,
+	}
 }
 
 // Parse a package clause. Return the package name or an empty string on error.

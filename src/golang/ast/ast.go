@@ -27,12 +27,23 @@ type Stmt interface {
 	stmt()
 }
 
+// Source comment.
+type Comment struct {
+	Off  int
+	Text []byte
+}
+
+func (c *Comment) IsLineComment() bool {
+	return c.Text != nil && c.Text[0] == '/' && c.Text[1] == '/'
+}
+
 // Source file
 type File struct {
-	Off     int // position of the "package" keyword
-	Package string
-	Imports []Decl
-	Decls   []Decl
+	Off      int // position of the "package" keyword
+	Package  string
+	Imports  []Decl
+	Decls    []Decl
+	Comments []Comment
 }
 
 // Declaration group

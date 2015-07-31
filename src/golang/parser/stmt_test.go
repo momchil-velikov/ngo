@@ -865,3 +865,33 @@ L3:
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestComments(tst *testing.T) {
+
+	src := `// c0
+package p // c1
+
+/* c2 *//* c3
+*/
+`
+	exp := []int{0, 16, 23, 31}
+	ln := []bool{true, true, false, false}
+
+	t, e := Parse("comments.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	if len(exp) != len(t.Comments) {
+		tst.Fatal("wrong number of comments")
+	}
+
+	for i := range exp {
+		if exp[i] != t.Comments[i].Off {
+			tst.Error("wrong comment position")
+		}
+		if ln[i] != t.Comments[i].IsLineComment() {
+			tst.Errorf("wrong comment type at offset %d\n", exp[i])
+		}
+	}
+}
