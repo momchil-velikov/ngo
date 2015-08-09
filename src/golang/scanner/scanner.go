@@ -433,6 +433,10 @@ func (s *Scanner) Get() uint {
 				s.needSemi = false
 				return ';'
 			} else {
+				if s.lineOff < s.off {
+					s.srcmap.addLine(s.off - s.lineOff)
+					s.lineOff = s.off
+				}
 				return EOF
 			}
 		}

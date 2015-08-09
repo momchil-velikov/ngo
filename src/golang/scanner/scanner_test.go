@@ -625,15 +625,28 @@ d e
 // fofofof
 f
 `
-	//	off := []int{0, 2, 16, 28, 30, 556}
+	off := []int{0, 2, 4, 4, 16, 16, 18, 28, 30, 30, 32, 44, 55, 55}
 	s := New("test-position.go", src)
 	i := 0
 	tok := s.Get()
 	for tok != ERROR && tok != EOF {
-		//		if s.TOff != off[i] {
-		t.Log("wrong token offset: token:", TokenNames[tok], "off:", s.TOff)
-		//		}
+		if s.TOff != off[i] {
+			t.Error("wrong token offset: token:", TokenNames[tok], "off:", s.TOff)
+		}
 		tok = s.Get()
 		i++
+	}
+}
+
+func TestBug20150809T112324(t *testing.T) {
+	src := `package main`
+	s := New("test-position.go", src)
+	tok := s.Get()
+	for tok != EOF {
+		tok = s.Get()
+	}
+
+	if len(s.srcmap.line) != 1 {
+		t.Error("wrong count of lines in source map")
 	}
 }
