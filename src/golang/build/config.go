@@ -65,14 +65,13 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 	return c, nil
 }
 
-// Finds that component of GOPATH, which is the top level workspace directory
-// of the given package.
+// Finds the directory, which contains the source files of the given package.
 func (c *Config) FindPackageDir(pkg string) string {
 	for i := range c.Path {
 		path := filepath.Join(c.Path[i], "src", pkg)
 		if info, err := os.Stat(path); err == nil {
 			if info.IsDir() {
-				return c.Path[i]
+				return path
 			}
 		}
 	}

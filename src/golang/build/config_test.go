@@ -1,7 +1,6 @@
 package build
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,37 +45,15 @@ func TestConfig(t *testing.T) {
 }
 
 func TestConfigPath(t *testing.T) {
-	d, err := ioutil.TempDir("", "glang-test-")
+	d, err := os.Getwd()
 	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(d)
-
-	p1 := filepath.Join(d, "src1")
-	if err := os.MkdirAll(filepath.Join(p1, "src", "pkg1"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(p1, "src", "pkg2", "pkg3"), 0700); err != nil {
-		t.Fatal(err)
-	}
-
-	p2 := filepath.Join(d, "src2")
-	if err := os.MkdirAll(filepath.Join(p2, "src", "pkg4"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(p2, "src", "pkg5", "pkg6"), 0700); err != nil {
-		t.Fatal(err)
-	}
-
-	p3 := filepath.Join(d, "src3")
-	if f, err := os.Create(p3); err == nil {
-		defer f.Close()
-	} else {
-		t.Fatal(err)
-	}
-
+	p1 := filepath.Join(d, "test", "01", "src1")
+	p2 := filepath.Join(d, "test", "01", "src2")
+	p3 := filepath.Join(d, "test", "01", "src3")
 	gopath :=
-		strings.Join([]string{p1, "", p2, "..", "./src", p3}, string(os.PathListSeparator))
+		strings.Join([]string{p1, "", p2, ".", "./src", p3}, string(os.PathListSeparator))
 	c, err := new(Config).Init(gopath, "linux", "amd64")
 	if err != nil {
 		t.Fatal(err)
@@ -86,41 +63,56 @@ func TestConfigPath(t *testing.T) {
 	}
 
 	pkgs := []string{"pkg1", "pkg2", "pkg3", "pkg4", "pkg5", "pkg6"}
-	exp := []string{p1, p1, "", p2, p2, ""}
+	exps := []string{
+		filepath.Join(p1, "src", "pkg1"),
+		filepath.Join(p1, "src", "pkg2"),
+		"",
+		filepath.Join(p2, "src", "pkg4"),
+		filepath.Join(p2, "src", "pkg5"),
+		"",
+	}
 
 	for i := range pkgs {
 		s := c.FindPackageDir(pkgs[i])
-		if len(s) == 0 && len(exp[i]) > 0 {
-			t.Errorf("package \"%s\" not found; should be in \"%s\"", pkgs[i], exp[i])
-		} else if len(s) > 0 && len(exp[i]) == 0 {
+		if len(s) == 0 && len(exps[i]) > 0 {
+			t.Errorf("package \"%s\" not found; should be in \"%s\"", pkgs[i], exps[i])
+		} else if len(s) > 0 && len(exps[i]) == 0 {
 			t.Errorf("package \"%s\" should not be found", pkgs[i])
-		} else if s != exp[i] {
+		} else if s != exps[i] {
 			t.Errorf(
 				"package \"%s\" found in \"%s\"; should be in \"%s\"",
-				pkgs[i], s, exp[i],
+				pkgs[i], s, exps[i],
 			)
 		}
 	}
 
 	pkg := "pkg2/pkg3"
+	exp := filepath.Join(p1, "src", "pkg2", "pkg3")
 	s := c.FindPackageDir(pkg)
 	if len(s) == 0 {
-		t.Errorf("package \"%s\" not found; should be in \"%s\"", pkg, p1)
-	} else if s != p1 {
+		t.Errorf(
+			"package \"%s\" not found; should be in \"%s\"",
+			pkg, exp,
+		)
+	} else if s != exp {
 		t.Errorf(
 			"package \"%s\" found in \"%s\"; should be in \"%s\"",
-			pkg, s, p1,
+			pkg, s, exp,
 		)
 	}
 
 	pkg = "pkg5/pkg6"
+	exp = filepath.Join(p2, "src", "pkg5", "pkg6")
 	s = c.FindPackageDir(pkg)
 	if len(s) == 0 {
-		t.Errorf("package \"%s\" not found; should be in \"%s\"", pkg, p2)
-	} else if s != p2 {
+		t.Errorf(
+			"package \"%s\" not found; should be in \"%s\"",
+			pkg, exp,
+		)
+	} else if s != exp {
 		t.Errorf(
 			"package \"%s\" found in \"%s\"; should be in \"%s\"",
-			pkg, s, p2,
+			pkg, s, exp,
 		)
 	}
 }
