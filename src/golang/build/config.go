@@ -1,6 +1,7 @@
 package build
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,10 +33,23 @@ func matchAny(s string, ss []string) bool {
 	return false
 }
 
+func suffixMatchAny(s string, ss []string) string {
+	for i := range ss {
+		tag := "_" + ss[i]
+		if strings.HasSuffix(s, tag) {
+			return tag
+		}
+	}
+	return ""
+}
+
+// Initializes a build configuraion from environment.
 func (c *Config) Default() (*Config, error) {
 	return c.Init("", "", "")
 }
 
+// Initializes a build configuration with the given GOPATH, GOOS and
+// GOARCH. If either string is empty, take the value from the environment.
 func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error) {
 	if len(gopath) == 0 {
 		gopath = os.Getenv("GOPATH")
@@ -76,4 +90,53 @@ func (c *Config) FindPackageDir(pkg string) string {
 		}
 	}
 	return ""
+}
+
+func (c *Config) isAcceptableName(name string, test bool) bool {
+	if filepath.Ext(name) != ".go" {
+		return false
+	}
+	name = name[0 : len(name)-3]
+	if !test && strings.HasSuffix(name, "_test") {
+		return false
+	}
+	name = strings.TrimSuffix(name, "_test")
+	if arch := suffixMatchAny(name, knownArch); len(arch) > 0 {
+		if arch[1:] != c.Arch {
+			return false
+		}
+		name = strings.TrimSuffix(name, arch)
+	}
+	if os := suffixMatchAny(name, knownOS); len(os) > 0 {
+		if os[1:] != c.OS {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Config) filterNames(ns []string, test bool) []string {
+	i, j := 0, 0
+	for j < len(ns) {
+		if c.isAcceptableName(ns[j], test) {
+			ns[i] = ns[j]
+			i++
+		}
+		j++
+	}
+	return ns[0:i]
+}
+
+func (c *Config) FindPackageFiles(dir string, test bool) ([]string, error) {
+	infos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(infos))
+	for _, info := range infos {
+		if !info.IsDir() {
+			names = append(names, info.Name())
+		}
+	}
+	return c.filterNames(names, test), nil
 }

@@ -3,6 +3,7 @@ package build
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -114,5 +115,89 @@ func TestConfigPath(t *testing.T) {
 			"package \"%s\" found in \"%s\"; should be in \"%s\"",
 			pkg, s, exp,
 		)
+	}
+}
+
+func checkSame(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+type filterTestCase struct {
+	os, arch string
+	test     bool
+	names    []string
+}
+
+func TestFilterNames(t *testing.T) {
+	cases := []filterTestCase{
+		{"linux", "amd64", false,
+			[]string{"f2_linux_amd64.go", "f4_linux.go", "f6_amd64.go", "f8.go"}},
+		{"linux", "amd64", true,
+			[]string{"f1_linux_amd64_test.go", "f2_linux_amd64.go", "f3_linux_test.go",
+				"f4_linux.go", "f5_amd64_test.go", "f6_amd64.go", "f7_test.go", "f8.go"}},
+		{"freebsd", "amd64", false,
+			[]string{"f12_freebsd.go", "f6_amd64.go", "f8.go"}},
+		{"freebsd", "amd64", true,
+			[]string{"f11_freebsd_test.go", "f12_freebsd.go", "f5_amd64_test.go",
+				"f6_amd64.go", "f7_test.go", "f8.go"}},
+		{"linux", "arm", false,
+			[]string{"f14_arm.go", "f4_linux.go", "f8.go"}},
+		{"linux", "arm", true,
+			[]string{"f13_arm_test.go", "f14_arm.go", "f3_linux_test.go", "f4_linux.go",
+				"f7_test.go", "f8.go"}},
+		{"freebsd", "arm", false,
+			[]string{"f10_freebsd_arm.go", "f12_freebsd.go", "f14_arm.go", "f8.go"}},
+		{"freebsd", "arm", true,
+			[]string{"f10_freebsd_arm.go", "f11_freebsd_test.go", "f12_freebsd.go",
+				"f13_arm_test.go", "f14_arm.go", "f7_test.go", "f8.go",
+				"f9_freebsd_arm_test.go"}},
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range cases {
+		c, err :=
+			new(Config).Init(filepath.Join(cwd, "test", "02"), cases[i].os, cases[i].arch)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dir := c.FindPackageDir("pkg")
+		if len(dir) == 0 {
+			t.Fatal("package \"pkg\" not found")
+		}
+
+		names, err := c.FindPackageFiles(dir, cases[i].test)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sort.Sort(sort.StringSlice(names))
+
+		if !checkSame(names, cases[i].names) {
+			t.Errorf("Wrong list of files for %s/%s/test=%v: %v",
+				cases[i].os, cases[i].arch, cases[i].test, names)
+		}
+	}
+}
+
+func TestBadDir(t *testing.T) {
+	c, err := new(Config).Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.FindPackageFiles("bad-dir-name", true)
+	if err == nil {
+		t.Error("expected missing directory error")
 	}
 }
