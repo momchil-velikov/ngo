@@ -1142,12 +1142,14 @@ func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
 // ElementList   = Element { "," Element } .
 func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 	p.match('{')
+	p.beginBrackets()
 	for p.token != s.EOF && p.token != '}' {
 		elts = append(elts, p.parseElement())
 		if p.token != '}' {
 			p.sync2(',', '}')
 		}
 	}
+	p.endBrackets()
 	p.match('}')
 	return elts
 }

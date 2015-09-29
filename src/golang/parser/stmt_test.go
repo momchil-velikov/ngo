@@ -895,3 +895,22 @@ package p // c1
 		}
 	}
 }
+
+func TestBug20150930T004107(tst *testing.T) {
+	src := `package p
+
+func f() {
+    for i := range []X{X{1}} {}
+}
+`
+	t, e := Parse("bug-2015-09-30T00:41:07.go", src)
+	if e != nil {
+		tst.Error(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != src {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
