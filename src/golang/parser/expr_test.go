@@ -292,3 +292,23 @@ var (
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestBug20150929T183739(tst *testing.T) {
+	src := `package p
+var a = "123"[1]
+`
+	exp := `package p
+
+var a = "123"[1]
+`
+	t, e := Parse("bug-2015-09-29T18:37:39.go", src)
+	if e != nil {
+		tst.Log(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
