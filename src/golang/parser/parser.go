@@ -1364,7 +1364,7 @@ func (p *parser) parseStmt() ast.Stmt {
 		return p.parseForStmt()
 	case s.DEFER:
 		return p.parseDeferStmt()
-	case ';':
+	case ';', '}':
 		return &ast.EmptyStmt{p.scan.TOff}
 	}
 
