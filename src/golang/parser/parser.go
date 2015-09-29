@@ -1065,10 +1065,13 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			return nil, t
 		}
-	case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE, s.STRING: // BasicLiteral
+	case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE: // BasicLiteral
 		k := p.token
 		v, off := p.matchRaw(k)
 		return &ast.Literal{Off: off, Kind: k, Value: v}, nil
+	case s.STRING:
+		v, off := p.matchRaw(s.STRING)
+		x = &ast.Literal{Off: off, Kind: s.STRING, Value: v}
 	default:
 		p.error("token cannot start neither expression nor type")
 		x = &ast.Error{p.scan.TOff}
