@@ -758,8 +758,15 @@ func (p *parser) parseReceiver() *ast.Receiver {
 	var t ast.Type
 	if p.token == '*' {
 		t = &ast.PtrType{Off: p.next(), Base: p.parseIdent()}
-	} else {
+	} else if p.token == s.ID {
 		t = p.parseIdent()
+	} else {
+		if id == nil {
+			p.error("missing receiver type")
+			t = &ast.Error{p.scan.TOff}
+		} else {
+			id, t = nil, id
+		}
 	}
 	p.sync2(')', ';')
 	return &ast.Receiver{Name: id, Type: t}
