@@ -207,6 +207,8 @@ func (p *parser) parseFile() *ast.File {
 		Imports:  is,
 		Decls:    ds,
 		Comments: p.comments,
+		Name:     p.scan.Name,
+		SrcMap:   p.scan.SrcMap,
 	}
 }
 

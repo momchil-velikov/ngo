@@ -44,6 +44,8 @@ type File struct {
 	Imports  []Decl
 	Decls    []Decl
 	Comments []Comment
+	Name     string
+	SrcMap   s.SourceMap
 }
 
 // Declaration group

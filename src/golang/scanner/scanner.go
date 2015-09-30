@@ -8,7 +8,7 @@ import (
 type Scanner struct {
 	Name      string // Name of the source, e.g. a file name
 	Err       error
-	srcmap    SourceMap
+	SrcMap    SourceMap
 	Value     []byte // Value of the last token
 	TOff      int    // Byte offset of the last token
 	src       []byte // source characters
@@ -31,9 +31,9 @@ func (s *Scanner) Init(name string, src []byte) {
 
 func (s *Scanner) Position(off int) (int, int) {
 	if off >= s.lineOff {
-		return s.srcmap.LineCount() + 1, off - s.lineOff + 1
+		return s.SrcMap.LineCount() + 1, off - s.lineOff + 1
 	} else {
-		return s.srcmap.Position(off)
+		return s.SrcMap.Position(off)
 	}
 }
 
@@ -79,7 +79,7 @@ func (s *Scanner) next() rune {
 	if sz > 0 {
 		s.off += sz
 		if r == NL {
-			s.srcmap.addLine(s.off - s.lineOff)
+			s.SrcMap.addLine(s.off - s.lineOff)
 			s.lineOff = s.off
 		}
 	}
@@ -105,7 +105,7 @@ func (s *Scanner) nextChar() rune {
 	if r != EOF {
 		s.off++
 		if r == NL {
-			s.srcmap.addLine(s.off - s.lineOff)
+			s.SrcMap.addLine(s.off - s.lineOff)
 		}
 	}
 	return r
@@ -128,7 +128,7 @@ func (s *Scanner) scanLineComment() (rune, []byte) {
 // SPACE otherwise.
 func (s *Scanner) scanBlockComment() (rune, []byte) {
 	start := s.TOff
-	line := s.srcmap.LineCount() + 1
+	line := s.SrcMap.LineCount() + 1
 
 	var r rune
 	for r = s.next(); r != EOF && r != utf8.RuneError; r = s.next() {
@@ -145,7 +145,7 @@ func (s *Scanner) scanBlockComment() (rune, []byte) {
 		return r, nil
 	} else {
 		v := s.src[start:s.off]
-		if line < s.srcmap.LineCount()+1 {
+		if line < s.SrcMap.LineCount()+1 {
 			return NL, v
 		} else {
 			return SPACE, v
@@ -434,7 +434,7 @@ func (s *Scanner) Get() uint {
 				return ';'
 			} else {
 				if s.lineOff < s.off {
-					s.srcmap.addLine(s.off - s.lineOff)
+					s.SrcMap.addLine(s.off - s.lineOff)
 					s.lineOff = s.off
 				}
 				return EOF
