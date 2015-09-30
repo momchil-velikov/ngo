@@ -1,0 +1,3 @@
+package d
+
+import "a"
