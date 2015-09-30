@@ -57,14 +57,14 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 	if len(goos) == 0 {
 		goos = os.Getenv("GOOS")
 	}
-	if !matchAny(goos, knownOS) {
+	if len(goos) > 0 && !matchAny(goos, knownOS) {
 		return nil, configError("unrecognized OS: " + goos)
 	}
 	c.OS = goos
 	if len(goarch) == 0 {
 		goarch = os.Getenv("GOARCH")
 	}
-	if !matchAny(goarch, knownArch) {
+	if len(goarch) > 0 && !matchAny(goarch, knownArch) {
 		return nil, configError("unrecognized CPU arch: " + goarch)
 	}
 	c.Arch = goarch
