@@ -37,6 +37,14 @@ func (c *Comment) IsLineComment() bool {
 	return c.Text != nil && c.Text[0] == '/' && c.Text[1] == '/'
 }
 
+// Package
+type Package struct {
+	Path, Name string
+	Files      []*File
+	Imports    map[string]*Package
+	Mark       int
+}
+
 // Source file
 type File struct {
 	Off      int // position of the "package" keyword

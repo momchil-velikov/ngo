@@ -5,7 +5,9 @@ import (
 	"golang/ast"
 	s "golang/scanner"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	// "runtime"
 )
 
@@ -38,6 +40,47 @@ func (p *parser) setBrackets(n int) int {
 	o := p.brackets
 	p.brackets = n
 	return o
+}
+
+// Parse all the source files of a package
+func ParsePackage(dir string, names []string) (*ast.Package, error) {
+	// Parse sources
+	var files []*ast.File
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+		src, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		f, err := Parse(path, string(src))
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
+	}
+
+	// Check that all the source files declare the same package name as the
+	// name of the package directory or, alternatively, that all the source
+	// files declare the package name "main".
+	pkgname := filepath.Base(dir)
+	if len(files) > 0 {
+		if files[0].Package == "main" {
+			pkgname = "main"
+		}
+		for _, f := range files {
+			if f.Package != pkgname {
+				ln, col := f.SrcMap.Position(f.Off)
+				return nil, parseError{f.Name, ln, col, "inconsistent package name"}
+			}
+		}
+	}
+	pkg := &ast.Package{
+		Path:    dir,
+		Name:    pkgname,
+		Files:   files,
+		Imports: make(map[string]*ast.Package),
+	}
+	return pkg, nil
 }
 
 // Parse a source file
