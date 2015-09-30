@@ -411,7 +411,7 @@ func () i( a,  uint) (r0 []*X r1 bool)
 func (func(), uint) bool
 func i(<error>, b uint) (r0 []*X)
 func (r T) f(<error>) h
-func () i(a, uint) (r0 []*X)
+func (<error>) i(a, uint) (r0 []*X)
 `
 
 	t, e := Parse("func-decl-error.go", src)
@@ -443,6 +443,27 @@ var (
 )
 `
 	t, e := Parse("bug-2015-07-30T12:43:14.go", src)
+	if e != nil {
+		tst.Log(e)
+	}
+
+	ctx := new(ast.FormatContext).Init()
+	f := t.Format(ctx)
+	if f != exp {
+		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestBug20150929T234411(tst *testing.T) {
+	src := `package p
+func (id) name() {}
+`
+	exp := `package p
+
+func (id) name() {}
+`
+
+	t, e := Parse("bug-2015-09-29T23:44:11.go", src)
 	if e != nil {
 		tst.Log(e)
 	}

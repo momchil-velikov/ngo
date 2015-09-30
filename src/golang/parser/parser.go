@@ -758,8 +758,15 @@ func (p *parser) parseReceiver() *ast.Receiver {
 	var t ast.Type
 	if p.token == '*' {
 		t = &ast.PtrType{Off: p.next(), Base: p.parseIdent()}
-	} else {
+	} else if p.token == s.ID {
 		t = p.parseIdent()
+	} else {
+		if id == nil {
+			p.error("missing receiver type")
+			t = &ast.Error{p.scan.TOff}
+		} else {
+			id, t = nil, id
+		}
 	}
 	p.sync2(')', ';')
 	return &ast.Receiver{Name: id, Type: t}
@@ -1135,12 +1142,14 @@ func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
 // ElementList   = Element { "," Element } .
 func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 	p.match('{')
+	p.beginBrackets()
 	for p.token != s.EOF && p.token != '}' {
 		elts = append(elts, p.parseElement())
 		if p.token != '}' {
 			p.sync2(',', '}')
 		}
 	}
+	p.endBrackets()
 	p.match('}')
 	return elts
 }
@@ -1355,7 +1364,7 @@ func (p *parser) parseStmt() ast.Stmt {
 		return p.parseForStmt()
 	case s.DEFER:
 		return p.parseDeferStmt()
-	case ';':
+	case ';', '}':
 		return &ast.EmptyStmt{p.scan.TOff}
 	}
 

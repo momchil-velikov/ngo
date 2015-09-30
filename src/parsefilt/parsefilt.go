@@ -14,10 +14,12 @@ func main() {
 			ctx := new(ast.FormatContext).Init()
 			f.Format(ctx)
 			ctx.Flush(os.Stdout)
+			os.Exit(0)
 		} else {
 			fmt.Fprintln(os.Stderr, "parsefilt:", err)
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "parsefilt:", err)
 	}
+	os.Exit(1)
 }
