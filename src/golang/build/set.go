@@ -1,28 +1,26 @@
 package build
 
 import (
+	"errors"
 	"fmt"
-	"golang/ast"
-	"golang/constexpr"
-	"golang/parser"
 )
 
-func (c *Config) CreateBuildSet(path string, test bool) ([]*ast.Package, error) {
+func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
 	// Parse the initial package.
 	dir := c.FindPackageDir(path)
 	if len(dir) == 0 {
-		return nil, configError(fmt.Sprintf("package %s not found", path))
+		return nil, errors.New(fmt.Sprintf("package %s not found", path))
 	}
 	srcs, err := c.FindPackageFiles(dir, test)
 	if err != nil {
 		return nil, err
 	}
-	pkg, err := parser.ParsePackage(dir, srcs)
+	pkg, err := parsePackage(dir, srcs)
 	if err != nil {
 		return nil, err
 	}
 	// Find all the dependency packages.
-	err = c.findPackageDeps(pkg, map[string]*ast.Package{dir: pkg})
+	err = c.findPackageDeps(pkg, map[string]*Package{dir: pkg})
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +39,7 @@ func (c *Config) CreateBuildSet(path string, test bool) ([]*ast.Package, error) 
 	return set, nil
 }
 
-func postorder(pkg *ast.Package, set []*ast.Package) ([]*ast.Package, error) {
+func postorder(pkg *Package, set []*Package) ([]*Package, error) {
 	var err error
 	pkg.Mark = 1
 	for _, p := range pkg.Imports {
@@ -50,7 +48,7 @@ func postorder(pkg *ast.Package, set []*ast.Package) ([]*ast.Package, error) {
 		}
 		if p.Mark == 1 {
 			msg := fmt.Sprintf("package \"%s\" eventually imports itself", p.Path)
-			return nil, configError(msg)
+			return nil, errors.New(msg)
 		}
 		set, err = postorder(p, set)
 		if err != nil {
@@ -61,33 +59,16 @@ func postorder(pkg *ast.Package, set []*ast.Package) ([]*ast.Package, error) {
 	return append(set, pkg), nil
 }
 
-func walkImports(decls []ast.Decl, fn func(*ast.Import) error) error {
-	for _, d := range decls {
-		switch i := d.(type) {
-		case *ast.DeclGroup:
-			return walkImports(i.Decls, fn)
-		case *ast.Import:
-			if e := fn(i); e != nil {
-				return e
-			}
-		default:
-			panic("invalid import type")
-		}
-	}
-	return nil
-}
-
 // Finds all the package dependencies, recursively.
-func (c *Config) findPackageDeps(pkg *ast.Package, found map[string]*ast.Package) error {
+func (c *Config) findPackageDeps(pkg *Package, found map[string]*Package) error {
 	// Walk over all the import declarations in all the source files of the
 	// package.
 	for _, f := range pkg.Files {
-		err := walkImports(f.Imports, func(i *ast.Import) error {
+		for _, path := range f.Imports {
 			// Find the dependent package directory.
-			path := constexpr.String(i.Path)
 			dir := c.FindPackageDir(path)
 			if len(dir) == 0 {
-				return configError(fmt.Sprintf("package \"%s\" not found", path))
+				return errors.New(fmt.Sprintf("package \"%s\" not found", path))
 			}
 			// Check if the package was already encountered.
 			dep, ok := found[dir]
@@ -97,7 +78,7 @@ func (c *Config) findPackageDeps(pkg *ast.Package, found map[string]*ast.Package
 				if err != nil {
 					return err
 				}
-				dep, err = parser.ParsePackage(dir, srcs)
+				dep, err = parsePackage(dir, srcs)
 				if err != nil {
 					return err
 				}
@@ -110,10 +91,6 @@ func (c *Config) findPackageDeps(pkg *ast.Package, found map[string]*ast.Package
 			}
 			// Record the package dependency.
 			pkg.Imports[dir] = dep
-			return nil
-		})
-		if err != nil {
-			return err
 		}
 	}
 	return nil

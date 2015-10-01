@@ -1,6 +1,7 @@
 package build
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,12 +12,6 @@ var (
 	knownOS   = []string{"linux", "darwin", "freebsd", "netbsd", "openbsd"}
 	knownArch = []string{"amd64", "arm", "powerpc", "mips"}
 )
-
-type configError string
-
-func (err configError) Error() string {
-	return string(err)
-}
 
 type Config struct {
 	Path []string
@@ -58,14 +53,14 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 		goos = os.Getenv("GOOS")
 	}
 	if len(goos) > 0 && !matchAny(goos, knownOS) {
-		return nil, configError("unrecognized OS: " + goos)
+		return nil, errors.New("unrecognized OS: " + goos)
 	}
 	c.OS = goos
 	if len(goarch) == 0 {
 		goarch = os.Getenv("GOARCH")
 	}
 	if len(goarch) > 0 && !matchAny(goarch, knownArch) {
-		return nil, configError("unrecognized CPU arch: " + goarch)
+		return nil, errors.New("unrecognized CPU arch: " + goarch)
 	}
 	c.Arch = goarch
 	ps := strings.Split(gopath, string(os.PathListSeparator))

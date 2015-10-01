@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"golang/ast"
 	"golang/build"
 	"io"
 	"os"
 )
 
-func writeDot(w io.Writer, name string, pkgs []*ast.Package) {
+func writeDot(w io.Writer, name string, pkgs []*build.Package) {
 	for i := range pkgs {
 		pkgs[i].Mark = i
 	}
