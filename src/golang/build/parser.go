@@ -41,8 +41,10 @@ func (p *parser) init(name string, rd io.RuneReader) {
 // Get the next token from the scanner.
 func (p *parser) next() {
 	p.token, p.err = p.scan.Get()
+	//fmt.Fprintln(os.Stderr, ">>> parser.next():", p.token.String())
 	for p.skipc && (p.token.Kind == tLINE_COMMENT || p.token.Kind == tBLOCK_COMMENT) {
 		p.token, p.err = p.scan.Get()
+		//fmt.Fprintln(os.Stderr, ">>> parser.next():", p.token.String())
 	}
 }
 

@@ -127,12 +127,9 @@ func (s *scanner) scanLineComment() (uint, string) {
 		buf = append(buf, s.rn)
 		s.next()
 	}
-	if s.rn == '\n' {
+	if s.rn == '\n' || s.rn == tEOF {
 		s.next()
 		return '\n', string(buf)
-	}
-	if s.rn == tEOF {
-		s.err = s.error("EOF in comment")
 	}
 	return tERROR, ""
 }
@@ -198,7 +195,7 @@ func (s *scanner) readHex(n uint) (uint, bool) {
 	if i == n {
 		return r, true
 	}
-	s.err = s.error("invalid hex escape seuquence")
+	s.err = s.error("invalid hex escape sequence")
 	return tERROR, false
 }
 
@@ -213,12 +210,15 @@ func (s *scanner) scanEscape() (uint, bool, bool) {
 	}
 	switch s.rn {
 	case 'x':
+		s.next()
 		r, ok := s.readHex(2)
 		return r, true, ok
 	case 'u':
+		s.next()
 		r, ok := s.readHex(4)
 		return r, false, ok
 	case 'U':
+		s.next()
 		r, ok := s.readHex(8)
 		return r, false, ok
 	case 'a':
@@ -243,7 +243,7 @@ func (s *scanner) scanEscape() (uint, bool, bool) {
 		s.err = s.error("invalid escape sequence")
 		return tERROR, true, false
 	}
-
+	s.next()
 	return r, false, true
 }
 
@@ -282,7 +282,7 @@ func (s *scanner) scanRawString() (uint, string) {
 	for s.rn != '`' && s.rn != tEOF && s.rn != tERROR {
 		r := s.rn
 		s.next()
-		if r != '\n' {
+		if r != '\r' {
 			buf = append(buf, r)
 		}
 	}
@@ -372,7 +372,7 @@ func (s *scanner) Get() (token, error) {
 			}
 		}
 		return token{tERROR, ln, col, ""}, s.error("invalid token")
-	case '(', '.':
+	case '(', '.', ';':
 		r := s.rn
 		s.next()
 		return token{uint(r), ln, col, ""}, nil
@@ -391,6 +391,7 @@ func (s *scanner) Get() (token, error) {
 			return token{t, ln, col, ""}, s.err
 		}
 	case '`':
+		s.next()
 		// Scan raw string literal
 		t, v := s.scanRawString()
 		if t == tSTRING {
