@@ -99,7 +99,7 @@ func (c *Config) FindPackageDir(pkg string) string {
 }
 
 func (c *Config) isAcceptableName(name string, test bool) bool {
-	if filepath.Ext(name) != ".go" {
+	if name[0] == '.' || name[0] == '_' || filepath.Ext(name) != ".go" {
 		return false
 	}
 	name = name[0 : len(name)-3]
