@@ -253,3 +253,30 @@ func TestConfigImportLoop3(t *testing.T) {
 		t.Log(err)
 	}
 }
+
+func TestConfigDirectives(t *testing.T) {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gopath := filepath.Join(d, "test", "08")
+	c, err := new(Config).Init(gopath, "android", "arm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgs, err := c.CreateBuildSet("a", false)
+	if err != nil || len(pkgs) != 1 {
+		t.Fatal("should return exactly one package")
+	}
+	pkg := pkgs[0]
+	es := []string{"a.go", "c.go", "e.go", "g.go"}
+	if len(pkg.Files) != len(es) {
+		t.Error("incorrect number of files")
+	}
+	for i := range pkg.Files {
+		name := filepath.Base(pkg.Files[i].Path)
+		if !matchAny(name, es) {
+			t.Errorf("file %s incorrecly included in build", name)
+		}
+	}
+}

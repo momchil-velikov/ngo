@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	knownOS   = []string{"linux", "darwin", "freebsd", "netbsd", "openbsd"}
+	knownOS   = []string{"linux", "darwin", "freebsd", "netbsd", "openbsd", "android"}
 	knownArch = []string{"amd64", "arm", "powerpc", "mips"}
 )
 
@@ -18,6 +18,7 @@ type Config struct {
 	Path []string
 	Arch string
 	OS   string
+	Tags []string
 }
 
 func matchAny(s string, ss []string) bool {
@@ -72,6 +73,15 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 			}
 		}
 	}
+	if len(c.OS) > 0 {
+		c.Tags = append(c.Tags, c.OS)
+		if c.OS == "android" {
+			c.Tags = append(c.Tags, "linux")
+		}
+	}
+	if len(c.Arch) > 0 {
+		c.Tags = append(c.Tags, c.Arch)
+	}
 	return c, nil
 }
 
@@ -111,7 +121,7 @@ func (c *Config) isAcceptableName(name string, test bool) bool {
 	return true
 }
 
-func (c *Config) filterNames(ns []string, test bool) []string {
+func (c *Config) filterByName(ns []string, test bool) []string {
 	i, j := 0, 0
 	for j < len(ns) {
 		if c.isAcceptableName(ns[j], test) {
@@ -134,7 +144,61 @@ func (c *Config) FindPackageFiles(dir string, test bool) ([]string, error) {
 			names = append(names, info.Name())
 		}
 	}
-	return c.filterNames(names, test), nil
+	return c.filterByName(names, test), nil
+}
+
+func (c *Config) evalTag(tag string) bool {
+	neg := false
+	if tag[0] == '!' {
+		neg = true
+		tag = tag[1:]
+	}
+	if tag == "ignore" {
+		return neg
+	}
+	for _, t := range c.Tags {
+		if tag == t {
+			return !neg
+		}
+	}
+	return neg
+}
+
+func (c *Config) evalBuildDirective(d string) bool {
+	fs := strings.Fields(d)
+	if fs[0] != "+build" {
+		return true
+	}
+	fs = fs[1:]
+	for _, f := range fs {
+		ts := strings.Split(f, ",")
+		value := true
+		for _, t := range ts {
+			value = value && c.evalTag(t)
+		}
+		if value {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Config) filterByTags(in []*File) []*File {
+	out := []*File{}
+L:
+	for _, f := range in {
+		if len(f.Comments) == 0 {
+			out = append(out, f)
+			continue
+		}
+		for _, d := range f.Comments {
+			if !c.evalBuildDirective(d) {
+				continue L
+			}
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
@@ -151,6 +215,7 @@ func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
 	if err != nil {
 		return nil, err
 	}
+	pkg.Files = c.filterByTags(pkg.Files)
 	// Find all the dependency packages.
 	err = c.findPackageDeps(pkg, map[string]*Package{dir: pkg})
 	if err != nil {
@@ -214,6 +279,7 @@ func (c *Config) findPackageDeps(pkg *Package, found map[string]*Package) error 
 				if err != nil {
 					return err
 				}
+				dep.Files = c.filterByTags(dep.Files)
 				// Find the dependencies of the new package, recursively.
 				found[dir] = dep
 				err = c.findPackageDeps(dep, found)
