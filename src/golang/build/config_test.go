@@ -138,7 +138,7 @@ type filterTestCase struct {
 	names    []string
 }
 
-func TestFilterNames(t *testing.T) {
+func TestConfigFilterNames(t *testing.T) {
 	cases := []filterTestCase{
 		{"", "", false, []string{"f8.go"}},
 		{"", "", true, []string{"f7_test.go", "f8.go"}},
@@ -195,7 +195,7 @@ func TestFilterNames(t *testing.T) {
 	}
 }
 
-func TestBadDir(t *testing.T) {
+func TestConfigBadDir(t *testing.T) {
 	c, err := new(Config).Default()
 	if err != nil {
 		t.Fatal(err)
@@ -203,5 +203,53 @@ func TestBadDir(t *testing.T) {
 	_, err = c.FindPackageFiles("bad-dir-name", true)
 	if err == nil {
 		t.Error("expected missing directory error")
+	}
+}
+
+func TestConfigImportLoop1(t *testing.T) {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gopath := filepath.Join(d, "test", "03")
+	c, err := new(Config).Init(gopath, "linux", "amd64")
+
+	_, err = c.CreateBuildSet("a", false)
+	if err == nil || !strings.Contains(err.Error(), "a\" eventually imports itself") {
+		t.Error("expected circular dependency error")
+	} else {
+		t.Log(err)
+	}
+}
+
+func TestConfigImportLoop2(t *testing.T) {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gopath := filepath.Join(d, "test", "04")
+	c, err := new(Config).Init(gopath, "linux", "amd64")
+
+	_, err = c.CreateBuildSet("a", false)
+	if err == nil || !strings.Contains(err.Error(), "a\" eventually imports itself") {
+		t.Error("expected circular dependency error")
+	} else {
+		t.Log(err)
+	}
+}
+
+func TestConfigImportLoop3(t *testing.T) {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gopath := filepath.Join(d, "test", "05")
+	c, err := new(Config).Init(gopath, "linux", "amd64")
+
+	_, err = c.CreateBuildSet("a", false)
+	if err == nil || !strings.Contains(err.Error(), "a\" eventually imports itself") {
+		t.Error("expected circular dependency error")
+	} else {
+		t.Log(err)
 	}
 }
