@@ -75,10 +75,9 @@ func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
 		}
 	}
 	pkg := &ast.UnresolvedPackage{
-		Path:    dir,
-		Name:    pkgname,
-		Files:   files,
-		Imports: make(map[string]*ast.UnresolvedPackage),
+		Path:  dir,
+		Name:  pkgname,
+		Files: files,
 	}
 	for _, f := range pkg.Files {
 		f.Pkg = pkg

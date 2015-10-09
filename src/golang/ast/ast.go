@@ -2,6 +2,8 @@ package ast
 
 import "golang/scanner"
 
+const InvalidIota = 0x7fffffff
+
 type Node interface {
 	Format(*FormatContext, uint)
 }
@@ -27,6 +29,7 @@ type Type interface {
 
 func (Error) typ()         {}
 func (QualifiedId) typ()   {}
+func (Typename) typ()      {}
 func (ArrayType) typ()     {}
 func (SliceType) typ()     {}
 func (PtrType) typ()       {}
@@ -64,6 +67,7 @@ type Stmt interface {
 
 func (Error) stmt()           {}
 func (TypeDecl) stmt()        {}
+func (TypeDeclGroup) stmt()   {}
 func (ConstDecl) stmt()       {}
 func (ConstDeclGroup) stmt()  {}
 func (VarDecl) stmt()         {}
@@ -102,14 +106,32 @@ func (c *Comment) IsLineComment() bool {
 }
 
 // Package
+type Package struct {
+	Path  string            // Absolute path of the package directory
+	Name  string            // Last component of the path name or "main"
+	Files []*File           // Source files of the package
+	Decls map[string]Symbol // Package level declarations
+
+	PkgMap   map[string]*Package // Global map of package paths
+	Universe Scope               // Predeclared identifiers block
+}
+
 type UnresolvedPackage struct {
-	Path, Name string
-	Files      []*UnresolvedFile
-	Imports    map[string]*UnresolvedPackage
-	Mark       int
+	Path  string
+	Name  string
+	Files []*UnresolvedFile
 }
 
 // Source file
+type File struct {
+	Off     int               // Position of the "package" keyword
+	Pkg     *Package          // Owner package
+	PkgName string            // Package name
+	Name    string            // File name
+	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
+	Decls   map[string]Symbol // File scope declararions
+}
+
 type UnresolvedFile struct {
 	Off      int // position of the "package" keyword
 	Pkg      *UnresolvedPackage
@@ -119,6 +141,14 @@ type UnresolvedFile struct {
 	Comments []Comment
 	Name     string
 	SrcMap   scanner.SourceMap
+}
+
+// Imported package
+type Import struct {
+	Off  int
+	File *File
+	Name string
+	Pkg  *Package
 }
 
 // Import declaration
@@ -144,6 +174,7 @@ type Ident struct {
 
 type TypeDecl struct {
 	Off  int
+	File *File
 	Name string
 	Type Type
 }
@@ -152,13 +183,13 @@ type TypeDeclGroup struct {
 	Types []*TypeDecl
 }
 
-func (d TypeDeclGroup) stmt() {}
-
 type Const struct {
 	Off  int
+	File *File
 	Name string
 	Type Type
 	Init Expr
+	Iota int
 }
 
 type ConstDecl struct {
@@ -173,6 +204,7 @@ type ConstDeclGroup struct {
 
 type Var struct {
 	Off  int
+	File *File
 	Name string
 	Type Type
 	Init Expr
@@ -190,6 +222,7 @@ type VarDeclGroup struct {
 
 type Func struct {
 	Off  int
+	Decl *FuncDecl
 	Recv *Param
 	Sig  *FuncType
 	Blk  *Block
@@ -197,6 +230,7 @@ type Func struct {
 
 type FuncDecl struct {
 	Off  int
+	File *File
 	Name string
 	Func Func
 }
@@ -304,6 +338,11 @@ type QualifiedId struct {
 	Pkg, Id string
 }
 
+type Typename struct {
+	Name *QualifiedId
+	Decl *TypeDecl
+}
+
 type ArrayType struct {
 	Off int
 	Dim Expr
@@ -336,7 +375,6 @@ type Field struct {
 	Name string
 	Type Type
 	Tag  []byte
-	Anon bool
 }
 
 type StructType struct {
@@ -376,7 +414,9 @@ type EmptyStmt struct {
 }
 
 type Block struct {
-	Body []Stmt
+	Up    Scope
+	Decls map[string]Symbol
+	Body  []Stmt
 }
 
 type LabeledStmt struct {

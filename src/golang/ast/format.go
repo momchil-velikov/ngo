@@ -272,6 +272,10 @@ func (t *QualifiedId) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString(t.Id)
 }
 
+func (t *Typename) Format(ctx *FormatContext, n uint) {
+	t.Name.Format(ctx, n)
+}
+
 func (t *ArrayType) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
