@@ -344,9 +344,9 @@ func (p *parser) parseTypeDecl() ast.Decl {
 	off := p.match(s.TYPE)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Off: off, Kind: s.TYPE}
+		grp := &ast.TypeDeclGroup{Off: off}
 		for p.token != s.EOF && p.token != ')' {
-			grp.Decls = append(grp.Decls, p.parseTypeSpec())
+			grp.Types = append(grp.Types, p.parseTypeSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}

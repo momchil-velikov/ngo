@@ -99,6 +99,15 @@ func (d TypeDecl) decl()          {}
 func (d TypeDecl) stmt()          {}
 func (d *TypeDecl) Position() int { return d.Off }
 
+type TypeDeclGroup struct {
+	Off   int
+	Types []*TypeDecl
+}
+
+func (d TypeDeclGroup) decl()          {}
+func (d TypeDeclGroup) stmt()          {}
+func (d *TypeDeclGroup) Position() int { return d.Off }
+
 type ConstDecl struct {
 	Names  []*Ident
 	Type   Type

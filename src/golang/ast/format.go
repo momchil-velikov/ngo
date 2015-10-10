@@ -189,6 +189,20 @@ func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
 	ctx.WriteV(n, t.Name, " ", t.Type.Format)
 }
 
+func (g *TypeDeclGroup) Format(ctx *FormatContext, n uint) {
+	if ctx.declPositions() {
+		ctx.WriteV(n, "/* #", g.Off, " */", "type (")
+	} else {
+		ctx.WriteV(n, "type (")
+	}
+	ctx.group = "type"
+	for _, t := range g.Types {
+		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
+	}
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
+	ctx.group = ""
+}
+
 // Formats a constant declaration.
 func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
 	if len(ctx.group) == 0 {
