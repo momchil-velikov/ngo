@@ -56,17 +56,7 @@ type File struct {
 	SrcMap   s.SourceMap
 }
 
-// Declaration group
-type DeclGroup struct {
-	Off   int // position of the group keyword ("type", "import", etc)
-	Kind  uint
-	Decls []Decl
-}
-
-func (d DeclGroup) decl()          {}
-func (d DeclGroup) stmt()          {}
-func (d *DeclGroup) Position() int { return d.Off }
-
+// Import declaration
 type Import struct {
 	Off  int
 	Name string

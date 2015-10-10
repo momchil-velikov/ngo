@@ -24,7 +24,7 @@ type FormatContext struct {
 	buf      bytes.Buffer
 	anon     bool      // output _ for annonymous parameters
 	posFlags posFlagsT // output positions for the AST nodes specified in posFlags
-	group    string    // declaration kind for declaration groups
+	group    bool      // set if the declaration is aprt of a group
 }
 
 // Initializes a format context.
@@ -136,30 +136,6 @@ func (f *File) Format(ctx *FormatContext) string {
 	return ctx.String()
 }
 
-// Formats a declaration group.
-func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
-	switch g.Kind {
-	case s.TYPE:
-		ctx.group = "type"
-	case s.CONST:
-		ctx.group = "const"
-	case s.VAR:
-		ctx.group = "var"
-	default:
-		panic("invalid declaration group kind")
-	}
-	if ctx.declPositions() {
-		ctx.WriteV(n, "/* #", g.Off, " */", ctx.group, " (")
-	} else {
-		ctx.WriteV(n, ctx.group, " (")
-	}
-	for _, d := range g.Decls {
-		ctx.WriteV(n+1, "\n", ctx.Indent, d.Format)
-	}
-	ctx.WriteV(n, "\n", ctx.Indent, ")")
-	ctx.group = ""
-}
-
 // Formats an import clause with N levels of indentation.
 func (i *Import) Format(ctx *FormatContext, _ uint) {
 	ctx.WriteString("import ")
@@ -179,7 +155,7 @@ func (e *Error) Format(ctx *FormatContext, _ uint) {
 
 // Formats a type declaration.
 func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
-	if len(ctx.group) == 0 {
+	if !ctx.group {
 		if ctx.declPositions() {
 			ctx.WriteV(0, "/* #", t.Off, " */type ")
 		} else {
@@ -195,17 +171,17 @@ func (g *TypeDeclGroup) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteV(n, "type (")
 	}
-	ctx.group = "type"
+	ctx.group = true
 	for _, t := range g.Types {
 		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
 	}
 	ctx.WriteV(n, "\n", ctx.Indent, ")")
-	ctx.group = ""
+	ctx.group = false
 }
 
 // Formats a constant declaration.
 func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
-	if len(ctx.group) == 0 {
+	if !ctx.group {
 		ctx.WriteString("const ")
 	}
 	c.Names[0].Format(ctx, n)
@@ -232,17 +208,17 @@ func (g *ConstDeclGroup) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteV(n, "const (")
 	}
-	ctx.group = "const"
+	ctx.group = true
 	for _, t := range g.Consts {
 		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
 	}
 	ctx.WriteV(n, "\n", ctx.Indent, ")")
-	ctx.group = ""
+	ctx.group = false
 }
 
 // Formats a variable declaration.
 func (c *VarDecl) Format(ctx *FormatContext, n uint) {
-	if len(ctx.group) == 0 {
+	if !ctx.group {
 		ctx.WriteString("var ")
 	}
 	c.Names[0].Format(ctx, n)
@@ -269,12 +245,12 @@ func (g *VarDeclGroup) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteV(n, "var (")
 	}
-	ctx.group = "var"
+	ctx.group = true
 	for _, t := range g.Vars {
 		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
 	}
 	ctx.WriteV(n, "\n", ctx.Indent, ")")
-	ctx.group = ""
+	ctx.group = false
 }
 
 // Formats a function declaration.
@@ -629,7 +605,7 @@ func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
 	grp := ctx.group
-	ctx.group = ""
+	ctx.group = false
 	if ctx.blockPositions() {
 		ctx.WriteV(n, "/* #", b.Begin, " */")
 	}
