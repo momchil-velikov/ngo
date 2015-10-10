@@ -5,20 +5,20 @@ import (
 	"testing"
 )
 
-func TestImportGroupPosition(tst *testing.T) {
+func TestImportPosition(tst *testing.T) {
 	src := `package main
 
 import "fmt"
 import (
   "a"
+  . "b"
 )
 `
 	exp := `package main
 
-/* #21 */import "fmt"
-/* #27 */import (
-    "a"
-)
+import /* #21 */"fmt"
+import /* #38 */"a"
+import /* #44 */. "b"
 `
 	if t, e := Parse("import-group-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()

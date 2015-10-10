@@ -49,7 +49,7 @@ type Package struct {
 type File struct {
 	Off      int // position of the "package" keyword
 	Package  string
-	Imports  []Decl
+	Imports  []*Import
 	Decls    []Decl
 	Comments []Comment
 	Name     string
@@ -73,7 +73,6 @@ type Import struct {
 	Path []byte
 }
 
-func (d Import) decl()          {}
 func (i *Import) Position() int { return i.Off }
 
 // Universal error node

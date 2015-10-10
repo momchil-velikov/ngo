@@ -86,12 +86,10 @@ import  ( "fmt"; . "foo"
 
 	exp := `package foo
 
-import (
-    "fmt"
-    . "foo"
-    . "bar"
-    s "baz"
-)
+import "fmt"
+import . "foo"
+import . "bar"
+import s "baz"
 `
 	ctx := new(ast.FormatContext).Init()
 	f := t.Format(ctx)
@@ -115,38 +113,8 @@ import ( "baz"; "xyzzy" ; ) ; import "qux"
 	exp := `package foo
 
 import "bar"
-import (
-    "baz"
-    "xyzzy"
-)
-import "qux"
-`
-	ctx := new(ast.FormatContext).Init()
-	f := t.Format(ctx)
-	if f != exp {
-		tst.Errorf("Error output:\n->|%s|<-\n", f)
-	}
-}
-
-func TestImportSeq1(tst *testing.T) {
-	src := `
-package foo
-import "bar"
-import ( "baz"; "xyzzy" ) ; import "qux"
-`
-	t, e := Parse("import-seq.go", src)
-
-	if e != nil {
-		tst.Error(e)
-	}
-
-	exp := `package foo
-
-import "bar"
-import (
-    "baz"
-    "xyzzy"
-)
+import "baz"
+import "xyzzy"
 import "qux"
 `
 	ctx := new(ast.FormatContext).Init()

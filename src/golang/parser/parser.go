@@ -268,26 +268,20 @@ func (p *parser) parsePackageClause() string {
 // Parse import declarations(s).
 //
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
-func (p *parser) parseImportDecls() (imps []ast.Decl) {
+func (p *parser) parseImportDecls() (is []*ast.Import) {
 	for p.token == s.IMPORT {
-		off := p.match(s.IMPORT)
+		p.match(s.IMPORT)
 		if p.token == '(' {
 			p.next()
-			grp := &ast.DeclGroup{Off: off, Kind: s.IMPORT}
 			for p.token != s.EOF && p.token != ')' {
-				if i := p.parseImportSpec(); i != nil {
-					grp.Decls = append(grp.Decls, i)
-				}
+				is = append(is, p.parseImportSpec())
 				if p.token != ')' {
 					p.sync2(';', ')')
 				}
 			}
 			p.match(')')
-			imps = append(imps, grp)
 		} else {
-			if i := p.parseImportSpec(); i != nil {
-				imps = append(imps, i)
-			}
+			is = append(is, p.parseImportSpec())
 		}
 		p.sync(';')
 	}
@@ -298,7 +292,7 @@ func (p *parser) parseImportDecls() (imps []ast.Decl) {
 //
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-func (p *parser) parseImportSpec() ast.Decl {
+func (p *parser) parseImportSpec() *ast.Import {
 	var name string
 	off := p.scan.TOff
 	if p.token == '.' {
@@ -309,11 +303,8 @@ func (p *parser) parseImportSpec() ast.Decl {
 	} else {
 		name = ""
 	}
-	if path, _ := p.matchRaw(s.STRING); path == nil {
-		return nil
-	} else {
-		return &ast.Import{Off: off, Name: name, Path: path}
-	}
+	path, _ := p.matchRaw(s.STRING)
+	return &ast.Import{Off: off, Name: name, Path: path}
 }
 
 // Parse toplevel declaration(s)

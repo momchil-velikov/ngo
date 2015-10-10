@@ -139,8 +139,6 @@ func (f *File) Format(ctx *FormatContext) string {
 // Formats a declaration group.
 func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
 	switch g.Kind {
-	case s.IMPORT:
-		ctx.group = "import"
 	case s.TYPE:
 		ctx.group = "type"
 	case s.CONST:
@@ -164,12 +162,9 @@ func (g *DeclGroup) Format(ctx *FormatContext, n uint) {
 
 // Formats an import clause with N levels of indentation.
 func (i *Import) Format(ctx *FormatContext, _ uint) {
-	if len(ctx.group) == 0 {
-		if ctx.declPositions() {
-			ctx.WriteV(0, "/* #", i.Off, " */import ")
-		} else {
-			ctx.WriteString("import ")
-		}
+	ctx.WriteString("import ")
+	if ctx.declPositions() {
+		ctx.WriteV(0, "/* #", i.Off, " */")
 	}
 	if len(i.Name) > 0 {
 		ctx.WriteV(0, i.Name, " ")
