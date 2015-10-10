@@ -724,9 +724,9 @@ func (p *parser) parseVarDecl() ast.Decl {
 	off := p.match(s.VAR)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Off: off, Kind: s.VAR}
+		grp := &ast.VarDeclGroup{Off: off}
 		for p.token != s.EOF && p.token != ')' {
-			grp.Decls = append(grp.Decls, p.parseVarSpec())
+			grp.Vars = append(grp.Vars, p.parseVarSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}

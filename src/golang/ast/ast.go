@@ -142,6 +142,15 @@ func (v *VarDecl) Position() int {
 	return v.Names[0].Position()
 }
 
+type VarDeclGroup struct {
+	Off  int
+	Vars []*VarDecl
+}
+
+func (d VarDeclGroup) decl()          {}
+func (d VarDeclGroup) stmt()          {}
+func (d *VarDeclGroup) Position() int { return d.Off }
+
 type Receiver struct {
 	Name *Ident
 	Type Type

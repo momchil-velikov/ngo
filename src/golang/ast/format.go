@@ -263,6 +263,20 @@ func (c *VarDecl) Format(ctx *FormatContext, n uint) {
 	}
 }
 
+func (g *VarDeclGroup) Format(ctx *FormatContext, n uint) {
+	if ctx.declPositions() {
+		ctx.WriteV(n, "/* #", g.Off, " */", "var (")
+	} else {
+		ctx.WriteV(n, "var (")
+	}
+	ctx.group = "var"
+	for _, t := range g.Vars {
+		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
+	}
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
+	ctx.group = ""
+}
+
 // Formats a function declaration.
 func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 	if ctx.declPositions() {
