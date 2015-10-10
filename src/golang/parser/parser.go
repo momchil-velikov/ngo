@@ -688,9 +688,9 @@ func (p *parser) parseConstDecl() ast.Decl {
 	off := p.match(s.CONST)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.DeclGroup{Off: off, Kind: s.CONST}
+		grp := &ast.ConstDeclGroup{Off: off}
 		for p.token != s.EOF && p.token != ')' {
-			grp.Decls = append(grp.Decls, p.parseConstSpec())
+			grp.Consts = append(grp.Consts, p.parseConstSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}

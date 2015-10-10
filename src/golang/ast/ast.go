@@ -121,6 +121,15 @@ func (d *ConstDecl) Position() int {
 	return d.Names[0].Position()
 }
 
+type ConstDeclGroup struct {
+	Off    int
+	Consts []*ConstDecl
+}
+
+func (d ConstDeclGroup) decl()          {}
+func (d ConstDeclGroup) stmt()          {}
+func (d *ConstDeclGroup) Position() int { return d.Off }
+
 type VarDecl struct {
 	Names []*Ident
 	Type  Type

@@ -226,6 +226,20 @@ func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
 	}
 }
 
+func (g *ConstDeclGroup) Format(ctx *FormatContext, n uint) {
+	if ctx.declPositions() {
+		ctx.WriteV(n, "/* #", g.Off, " */", "const (")
+	} else {
+		ctx.WriteV(n, "const (")
+	}
+	ctx.group = "const"
+	for _, t := range g.Consts {
+		ctx.WriteV(n+1, "\n", ctx.Indent, t.Format)
+	}
+	ctx.WriteV(n, "\n", ctx.Indent, ")")
+	ctx.group = ""
+}
+
 // Formats a variable declaration.
 func (c *VarDecl) Format(ctx *FormatContext, n uint) {
 	if len(ctx.group) == 0 {
