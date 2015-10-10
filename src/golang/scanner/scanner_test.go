@@ -646,7 +646,7 @@ func TestBug20150809T112324(t *testing.T) {
 		tok = s.Get()
 	}
 
-	if len(s.srcmap.line) != 1 {
+	if len(s.SrcMap.line) != 1 {
 		t.Error("wrong count of lines in source map")
 	}
 }
