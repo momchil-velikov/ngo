@@ -350,19 +350,32 @@ type ChanType struct {
 func (t ChanType) typ()           {}
 func (t *ChanType) Position() int { return t.Off }
 
+type Field struct {
+	Off  int
+	Name string
+	Type Type
+	Tag  []byte
+	Anon bool
+}
+
 type FieldDecl struct {
-	Names []*Ident
+	Names []Ident
 	Type  Type
 	Tag   []byte
 }
 
 type StructType struct {
 	Off    int
-	Fields []*FieldDecl
+	Fields []Field
 }
 
-func (t StructType) typ()           {}
-func (t *StructType) Position() int { return t.Off }
+type StructSpec struct {
+	Off    int
+	Fields []FieldDecl
+}
+
+func (t StructSpec) typ()           {}
+func (t *StructSpec) Position() int { return t.Off }
 
 type ParamDecl struct {
 	Off   int

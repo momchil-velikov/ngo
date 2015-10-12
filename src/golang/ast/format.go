@@ -367,7 +367,7 @@ func (t *ChanType) Format(ctx *FormatContext, n uint) {
 	}
 }
 
-func (t *StructType) Format(ctx *FormatContext, n uint) {
+func (t *StructSpec) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
 	}
@@ -378,10 +378,17 @@ func (t *StructType) Format(ctx *FormatContext, n uint) {
 		for _, f := range t.Fields {
 			ctx.Indent(n + 1)
 			if m := len(f.Names); m > 0 {
-				f.Names[0].Format(ctx, n)
+				if ctx.identPositions() {
+					ctx.WriteV(0, "/* #", f.Names[0].Off, " */", f.Names[0].Id)
+				} else {
+					ctx.WriteString(f.Names[0].Id)
+				}
 				for i := 1; i < m; i++ {
-					ctx.WriteString(", ")
-					f.Names[i].Format(ctx, n)
+					if ctx.identPositions() {
+						ctx.WriteV(0, ", /* #", f.Names[i].Off, " */", f.Names[i].Id)
+					} else {
+						ctx.WriteV(0, ", ", f.Names[i].Id)
+					}
 				}
 				ctx.WriteString(" ")
 			}

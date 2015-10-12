@@ -477,8 +477,8 @@ func (p *parser) parseIdent() *ast.Ident {
 }
 
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
-func (p *parser) parseStructType() *ast.StructType {
-	var fs []*ast.FieldDecl
+func (p *parser) parseStructType() *ast.StructSpec {
+	fs := []ast.FieldDecl{}
 	off := p.match(s.STRUCT)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
@@ -488,19 +488,19 @@ func (p *parser) parseStructType() *ast.StructType {
 		}
 	}
 	p.match('}')
-	return &ast.StructType{Off: off, Fields: fs}
+	return &ast.StructSpec{Off: off, Fields: fs}
 }
 
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
-func (p *parser) parseFieldDecl() *ast.FieldDecl {
+func (p *parser) parseFieldDecl() ast.FieldDecl {
 
 	if p.token == '*' {
 		// Anonymous field.
 		off := p.next()
 		pt := &ast.PtrType{Off: off, Base: p.parseIdent()}
-		return &ast.FieldDecl{Type: pt, Tag: p.parseTagOpt()}
+		return ast.FieldDecl{Type: pt, Tag: p.parseTagOpt()}
 	}
 
 	if p.token == s.ID {
@@ -513,23 +513,23 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 			p.next()
 			id.Pkg = id.Id
 			id.Id, _ = p.matchString(s.ID)
-			return &ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+			return ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
 		}
 
 		// If it's only a single identifier, with no separate type
 		// declaration, it's also an anonymous filed.
 		if p.token == s.STRING || p.token == ';' || p.token == '}' {
-			return &ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+			return ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
 		}
 
-		return &ast.FieldDecl{
-			Names: p.parseIdList(id),
+		return ast.FieldDecl{
+			Names: p.parseFieldIdList(off, name),
 			Type:  p.parseType(),
 			Tag:   p.parseTagOpt(),
 		}
 	}
 	p.error("Invalid field declaration")
-	return &ast.FieldDecl{Type: &ast.Error{Off: p.scan.TOff}}
+	return ast.FieldDecl{Type: &ast.Error{Off: p.scan.TOff}}
 }
 
 func (p *parser) parseTagOpt() (tag []byte) {
@@ -585,6 +585,19 @@ func (p *parser) parseVarIdList() (id []*ast.Var) {
 		name, off = p.matchString(s.ID)
 		if len(name) > 0 {
 			id = append(id, &ast.Var{Off: off, Name: name})
+		}
+	}
+	return id
+}
+
+// Parse an IdentifierList in the context of a FieldDecl.
+func (p *parser) parseFieldIdList(off int, name string) (id []ast.Ident) {
+	id = append(id, ast.Ident{Off: off, Id: name})
+	for p.token == ',' {
+		p.next()
+		name, off = p.matchString(s.ID)
+		if len(name) > 0 {
+			id = append(id, ast.Ident{Off: off, Id: name})
 		}
 	}
 	return id
