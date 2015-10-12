@@ -48,7 +48,8 @@ type Package struct {
 // Source file
 type File struct {
 	Off      int // position of the "package" keyword
-	Package  string
+	Pkg      *Package
+	PkgName  string
 	Imports  []*Import
 	Decls    []Decl
 	Comments []Comment

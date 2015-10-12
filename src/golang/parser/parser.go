@@ -64,11 +64,11 @@ func ParsePackage(dir string, names []string) (*ast.Package, error) {
 	// files declare the package name "main".
 	pkgname := filepath.Base(dir)
 	if len(files) > 0 {
-		if files[0].Package == "main" {
+		if files[0].PkgName == "main" {
 			pkgname = "main"
 		}
 		for _, f := range files {
-			if f.Package != pkgname {
+			if f.PkgName != pkgname {
 				ln, col := f.SrcMap.Position(f.Off)
 				return nil, parseError{f.Name, ln, col, "inconsistent package name"}
 			}
@@ -79,6 +79,9 @@ func ParsePackage(dir string, names []string) (*ast.Package, error) {
 		Name:    pkgname,
 		Files:   files,
 		Imports: make(map[string]*ast.Package),
+	}
+	for _, f := range pkg.Files {
+		f.Pkg = pkg
 	}
 	return pkg, nil
 }
@@ -246,7 +249,7 @@ func (p *parser) parseFile() *ast.File {
 
 	return &ast.File{
 		Off:      off,
-		Package:  name,
+		PkgName:  name,
 		Imports:  is,
 		Decls:    ds,
 		Comments: p.comments,

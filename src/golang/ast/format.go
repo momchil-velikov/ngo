@@ -119,7 +119,7 @@ func (ctx *FormatContext) Indent(n uint) {
 
 // Formats a source file.
 func (f *File) Format(ctx *FormatContext) string {
-	ctx.WriteV(0, "package ", f.Package, "\n")
+	ctx.WriteV(0, "package ", f.PkgName, "\n")
 
 	for _, i := range f.Imports {
 		ctx.WriteString("\n")
