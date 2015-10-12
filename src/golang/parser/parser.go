@@ -172,7 +172,7 @@ func (p *parser) matchRaw(token uint) ([]byte, int) {
 		v := p.scan.Value
 		return v, p.next()
 	} else {
-		return nil, 0
+		return nil, p.scan.TOff
 	}
 }
 
