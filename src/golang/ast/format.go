@@ -184,9 +184,17 @@ func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
 	if !ctx.group {
 		ctx.WriteString("const ")
 	}
-	c.Names[0].Format(ctx, n)
+	if ctx.identPositions() {
+		ctx.WriteV(0, "/* #", c.Names[0].Off, " */", c.Names[0].Name)
+	} else {
+		ctx.WriteString(c.Names[0].Name)
+	}
 	for i := 1; i < len(c.Names); i++ {
-		ctx.WriteV(0, ", ", c.Names[i].Format)
+		if ctx.identPositions() {
+			ctx.WriteV(0, ", /* #", c.Names[i].Off, " */", c.Names[i].Name)
+		} else {
+			ctx.WriteV(0, ", ", c.Names[i].Name)
+		}
 	}
 	if c.Type != nil {
 		ctx.WriteString(" ")

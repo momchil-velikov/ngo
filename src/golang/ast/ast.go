@@ -99,17 +99,23 @@ func (d TypeDeclGroup) decl()          {}
 func (d TypeDeclGroup) stmt()          {}
 func (d *TypeDeclGroup) Position() int { return d.Off }
 
+type Const struct {
+	Off  int
+	Name string
+	Type Type
+	Init Expr
+}
+
 type ConstDecl struct {
-	Names  []*Ident
+	Names  []*Const
 	Type   Type
 	Values []Expr
 }
 
 func (d ConstDecl) decl() {}
 func (d ConstDecl) stmt() {}
-
 func (d *ConstDecl) Position() int {
-	return d.Names[0].Position()
+	return d.Names[0].Off
 }
 
 type ConstDeclGroup struct {
