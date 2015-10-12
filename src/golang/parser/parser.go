@@ -574,6 +574,22 @@ func (p *parser) parseConstIdList() (id []*ast.Const) {
 	return id
 }
 
+// Parse an IdentifierList in the context of a VarSpec.
+func (p *parser) parseVarIdList() (id []*ast.Var) {
+	name, off := p.matchString(s.ID)
+	// Ensure the list containes at least one element even in the case of a
+	// missing identifier.
+	id = append(id, &ast.Var{Off: off, Name: name})
+	for p.token == ',' {
+		p.next()
+		name, off = p.matchString(s.ID)
+		if len(name) > 0 {
+			id = append(id, &ast.Var{Off: off, Name: name})
+		}
+	}
+	return id
+}
+
 // FunctionType = "func" Signature .
 func (p *parser) parseFuncType() *ast.FuncType {
 	off := p.match(s.FUNC)
@@ -763,7 +779,7 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 		t  ast.Type
 		es []ast.Expr
 	)
-	ids := p.parseIdList(nil)
+	ids := p.parseVarIdList()
 	if isTypeLookahead(p.token) {
 		t = p.parseType()
 	}

@@ -127,8 +127,15 @@ func (d ConstDeclGroup) decl()          {}
 func (d ConstDeclGroup) stmt()          {}
 func (d *ConstDeclGroup) Position() int { return d.Off }
 
+type Var struct {
+	Off  int
+	Name string
+	Type Type
+	Init Expr
+}
+
 type VarDecl struct {
-	Names []*Ident
+	Names []*Var
 	Type  Type
 	Init  []Expr
 }
@@ -136,7 +143,7 @@ type VarDecl struct {
 func (v VarDecl) decl() {}
 func (v VarDecl) stmt() {}
 func (v *VarDecl) Position() int {
-	return v.Names[0].Position()
+	return v.Names[0].Off
 }
 
 type VarDeclGroup struct {
