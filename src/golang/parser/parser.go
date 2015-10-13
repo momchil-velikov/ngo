@@ -385,7 +385,7 @@ func isTypeLookahead(token uint) bool {
 func (p *parser) parseType() ast.Type {
 	switch p.token {
 	case s.ID:
-		return p.parseIdent()
+		return p.parseQualifiedId()
 
 	// ArrayType   = "[" ArrayLength "]" ElementType .
 	// ArrayLength = Expression .
@@ -464,7 +464,7 @@ func (p *parser) parseType() ast.Type {
 }
 
 // TypeName = identifier | QualifiedIdent .
-func (p *parser) parseIdent() *ast.Ident {
+func (p *parser) parseQualifiedId() *ast.QualifiedId {
 	pkg, off := p.matchString(s.ID)
 	var id string
 	if p.token == '.' {
@@ -473,7 +473,7 @@ func (p *parser) parseIdent() *ast.Ident {
 	} else {
 		pkg, id = "", pkg
 	}
-	return &ast.Ident{Off: off, Pkg: pkg, Id: id}
+	return &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}
 }
 
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
@@ -499,13 +499,13 @@ func (p *parser) parseFieldDecl() ast.FieldDecl {
 	if p.token == '*' {
 		// Anonymous field.
 		off := p.next()
-		pt := &ast.PtrType{Off: off, Base: p.parseIdent()}
+		pt := &ast.PtrType{Off: off, Base: p.parseQualifiedId()}
 		return ast.FieldDecl{Type: pt, Tag: p.parseTagOpt()}
 	}
 
 	if p.token == s.ID {
 		name, off := p.matchString(s.ID)
-		id := &ast.Ident{Off: off, Id: name}
+		id := &ast.QualifiedId{Off: off, Id: name}
 
 		// If the field decl begins with a qualified-id, it's parsed as an
 		// anonymous field.
@@ -648,7 +648,7 @@ func (p *parser) parseParameters() []ast.ParamDecl {
 			if p.token != ',' && p.token != ')' {
 				id, t, v = p.parseIdOrType()
 				if t == nil {
-					t = &ast.Ident{Off: id.Off, Id: id.Id}
+					t = &ast.QualifiedId{Off: id.Off, Id: id.Id}
 				}
 				ds = append(ds, ast.ParamDecl{Names: ids, Type: t, Var: v})
 				ids = nil
@@ -677,7 +677,7 @@ func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
 				p.error("incomplete qualified id")
 				id = ""
 			}
-			return ast.Ident{}, &ast.Ident{Off: off, Pkg: pkg, Id: id}, false
+			return ast.Ident{}, &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}, false
 		}
 		return ast.Ident{Off: off, Id: id}, nil, false
 	}
@@ -694,8 +694,7 @@ func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
 // each identifier to be a type name.
 func appendParamTypes(ds []ast.ParamDecl, ids []ast.Ident) []ast.ParamDecl {
 	for i := range ids {
-		t := new(ast.Ident)
-		*t = ids[i]
+		t := &ast.QualifiedId{Off: ids[i].Off, Id: ids[i].Id}
 		ds = append(ds, ast.ParamDecl{Off: ids[i].Off, Type: t})
 	}
 	return ds
@@ -722,7 +721,7 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 				pkg = id
 				id, _ = p.matchString(s.ID)
 			}
-			m = &ast.MethodSpec{Type: &ast.Ident{Off: off, Pkg: pkg, Id: id}}
+			m = &ast.MethodSpec{Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}}
 		}
 		ms = append(ms, m)
 		if p.token != '}' {
@@ -845,15 +844,15 @@ func (p *parser) parseReceiver() *ast.Param {
 
 	var t ast.Type
 	if p.token == '*' {
-		t = &ast.PtrType{Off: p.next(), Base: p.parseIdent()}
+		t = &ast.PtrType{Off: p.next(), Base: p.parseQualifiedId()}
 	} else if p.token == s.ID {
-		t = p.parseIdent()
+		t = p.parseQualifiedId()
 	} else {
 		if len(name) == 0 {
 			p.error("missing receiver type")
 			t = &ast.Error{p.scan.TOff}
 		} else {
-			t = &ast.Ident{Off: off, Id: name}
+			t = &ast.QualifiedId{Off: off, Id: name}
 			name = ""
 		}
 	}
@@ -1066,11 +1065,11 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 
 func (p *parser) needType(x ast.Expr) (ast.Type, bool) {
 	switch t := x.(type) {
-	case *ast.Ident:
+	case *ast.QualifiedId:
 		return t, true
 	case *ast.Selector:
-		if x, ok := t.X.(*ast.Ident); ok && len(x.Pkg) == 0 {
-			return &ast.Ident{Off: x.Off, Pkg: x.Id, Id: t.Id}, true
+		if x, ok := t.X.(*ast.QualifiedId); ok && len(x.Pkg) == 0 {
+			return &ast.QualifiedId{Off: x.Off, Pkg: x.Id, Id: t.Id}, true
 		}
 	}
 	return nil, false
@@ -1111,7 +1110,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 	switch p.token {
 	case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
 		name, off := p.matchString(s.ID)
-		id := &ast.Ident{Off: off, Id: name}
+		id := &ast.QualifiedId{Off: off, Id: name}
 		if p.token == '{' && p.brackets > 0 {
 			x = p.parseCompositeLiteral(id)
 		} else if p.token == '(' {
@@ -1470,7 +1469,7 @@ func (p *parser) parseStmt() ast.Stmt {
 func (p *parser) parseLabeledStmt(x ast.Expr) ast.Stmt {
 	off := p.match(':')
 	id := ""
-	if q, ok := x.(*ast.Ident); ok {
+	if q, ok := x.(*ast.QualifiedId); ok {
 		if len(q.Pkg) > 0 {
 			p.error("a label must consist of single identifier")
 		}
@@ -1573,7 +1572,7 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 			lhs, rhs := a.LHS[0], a.RHS[0]
 			if y, ok := isTypeSwitchGuardExpr(rhs); ok {
 				id := ""
-				if z, ok := lhs.(*ast.Ident); !ok || len(z.Pkg) > 0 {
+				if z, ok := lhs.(*ast.QualifiedId); !ok || len(z.Pkg) > 0 {
 					id = ""
 					p.error("invalid identifier in type switch")
 				} else {

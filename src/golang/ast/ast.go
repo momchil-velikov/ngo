@@ -80,6 +80,12 @@ func (e *Error) Position() int { return e.Off } // FIXME: text position
 //
 // Declarations
 //
+
+type Ident struct {
+	Off int
+	Id  string
+}
+
 type TypeDecl struct {
 	Off  int
 	Name string
@@ -307,14 +313,14 @@ func (x *BinaryExpr) Position() int { return x.X.Position() }
 //
 // Types
 //
-type Ident struct {
+type QualifiedId struct {
 	Off     int
 	Pkg, Id string
 }
 
-func (t Ident) typ()           {}
-func (t Ident) expr()          {}
-func (t *Ident) Position() int { return t.Off }
+func (t QualifiedId) typ()           {}
+func (t QualifiedId) expr()          {}
+func (t *QualifiedId) Position() int { return t.Off }
 
 type ArrayType struct {
 	Off int

@@ -301,7 +301,7 @@ func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 //
 // Formats types.
 //
-func (t *Ident) Format(ctx *FormatContext, n uint) {
+func (t *QualifiedId) Format(ctx *FormatContext, n uint) {
 	if ctx.identPositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
 	}
