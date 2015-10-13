@@ -155,16 +155,19 @@ func (d VarDeclGroup) decl()          {}
 func (d VarDeclGroup) stmt()          {}
 func (d *VarDeclGroup) Position() int { return d.Off }
 
-type Receiver struct {
-	Name *Ident
-	Type Type
+type Func struct {
+	Off  int
+	Name string
+	Recv *Param
+	Sig  *FuncType
+	Blk  *Block
 }
 
 type FuncDecl struct {
 	Off  int
-	Name *Ident
-	Recv *Receiver
-	Sig  *FuncType
+	Name string
+	Recv *Param
+	Sig  *FuncSpec
 	Blk  *Block
 }
 
@@ -245,8 +248,13 @@ type FuncLiteral struct {
 	Blk *Block
 }
 
-func (e FuncLiteral) expr()          {}
-func (x *FuncLiteral) Position() int { return x.Sig.Position() }
+type FuncLiteralDecl struct {
+	Sig *FuncSpec
+	Blk *Block
+}
+
+func (e FuncLiteralDecl) expr()          {}
+func (x *FuncLiteralDecl) Position() int { return x.Sig.Position() }
 
 type TypeAssertion struct {
 	Type Type
@@ -377,21 +385,34 @@ type StructSpec struct {
 func (t StructSpec) typ()           {}
 func (t *StructSpec) Position() int { return t.Off }
 
+type Param struct {
+	Off  int
+	Name string
+	Type Type
+}
+
 type ParamDecl struct {
 	Off   int
-	Names []*Ident
+	Names []Ident
 	Type  Type
 	Var   bool
 }
 
 type FuncType struct {
 	Off     int
-	Params  []*ParamDecl
-	Returns []*ParamDecl
+	Params  []Param
+	Returns []Param
+	Var     bool
 }
 
-func (f FuncType) typ()           {}
-func (t *FuncType) Position() int { return t.Off }
+type FuncSpec struct {
+	Off     int
+	Params  []ParamDecl
+	Returns []ParamDecl
+}
+
+func (f FuncSpec) typ()           {}
+func (t *FuncSpec) Position() int { return t.Off }
 
 type MethodSpec struct {
 	Name *Ident

@@ -604,7 +604,7 @@ func (p *parser) parseFieldIdList(off int, name string) (id []ast.Ident) {
 }
 
 // FunctionType = "func" Signature .
-func (p *parser) parseFuncType() *ast.FuncType {
+func (p *parser) parseFuncType() *ast.FuncSpec {
 	off := p.match(s.FUNC)
 	t := p.parseSignature()
 	t.Off = off
@@ -613,24 +613,24 @@ func (p *parser) parseFuncType() *ast.FuncType {
 
 // Signature = Parameters [ Result ] .
 // Result    = Parameters | Type .
-func (p *parser) parseSignature() *ast.FuncType {
+func (p *parser) parseSignature() *ast.FuncSpec {
 	ps := p.parseParameters()
-	var rs []*ast.ParamDecl
+	var rs []ast.ParamDecl
 	if p.token == '(' {
 		rs = p.parseParameters()
 	} else if isTypeLookahead(p.token) {
 		off := p.scan.TOff
-		rs = []*ast.ParamDecl{&ast.ParamDecl{Off: off, Type: p.parseType()}}
+		rs = []ast.ParamDecl{ast.ParamDecl{Off: off, Type: p.parseType()}}
 	}
-	return &ast.FuncType{Params: ps, Returns: rs}
+	return &ast.FuncSpec{Params: ps, Returns: rs}
 }
 
 // Parameters    = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList = ParameterDecl { "," ParameterDecl } .
-func (p *parser) parseParameters() []*ast.ParamDecl {
+func (p *parser) parseParameters() []ast.ParamDecl {
 	var (
-		ids []*ast.Ident
-		ds  []*ast.ParamDecl
+		ids []ast.Ident
+		ds  []ast.ParamDecl
 	)
 	p.match('(')
 	if p.token == ')' {
@@ -641,16 +641,16 @@ func (p *parser) parseParameters() []*ast.ParamDecl {
 		id, t, v := p.parseIdOrType()
 		if t != nil {
 			ds = appendParamTypes(ds, ids)
-			ds = append(ds, &ast.ParamDecl{Type: t, Var: v})
+			ds = append(ds, ast.ParamDecl{Type: t, Var: v})
 			ids = ids[:0]
 		} else {
 			ids = append(ids, id)
 			if p.token != ',' && p.token != ')' {
 				id, t, v = p.parseIdOrType()
 				if t == nil {
-					t = id
+					t = &ast.Ident{Off: id.Off, Id: id.Id}
 				}
-				ds = append(ds, &ast.ParamDecl{Names: ids, Type: t, Var: v})
+				ds = append(ds, ast.ParamDecl{Names: ids, Type: t, Var: v})
 				ids = nil
 			}
 		}
@@ -665,7 +665,7 @@ func (p *parser) parseParameters() []*ast.ParamDecl {
 
 // Parses an identifier or a type. A qualified identifier is considered a
 // type.
-func (p *parser) parseIdOrType() (*ast.Ident, ast.Type, bool) {
+func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
 	if p.token == s.ID {
 		id, off := p.matchString(s.ID)
 		if p.token == '.' {
@@ -677,9 +677,9 @@ func (p *parser) parseIdOrType() (*ast.Ident, ast.Type, bool) {
 				p.error("incomplete qualified id")
 				id = ""
 			}
-			return nil, &ast.Ident{Off: off, Pkg: pkg, Id: id}, false
+			return ast.Ident{}, &ast.Ident{Off: off, Pkg: pkg, Id: id}, false
 		}
-		return &ast.Ident{Off: off, Id: id}, nil, false
+		return ast.Ident{Off: off, Id: id}, nil, false
 	}
 	v := false
 	if p.token == s.DOTS {
@@ -687,14 +687,16 @@ func (p *parser) parseIdOrType() (*ast.Ident, ast.Type, bool) {
 		v = true
 	}
 	t := p.parseType() // FIXME: parenthesized types not allowed
-	return nil, t, v
+	return ast.Ident{}, t, v
 }
 
 // Converts an identifier list to a list of parameter declarations, taking
 // each identifier to be a type name.
-func appendParamTypes(ds []*ast.ParamDecl, ids []*ast.Ident) []*ast.ParamDecl {
-	for _, id := range ids {
-		ds = append(ds, &ast.ParamDecl{Type: id})
+func appendParamTypes(ds []ast.ParamDecl, ids []ast.Ident) []ast.ParamDecl {
+	for i := range ids {
+		t := new(ast.Ident)
+		*t = ids[i]
+		ds = append(ds, ast.ParamDecl{Off: ids[i].Off, Type: t})
 	}
 	return ds
 }
@@ -809,8 +811,8 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 // Function     = Signature FunctionBody .
 // FunctionBody = Block .
 func (p *parser) parseFuncDecl() ast.Decl {
-	foff := p.match(s.FUNC)
-	var r *ast.Receiver
+	p.match(s.FUNC)
+	var r *ast.Param
 	if p.token == '(' {
 		r = p.parseReceiver()
 	}
@@ -821,8 +823,8 @@ func (p *parser) parseFuncDecl() ast.Decl {
 		blk = p.parseBlock()
 	}
 	return &ast.FuncDecl{
-		Off:  foff,
-		Name: &ast.Ident{Off: off, Id: name},
+		Off:  off,
+		Name: name,
 		Recv: r,
 		Sig:  sig,
 		Blk:  blk,
@@ -831,12 +833,14 @@ func (p *parser) parseFuncDecl() ast.Decl {
 
 // Receiver     = "(" [ identifier ] [ "*" ] BaseTypeName ")" .
 // BaseTypeName = identifier .
-func (p *parser) parseReceiver() *ast.Receiver {
+func (p *parser) parseReceiver() *ast.Param {
+	var (
+		name string
+		off  int
+	)
 	p.match('(')
-	var id *ast.Ident
 	if p.token == s.ID {
-		name, off := p.matchString(s.ID)
-		id = &ast.Ident{Off: off, Id: name}
+		name, off = p.matchString(s.ID)
 	}
 
 	var t ast.Type
@@ -845,15 +849,16 @@ func (p *parser) parseReceiver() *ast.Receiver {
 	} else if p.token == s.ID {
 		t = p.parseIdent()
 	} else {
-		if id == nil {
+		if len(name) == 0 {
 			p.error("missing receiver type")
 			t = &ast.Error{p.scan.TOff}
 		} else {
-			id, t = nil, id
+			t = &ast.Ident{Off: off, Id: name}
+			name = ""
 		}
 	}
 	p.sync2(')', ';')
-	return &ast.Receiver{Name: id, Type: t}
+	return &ast.Param{Off: off, Name: name, Type: t}
 }
 
 // ExpressionList = Expression { "," Expression } .
@@ -1316,9 +1321,9 @@ func (p *parser) parseCall(f ast.Expr) ast.Expr {
 
 // FunctionLit = "func" Function .
 func (p *parser) parseFuncLiteral(typ ast.Type) ast.Expr {
-	sig := typ.(*ast.FuncType)
+	sig := typ.(*ast.FuncSpec)
 	b := p.parseBlock()
-	return &ast.FuncLiteral{Sig: sig, Blk: b}
+	return &ast.FuncLiteralDecl{Sig: sig, Blk: b}
 }
 
 // Index          = "[" Expression "]" .

@@ -59,37 +59,6 @@ type (
 	}
 }
 
-func TestFuncDeclPosition(tst *testing.T) {
-	src := `package main
-
-func f() {}
-func g() int { return 0 }
-func h( a, b uint) bool {
-  return a > b
-}
-`
-	exp := `package main
-
-/* #14 */func f() {}
-/* #26 */func g() int {
-    return 0
-}
-/* #52 */func h(a, b uint) bool {
-    return a > b
-}
-`
-	if t, e := Parse("func-decl-pos.go", src); e == nil {
-		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.DeclPos)
-		f := t.Format(ctx)
-		if f != exp {
-			tst.Error(f)
-		}
-	} else {
-		tst.Error(e)
-	}
-}
-
 func TestLiteralPosition(tst *testing.T) {
 	src := `package main
 
