@@ -415,7 +415,8 @@ func (f FuncSpec) typ()           {}
 func (t *FuncSpec) Position() int { return t.Off }
 
 type MethodSpec struct {
-	Name *Ident
+	Off  int
+	Name string
 	Type Type
 }
 

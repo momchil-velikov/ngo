@@ -469,10 +469,14 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 	} else {
 		ctx.WriteString("interface {")
 		for _, m := range t.Methods {
-			if m.Name == nil {
+			if len(m.Name) == 0 {
 				ctx.WriteV(n+1, "\n", ctx.Indent, m.Type.Format)
 			} else {
-				ctx.WriteV(n+1, "\n", ctx.Indent, m.Name.Format)
+				if ctx.identPositions() {
+					ctx.WriteV(n+1, "\n", ctx.Indent, "/* #", m.Off, " */", m.Name)
+				} else {
+					ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
+				}
 				formatSignature(ctx, m.Type.(*FuncSpec), n+1)
 			}
 		}

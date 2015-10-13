@@ -712,17 +712,17 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 	for p.token != s.EOF && p.token != '}' {
 		var m *ast.MethodSpec
 		id, off := p.matchString(s.ID)
-		name := &ast.Ident{Off: off, Id: id}
 		if p.token == '(' {
 			sig := p.parseSignature()
-			m = &ast.MethodSpec{Name: name, Type: sig}
+			m = &ast.MethodSpec{Off: off, Name: id, Type: sig}
 		} else {
+			pkg := ""
 			if p.token == '.' {
 				p.next()
-				name.Pkg = name.Id
-				name.Id, _ = p.matchString(s.ID)
+				pkg = id
+				id, _ = p.matchString(s.ID)
 			}
-			m = &ast.MethodSpec{Type: name}
+			m = &ast.MethodSpec{Type: &ast.Ident{Off: off, Pkg: pkg, Id: id}}
 		}
 		ms = append(ms, m)
 		if p.token != '}' {
