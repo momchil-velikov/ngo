@@ -143,6 +143,15 @@ func (e *Error) Format(ctx *FormatContext, _ uint) {
 	ctx.WriteString("<error>")
 }
 
+// Formats an identifier.
+func formatIdent(ctx *FormatContext, off int, name string) {
+	if ctx.identPositions() {
+		ctx.WriteV(0, "/* #", off, " */", name)
+	} else {
+		ctx.WriteString(name)
+	}
+}
+
 // Formats a type declaration.
 func (t *TypeDecl) Format(ctx *FormatContext, n uint) {
 	if !ctx.group {
@@ -166,17 +175,10 @@ func (c *ConstDecl) Format(ctx *FormatContext, n uint) {
 	if !ctx.group {
 		ctx.WriteString("const ")
 	}
-	if ctx.identPositions() {
-		ctx.WriteV(0, "/* #", c.Names[0].Off, " */", c.Names[0].Name)
-	} else {
-		ctx.WriteString(c.Names[0].Name)
-	}
+	formatIdent(ctx, c.Names[0].Off, c.Names[0].Name)
 	for i := 1; i < len(c.Names); i++ {
-		if ctx.identPositions() {
-			ctx.WriteV(0, ", /* #", c.Names[i].Off, " */", c.Names[i].Name)
-		} else {
-			ctx.WriteV(0, ", ", c.Names[i].Name)
-		}
+		ctx.WriteString(", ")
+		formatIdent(ctx, c.Names[i].Off, c.Names[i].Name)
 	}
 	if c.Type != nil {
 		ctx.WriteString(" ")
@@ -207,17 +209,10 @@ func (c *VarDecl) Format(ctx *FormatContext, n uint) {
 	if !ctx.group {
 		ctx.WriteString("var ")
 	}
-	if ctx.identPositions() {
-		ctx.WriteV(0, "/* #", c.Names[0].Off, " */", c.Names[0].Name)
-	} else {
-		ctx.WriteString(c.Names[0].Name)
-	}
+	formatIdent(ctx, c.Names[0].Off, c.Names[0].Name)
 	for i := 1; i < len(c.Names); i++ {
-		if ctx.identPositions() {
-			ctx.WriteV(0, ", /* #", c.Names[i].Off, " */", c.Names[i].Name)
-		} else {
-			ctx.WriteV(0, ", ", c.Names[i].Name)
-		}
+		ctx.WriteString(", ")
+		formatIdent(ctx, c.Names[i].Off, c.Names[i].Name)
 	}
 	if c.Type != nil {
 		ctx.WriteString(" ")
@@ -249,22 +244,14 @@ func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 	if f.Recv != nil {
 		ctx.WriteString(" (")
 		if len(f.Recv.Name) > 0 {
-			if ctx.identPositions() {
-				ctx.WriteV(0, "/* #", f.Recv.Off, " */", f.Recv.Name)
-			} else {
-				ctx.WriteString(f.Recv.Name)
-			}
+			formatIdent(ctx, f.Recv.Off, f.Recv.Name)
 			ctx.WriteString(" ")
 		}
 		f.Recv.Type.Format(ctx, n+1)
 		ctx.WriteString(")")
 	}
 	ctx.WriteString(" ")
-	if ctx.identPositions() {
-		ctx.WriteV(0, "/* #", f.Off, " */", f.Name)
-	} else {
-		ctx.WriteString(f.Name)
-	}
+	formatIdent(ctx, f.Off, f.Name)
 	formatSignature(ctx, f.Sig, n)
 	if f.Blk != nil {
 		ctx.WriteString(" ")
@@ -351,17 +338,10 @@ func (t *StructSpec) Format(ctx *FormatContext, n uint) {
 		for _, f := range t.Fields {
 			ctx.Indent(n + 1)
 			if m := len(f.Names); m > 0 {
-				if ctx.identPositions() {
-					ctx.WriteV(0, "/* #", f.Names[0].Off, " */", f.Names[0].Id)
-				} else {
-					ctx.WriteString(f.Names[0].Id)
-				}
+				formatIdent(ctx, f.Names[0].Off, f.Names[0].Id)
 				for i := 1; i < m; i++ {
-					if ctx.identPositions() {
-						ctx.WriteV(0, ", /* #", f.Names[i].Off, " */", f.Names[i].Id)
-					} else {
-						ctx.WriteV(0, ", ", f.Names[i].Id)
-					}
+					ctx.WriteString(", ")
+					formatIdent(ctx, f.Names[i].Off, f.Names[i].Id)
 				}
 				ctx.WriteString(" ")
 			}
@@ -412,17 +392,10 @@ func formatParams(ctx *FormatContext, ps []ParamDecl, n uint) {
 
 func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
 	if m := len(p.Names); m > 0 {
-		if ctx.identPositions() {
-			ctx.WriteV(0, "/* #", p.Names[0].Off, " */", p.Names[0].Id)
-		} else {
-			ctx.WriteString(p.Names[0].Id)
-		}
+		formatIdent(ctx, p.Names[0].Off, p.Names[0].Id)
 		for i := 1; i < m; i++ {
-			if ctx.identPositions() {
-				ctx.WriteV(0, ", /* #", p.Names[i].Off, " */", p.Names[i].Id)
-			} else {
-				ctx.WriteV(0, ", ", p.Names[i].Id)
-			}
+			ctx.WriteString(", ")
+			formatIdent(ctx, p.Names[i].Off, p.Names[i].Id)
 		}
 		ctx.WriteString(" ")
 	} else if ctx.anon {
@@ -446,11 +419,8 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 			if len(m.Name) == 0 {
 				ctx.WriteV(n+1, "\n", ctx.Indent, m.Type.Format)
 			} else {
-				if ctx.identPositions() {
-					ctx.WriteV(n+1, "\n", ctx.Indent, "/* #", m.Off, " */", m.Name)
-				} else {
-					ctx.WriteV(n+1, "\n", ctx.Indent, m.Name)
-				}
+				ctx.WriteV(n+1, "\n", ctx.Indent)
+				formatIdent(ctx, m.Off, m.Name)
 				formatSignature(ctx, m.Type.(*FuncSpec), n+1)
 			}
 		}
