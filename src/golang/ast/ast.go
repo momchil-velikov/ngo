@@ -4,7 +4,6 @@ import s "golang/scanner"
 
 type Node interface {
 	Format(*FormatContext, uint)
-	Position() int
 }
 
 type Decl interface {
@@ -64,18 +63,15 @@ type Import struct {
 	Path []byte
 }
 
-func (i *Import) Position() int { return i.Off }
-
 // Universal error node
 type Error struct {
 	Off int
 }
 
-func (e Error) decl()          {}
-func (e Error) typ()           {}
-func (e Error) expr()          {}
-func (e Error) stmt()          {}
-func (e *Error) Position() int { return e.Off } // FIXME: text position
+func (e Error) decl() {}
+func (e Error) typ()  {}
+func (e Error) expr() {}
+func (e Error) stmt() {}
 
 //
 // Declarations
@@ -92,18 +88,15 @@ type TypeDecl struct {
 	Type Type
 }
 
-func (d TypeDecl) decl()          {}
-func (d TypeDecl) stmt()          {}
-func (d *TypeDecl) Position() int { return d.Off }
+func (d TypeDecl) decl() {}
+func (d TypeDecl) stmt() {}
 
 type TypeDeclGroup struct {
-	Off   int
 	Types []*TypeDecl
 }
 
-func (d TypeDeclGroup) decl()          {}
-func (d TypeDeclGroup) stmt()          {}
-func (d *TypeDeclGroup) Position() int { return d.Off }
+func (d TypeDeclGroup) decl() {}
+func (d TypeDeclGroup) stmt() {}
 
 type Const struct {
 	Off  int
@@ -120,18 +113,13 @@ type ConstDecl struct {
 
 func (d ConstDecl) decl() {}
 func (d ConstDecl) stmt() {}
-func (d *ConstDecl) Position() int {
-	return d.Names[0].Off
-}
 
 type ConstDeclGroup struct {
-	Off    int
 	Consts []*ConstDecl
 }
 
-func (d ConstDeclGroup) decl()          {}
-func (d ConstDeclGroup) stmt()          {}
-func (d *ConstDeclGroup) Position() int { return d.Off }
+func (d ConstDeclGroup) decl() {}
+func (d ConstDeclGroup) stmt() {}
 
 type Var struct {
 	Off  int
@@ -148,18 +136,13 @@ type VarDecl struct {
 
 func (v VarDecl) decl() {}
 func (v VarDecl) stmt() {}
-func (v *VarDecl) Position() int {
-	return v.Names[0].Off
-}
 
 type VarDeclGroup struct {
-	Off  int
 	Vars []*VarDecl
 }
 
-func (d VarDeclGroup) decl()          {}
-func (d VarDeclGroup) stmt()          {}
-func (d *VarDeclGroup) Position() int { return d.Off }
+func (d VarDeclGroup) decl() {}
+func (d VarDeclGroup) stmt() {}
 
 type Func struct {
 	Off  int
@@ -177,8 +160,7 @@ type FuncDecl struct {
 	Blk  *Block
 }
 
-func (d FuncDecl) decl()          {}
-func (f *FuncDecl) Position() int { return f.Off }
+func (d FuncDecl) decl() {}
 
 //
 // Expressions
@@ -199,8 +181,7 @@ type Literal struct {
 	Value []byte
 }
 
-func (e Literal) expr()          {}
-func (x *Literal) Position() int { return x.Off }
+func (e Literal) expr() {}
 
 type Element struct {
 	Key   Expr
@@ -212,8 +193,7 @@ type CompLiteral struct {
 	Elts []*Element
 }
 
-func (e CompLiteral) expr()          {}
-func (x *CompLiteral) Position() int { return x.Type.Position() }
+func (e CompLiteral) expr() {}
 
 type Call struct {
 	Func Expr
@@ -222,32 +202,28 @@ type Call struct {
 	Ell  bool
 }
 
-func (e Call) expr()          {}
-func (x *Call) Position() int { return x.Func.Position() }
+func (e Call) expr() {}
 
 type Conversion struct {
 	Type Type
 	X    Expr
 }
 
-func (e Conversion) expr()          {}
-func (x *Conversion) Position() int { return x.Type.Position() }
+func (e Conversion) expr() {}
 
 type MethodExpr struct {
 	Type Type
 	Id   string
 }
 
-func (e MethodExpr) expr()          {}
-func (x *MethodExpr) Position() int { return x.Type.Position() }
+func (e MethodExpr) expr() {}
 
 type ParensExpr struct {
 	Off int
 	X   Expr
 }
 
-func (e ParensExpr) expr()          {}
-func (x *ParensExpr) Position() int { return x.Off }
+func (e ParensExpr) expr() {}
 
 type FuncLiteral struct {
 	Sig *FuncType
@@ -259,39 +235,34 @@ type FuncLiteralDecl struct {
 	Blk *Block
 }
 
-func (e FuncLiteralDecl) expr()          {}
-func (x *FuncLiteralDecl) Position() int { return x.Sig.Position() }
+func (e FuncLiteralDecl) expr() {}
 
 type TypeAssertion struct {
 	Type Type
 	X    Expr
 }
 
-func (e TypeAssertion) expr()          {}
-func (x *TypeAssertion) Position() int { return x.X.Position() }
+func (e TypeAssertion) expr() {}
 
 type Selector struct {
 	X  Expr
 	Id string
 }
 
-func (e Selector) expr()          {}
-func (x *Selector) Position() int { return x.X.Position() }
+func (e Selector) expr() {}
 
 type IndexExpr struct {
 	X, I Expr
 }
 
-func (e IndexExpr) expr()          {}
-func (x *IndexExpr) Position() int { return x.X.Position() }
+func (e IndexExpr) expr() {}
 
 type SliceExpr struct {
 	X           Expr
 	Lo, Hi, Cap Expr
 }
 
-func (e SliceExpr) expr()          {}
-func (x *SliceExpr) Position() int { return x.X.Position() }
+func (e SliceExpr) expr() {}
 
 type UnaryExpr struct {
 	Off int
@@ -299,16 +270,14 @@ type UnaryExpr struct {
 	X   Expr
 }
 
-func (ex UnaryExpr) expr()         {}
-func (x *UnaryExpr) Position() int { return x.Off }
+func (ex UnaryExpr) expr() {}
 
 type BinaryExpr struct {
 	Op   uint
 	X, Y Expr
 }
 
-func (ex BinaryExpr) expr()         {}
-func (x *BinaryExpr) Position() int { return x.X.Position() }
+func (ex BinaryExpr) expr() {}
 
 //
 // Types
@@ -318,9 +287,8 @@ type QualifiedId struct {
 	Pkg, Id string
 }
 
-func (t QualifiedId) typ()           {}
-func (t QualifiedId) expr()          {}
-func (t *QualifiedId) Position() int { return t.Off }
+func (t QualifiedId) typ()  {}
+func (t QualifiedId) expr() {}
 
 type ArrayType struct {
 	Off int
@@ -328,32 +296,28 @@ type ArrayType struct {
 	Elt Type
 }
 
-func (t ArrayType) typ()           {}
-func (t *ArrayType) Position() int { return t.Off }
+func (t ArrayType) typ() {}
 
 type SliceType struct {
 	Off int
 	Elt Type
 }
 
-func (t SliceType) typ()           {}
-func (t *SliceType) Position() int { return t.Off }
+func (t SliceType) typ() {}
 
 type PtrType struct {
 	Off  int
 	Base Type
 }
 
-func (t PtrType) typ()           {}
-func (t *PtrType) Position() int { return t.Off }
+func (t PtrType) typ() {}
 
 type MapType struct {
 	Off      int
 	Key, Elt Type
 }
 
-func (t MapType) typ()           {}
-func (t *MapType) Position() int { return t.Off }
+func (t MapType) typ() {}
 
 type ChanType struct {
 	Off        int
@@ -361,8 +325,7 @@ type ChanType struct {
 	Elt        Type
 }
 
-func (t ChanType) typ()           {}
-func (t *ChanType) Position() int { return t.Off }
+func (t ChanType) typ() {}
 
 type Field struct {
 	Off  int
@@ -388,8 +351,7 @@ type StructSpec struct {
 	Fields []FieldDecl
 }
 
-func (t StructSpec) typ()           {}
-func (t *StructSpec) Position() int { return t.Off }
+func (t StructSpec) typ() {}
 
 type Param struct {
 	Off  int
@@ -417,8 +379,7 @@ type FuncSpec struct {
 	Returns []ParamDecl
 }
 
-func (f FuncSpec) typ()           {}
-func (t *FuncSpec) Position() int { return t.Off }
+func (f FuncSpec) typ() {}
 
 type MethodSpec struct {
 	Off  int
@@ -431,8 +392,7 @@ type InterfaceType struct {
 	Methods []*MethodSpec
 }
 
-func (t InterfaceType) typ()           {}
-func (t *InterfaceType) Position() int { return t.Off }
+func (t InterfaceType) typ() {}
 
 //
 // Statements
@@ -441,16 +401,13 @@ type EmptyStmt struct {
 	Off int
 }
 
-func (e EmptyStmt) stmt()          {}
-func (s *EmptyStmt) Position() int { return s.Off }
+func (e EmptyStmt) stmt() {}
 
 type Block struct {
-	Begin, End int // positions of the opening and the closing brace
-	Body       []Stmt
+	Body []Stmt
 }
 
-func (b Block) stmt()          {}
-func (b *Block) Position() int { return b.Begin }
+func (b Block) stmt() {}
 
 type LabeledStmt struct {
 	Off   int
@@ -458,77 +415,67 @@ type LabeledStmt struct {
 	Stmt  Stmt
 }
 
-func (l LabeledStmt) stmt()          {}
-func (l *LabeledStmt) Position() int { return l.Off }
+func (l LabeledStmt) stmt() {}
 
 type GoStmt struct {
 	Off int
 	X   Expr
 }
 
-func (b GoStmt) stmt()          {}
-func (g *GoStmt) Position() int { return g.Off }
+func (b GoStmt) stmt() {}
 
 type ReturnStmt struct {
 	Off int
 	Xs  []Expr
 }
 
-func (b ReturnStmt) stmt()          {}
-func (s *ReturnStmt) Position() int { return s.Off }
+func (b ReturnStmt) stmt() {}
 
 type BreakStmt struct {
 	Off   int
 	Label string
 }
 
-func (b BreakStmt) stmt()          {}
-func (s *BreakStmt) Position() int { return s.Off }
+func (b BreakStmt) stmt() {}
 
 type ContinueStmt struct {
 	Off   int
 	Label string
 }
 
-func (b ContinueStmt) stmt()          {}
-func (s *ContinueStmt) Position() int { return s.Off }
+func (b ContinueStmt) stmt() {}
 
 type GotoStmt struct {
 	Off   int
 	Label string
 }
 
-func (b GotoStmt) stmt()          {}
-func (s *GotoStmt) Position() int { return s.Off }
+func (b GotoStmt) stmt() {}
 
 type FallthroughStmt struct {
 	Off int
 }
 
-func (b FallthroughStmt) stmt()          {}
-func (s *FallthroughStmt) Position() int { return s.Off }
+func (b FallthroughStmt) stmt() {}
 
 type SendStmt struct {
 	Ch Expr
 	X  Expr
 }
 
-func (b SendStmt) stmt()          {}
-func (s *SendStmt) Position() int { return s.Ch.Position() }
+func (b SendStmt) stmt() {}
 
 type IncStmt struct {
 	X Expr
 }
 
-func (b IncStmt) stmt()          {}
-func (s *IncStmt) Position() int { return s.X.Position() }
+func (b IncStmt) stmt() {}
 
 type DecStmt struct {
 	X Expr
 }
 
-func (b DecStmt) stmt()          {}
-func (s *DecStmt) Position() int { return s.X.Position() }
+func (b DecStmt) stmt() {}
 
 type AssignStmt struct {
 	Op  uint
@@ -536,15 +483,13 @@ type AssignStmt struct {
 	RHS []Expr
 }
 
-func (a AssignStmt) stmt()          {}
-func (s *AssignStmt) Position() int { return s.LHS[0].Position() }
+func (a AssignStmt) stmt() {}
 
 type ExprStmt struct {
 	X Expr
 }
 
-func (e ExprStmt) stmt()          {}
-func (s *ExprStmt) Position() int { return s.X.Position() }
+func (e ExprStmt) stmt() {}
 
 type IfStmt struct {
 	Off  int
@@ -554,8 +499,7 @@ type IfStmt struct {
 	Else Stmt
 }
 
-func (i *IfStmt) stmt()         {}
-func (s *IfStmt) Position() int { return s.Off }
+func (i *IfStmt) stmt() {}
 
 type ForStmt struct {
 	Off  int
@@ -565,8 +509,7 @@ type ForStmt struct {
 	Blk  *Block
 }
 
-func (f ForStmt) stmt()          {}
-func (s *ForStmt) Position() int { return s.Off }
+func (f ForStmt) stmt() {}
 
 type ForRangeStmt struct {
 	Off   int
@@ -576,16 +519,14 @@ type ForRangeStmt struct {
 	Blk   *Block
 }
 
-func (f ForRangeStmt) stmt()          {}
-func (s *ForRangeStmt) Position() int { return s.Off }
+func (f ForRangeStmt) stmt() {}
 
 type DeferStmt struct {
 	Off int
 	X   Expr
 }
 
-func (d DeferStmt) stmt()          {}
-func (s *DeferStmt) Position() int { return s.Off }
+func (d DeferStmt) stmt() {}
 
 type ExprCaseClause struct {
 	Xs   []Expr
@@ -593,15 +534,13 @@ type ExprCaseClause struct {
 }
 
 type ExprSwitchStmt struct {
-	Off        int // position of the `switch` keyword
-	Begin, End int // positions of the opening and the closing braces
-	Init       Stmt
-	X          Expr
-	Cases      []ExprCaseClause
+	Off   int // position of the `switch` keyword
+	Init  Stmt
+	X     Expr
+	Cases []ExprCaseClause
 }
 
-func (d ExprSwitchStmt) stmt()          {}
-func (s *ExprSwitchStmt) Position() int { return s.Off }
+func (d ExprSwitchStmt) stmt() {}
 
 type TypeCaseClause struct {
 	Types []Type
@@ -609,16 +548,14 @@ type TypeCaseClause struct {
 }
 
 type TypeSwitchStmt struct {
-	Off        int // position of the `switch` keyword
-	Begin, End int // positions of the opening and the closing braces
-	Init       Stmt
-	Id         string
-	X          Expr
-	Cases      []TypeCaseClause
+	Off   int // position of the `switch` keyword
+	Init  Stmt
+	Id    string
+	X     Expr
+	Cases []TypeCaseClause
 }
 
-func (d TypeSwitchStmt) stmt()          {}
-func (s *TypeSwitchStmt) Position() int { return s.Off }
+func (d TypeSwitchStmt) stmt() {}
 
 type CommClause struct {
 	Comm Stmt
@@ -626,10 +563,9 @@ type CommClause struct {
 }
 
 type SelectStmt struct {
-	Off        int // position of the `select` keyword
-	Begin, End int // positions of the opening and the closing braces
-	Comms      []CommClause
+	Off     int // position of the `select` keyword
+	in, End int // positions of the opening and the closing braces
+	Comms   []CommClause
 }
 
-func (s SelectStmt) stmt()          {}
-func (s *SelectStmt) Position() int { return s.Off }
+func (s SelectStmt) stmt() {}

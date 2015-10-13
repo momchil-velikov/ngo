@@ -22,34 +22,7 @@ import /* #44 */. "b"
 `
 	if t, e := Parse("import-group-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.DeclPos)
-		f := t.Format(ctx)
-		if f != exp {
-			tst.Error(f)
-		}
-	} else {
-		tst.Error(e)
-	}
-}
-
-func TestTypeGroupPosition(tst *testing.T) {
-	src := `package main
-
-type A int
-type (
-    B float64
-)
-`
-	exp := `package main
-
-/* #19 */type A int
-/* #25 */type (
-    B float64
-)
-`
-	if t, e := Parse("type-group-pos.go", src); e == nil {
-		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.DeclPos)
+		ctx.EmitSourcePositions(ast.IdentPos)
 		f := t.Format(ctx)
 		if f != exp {
 			tst.Error(f)
@@ -361,46 +334,6 @@ func g() {
 	if t, e := Parse("empty-stmt-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()
 		ctx.EmitSourcePositions(ast.StmtPos)
-		f := t.Format(ctx)
-		if f != exp {
-			tst.Error(f)
-		}
-	} else {
-		tst.Error(e)
-	}
-}
-
-func TestBlockPosition(tst *testing.T) {
-	src := `package foo
-func f() {}
-func g() {
-  f()
-  if f() {
-    h()
-  } else if h() {
-     a()
-  } else {
-     b()
-  }
-}
-`
-	exp := `package foo
-
-func f() /* #21 */{/* #22 */}
-func g() /* #33 */{
-    f()
-    if f() /* #50 */{
-        h()
-    /* #62 */} else if h() /* #76 */{
-        a()
-    /* #89 */} else /* #96 */{
-        b()
-    /* #109 */}
-/* #111 */}
-`
-	if t, e := Parse("block-pos.go", src); e == nil {
-		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.BlockPos)
 		f := t.Format(ctx)
 		if f != exp {
 			tst.Error(f)
@@ -733,17 +666,17 @@ func g() {
 `
 	exp := `package foo
 
-func g() /* #21 */{
-    /* #25 */switch x /* #34 */{
+func g() {
+    /* #25 */switch x {
     case y:
     case z:
-        /* #60 */switch u /* #69 */{/* #70 */}
-    /* #74 */}
-/* #76 */}
+        /* #60 */switch u {}
+    }
+}
 `
 	if t, e := Parse("expr-swicth-stmt-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.StmtPos | ast.BlockPos)
+		ctx.EmitSourcePositions(ast.StmtPos)
 		f := t.Format(ctx)
 		if f != exp {
 			tst.Error(f)
@@ -765,17 +698,17 @@ func g() {
 `
 	exp := `package foo
 
-func g() /* #21 */{
-    /* #25 */switch x.(type) /* #41 */{
+func g() {
+    /* #25 */switch x.(type) {
     case y:
     case z:
-        /* #67 */switch u.(type) /* #83 */{/* #84 */}
-    /* #88 */}
-/* #90 */}
+        /* #67 */switch u.(type) {}
+    }
+}
 `
 	if t, e := Parse("type-switch-stmt-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.StmtPos | ast.BlockPos)
+		ctx.EmitSourcePositions(ast.StmtPos)
 		f := t.Format(ctx)
 		if f != exp {
 			tst.Error(f)
@@ -797,17 +730,17 @@ func f() {
 `
 	exp := `package foo
 
-func f() /* #21 */{
-    /* #25 */select /* #32 */{
+func f() {
+    /* #25 */select {
     case ch1 <- ex:
-        /* #56 */select /* #63 */{/* #64 */}
+        /* #56 */select {}
     default:
-    /* #79 */}
-/* #81 */}
+    }
+}
 `
 	if t, e := Parse("select-stmt-pos.go", src); e == nil {
 		ctx := new(ast.FormatContext).Init()
-		ctx.EmitSourcePositions(ast.StmtPos | ast.BlockPos)
+		ctx.EmitSourcePositions(ast.StmtPos)
 		f := t.Format(ctx)
 		if f != exp {
 			tst.Error(f)
@@ -816,8 +749,6 @@ func f() /* #21 */{
 		tst.Error(e)
 	}
 }
-
-// ast.go:258:func (t *Ident) Position() int { return t.Off }
 
 func TestIdentPosition(tst *testing.T) {
 	src := `package foo

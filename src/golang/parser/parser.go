@@ -344,10 +344,10 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 func (p *parser) parseTypeDecl() ast.Decl {
-	off := p.match(s.TYPE)
+	p.match(s.TYPE)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.TypeDeclGroup{Off: off}
+		grp := &ast.TypeDeclGroup{}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Types = append(grp.Types, p.parseTypeSpec())
 			if p.token != ')' {
@@ -734,10 +734,10 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 func (p *parser) parseConstDecl() ast.Decl {
-	off := p.match(s.CONST)
+	p.match(s.CONST)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.ConstDeclGroup{Off: off}
+		grp := &ast.ConstDeclGroup{}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Consts = append(grp.Consts, p.parseConstSpec())
 			if p.token != ')' {
@@ -770,10 +770,10 @@ func (p *parser) parseConstSpec() *ast.ConstDecl {
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 func (p *parser) parseVarDecl() ast.Decl {
-	off := p.match(s.VAR)
+	p.match(s.VAR)
 	if p.token == '(' {
 		p.next()
-		grp := &ast.VarDeclGroup{Off: off}
+		grp := &ast.VarDeclGroup{}
 		for p.token != s.EOF && p.token != ')' {
 			grp.Vars = append(grp.Vars, p.parseVarSpec())
 			if p.token != ')' {
@@ -1374,10 +1374,10 @@ func (p *parser) parseIndexOrSlice(x ast.Expr) ast.Expr {
 // Block = "{" StatementList "}" .
 func (p *parser) parseBlock() *ast.Block {
 	//	defer p.trace("Block")()
-	begin := p.match('{')
+	p.match('{')
 	st := p.parseStatementList()
-	end := p.match('}')
-	return &ast.Block{Begin: begin, End: end, Body: st}
+	p.match('}')
+	return &ast.Block{Body: st}
 }
 
 // StatementList = { Statement ";" } .
@@ -1645,7 +1645,7 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 		cs  []ast.ExprCaseClause
 		def bool
 	)
-	begin := p.match('{')
+	p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1661,10 +1661,8 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 		p.match(':')
 		cs = append(cs, ast.ExprCaseClause{Xs: xs, Body: p.parseStatementList()})
 	}
-	end := p.match('}')
-	return &ast.ExprSwitchStmt{
-		Off: off, Begin: begin, End: end, Init: init, X: x, Cases: cs,
-	}
+	p.match('}')
+	return &ast.ExprSwitchStmt{Off: off, Init: init, X: x, Cases: cs}
 }
 
 // TypeCaseClause  = TypeSwitchCase ":" StatementList .
@@ -1672,7 +1670,7 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Expr) ast.Stmt {
 	def := false
 	var cs []ast.TypeCaseClause
-	begin := p.match('{')
+	p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1688,10 +1686,8 @@ func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Ex
 		p.match(':')
 		cs = append(cs, ast.TypeCaseClause{Types: ts, Body: p.parseStatementList()})
 	}
-	end := p.match('}')
-	return &ast.TypeSwitchStmt{
-		Off: off, Begin: begin, End: end, Init: init, Id: id, X: x, Cases: cs,
-	}
+	p.match('}')
+	return &ast.TypeSwitchStmt{Off: off, Init: init, Id: id, X: x, Cases: cs}
 }
 
 // TypeList = Type { "," Type } .
@@ -1716,7 +1712,7 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 	def := false
 	var cs []ast.CommClause
 	off := p.match(s.SELECT)
-	begin := p.match('{')
+	p.match('{')
 	for p.token == s.CASE || p.token == s.DEFAULT {
 		t := p.token
 		p.next()
@@ -1732,8 +1728,8 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 		p.match(':')
 		cs = append(cs, ast.CommClause{Comm: c, Body: p.parseStatementList()})
 	}
-	end := p.match('}')
-	return &ast.SelectStmt{Off: off, Begin: begin, End: end, Comms: cs}
+	p.match('}')
+	return &ast.SelectStmt{Off: off, Comms: cs}
 }
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
