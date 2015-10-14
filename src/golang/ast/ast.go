@@ -11,20 +11,84 @@ type Decl interface {
 	decl()
 }
 
+func (Error) decl()          {}
+func (TypeDecl) decl()       {}
+func (TypeDeclGroup) decl()  {}
+func (ConstDecl) decl()      {}
+func (ConstDeclGroup) decl() {}
+func (VarDecl) decl()        {}
+func (VarDeclGroup) decl()   {}
+func (FuncDecl) decl()       {}
+
 type Type interface {
 	Node
 	typ()
 }
+
+func (Error) typ()         {}
+func (QualifiedId) typ()   {}
+func (ArrayType) typ()     {}
+func (SliceType) typ()     {}
+func (PtrType) typ()       {}
+func (MapType) typ()       {}
+func (ChanType) typ()      {}
+func (StructSpec) typ()    {}
+func (FuncSpec) typ()      {}
+func (InterfaceType) typ() {}
 
 type Expr interface {
 	Node
 	expr()
 }
 
+func (Error) expr()           {}
+func (Literal) expr()         {}
+func (CompLiteral) expr()     {}
+func (Call) expr()            {}
+func (Conversion) expr()      {}
+func (MethodExpr) expr()      {}
+func (ParensExpr) expr()      {}
+func (FuncLiteralDecl) expr() {}
+func (TypeAssertion) expr()   {}
+func (Selector) expr()        {}
+func (IndexExpr) expr()       {}
+func (SliceExpr) expr()       {}
+func (UnaryExpr) expr()       {}
+func (BinaryExpr) expr()      {}
+func (QualifiedId) expr()     {}
+
 type Stmt interface {
 	Node
 	stmt()
 }
+
+func (Error) stmt()           {}
+func (TypeDecl) stmt()        {}
+func (ConstDecl) stmt()       {}
+func (ConstDeclGroup) stmt()  {}
+func (VarDecl) stmt()         {}
+func (VarDeclGroup) stmt()    {}
+func (EmptyStmt) stmt()       {}
+func (Block) stmt()           {}
+func (LabeledStmt) stmt()     {}
+func (GoStmt) stmt()          {}
+func (ReturnStmt) stmt()      {}
+func (BreakStmt) stmt()       {}
+func (ContinueStmt) stmt()    {}
+func (GotoStmt) stmt()        {}
+func (FallthroughStmt) stmt() {}
+func (SendStmt) stmt()        {}
+func (IncStmt) stmt()         {}
+func (DecStmt) stmt()         {}
+func (AssignStmt) stmt()      {}
+func (ExprStmt) stmt()        {}
+func (IfStmt) stmt()          {}
+func (ForStmt) stmt()         {}
+func (ForRangeStmt) stmt()    {}
+func (DeferStmt) stmt()       {}
+func (ExprSwitchStmt) stmt()  {}
+func (TypeSwitchStmt) stmt()  {}
+func (SelectStmt) stmt()      {}
 
 // Source comment.
 type Comment struct {
@@ -68,11 +132,6 @@ type Error struct {
 	Off int
 }
 
-func (e Error) decl() {}
-func (e Error) typ()  {}
-func (e Error) expr() {}
-func (e Error) stmt() {}
-
 //
 // Declarations
 //
@@ -88,14 +147,10 @@ type TypeDecl struct {
 	Type Type
 }
 
-func (d TypeDecl) decl() {}
-func (d TypeDecl) stmt() {}
-
 type TypeDeclGroup struct {
 	Types []*TypeDecl
 }
 
-func (d TypeDeclGroup) decl() {}
 func (d TypeDeclGroup) stmt() {}
 
 type Const struct {
@@ -111,15 +166,9 @@ type ConstDecl struct {
 	Values []Expr
 }
 
-func (d ConstDecl) decl() {}
-func (d ConstDecl) stmt() {}
-
 type ConstDeclGroup struct {
 	Consts []*ConstDecl
 }
-
-func (d ConstDeclGroup) decl() {}
-func (d ConstDeclGroup) stmt() {}
 
 type Var struct {
 	Off  int
@@ -134,15 +183,9 @@ type VarDecl struct {
 	Init  []Expr
 }
 
-func (v VarDecl) decl() {}
-func (v VarDecl) stmt() {}
-
 type VarDeclGroup struct {
 	Vars []*VarDecl
 }
-
-func (d VarDeclGroup) decl() {}
-func (d VarDeclGroup) stmt() {}
 
 type Func struct {
 	Off  int
@@ -159,8 +202,6 @@ type FuncDecl struct {
 	Sig  *FuncSpec
 	Blk  *Block
 }
-
-func (d FuncDecl) decl() {}
 
 //
 // Expressions
@@ -181,8 +222,6 @@ type Literal struct {
 	Value []byte
 }
 
-func (e Literal) expr() {}
-
 type Element struct {
 	Key   Expr
 	Value Expr
@@ -193,8 +232,6 @@ type CompLiteral struct {
 	Elts []*Element
 }
 
-func (e CompLiteral) expr() {}
-
 type Call struct {
 	Func Expr
 	Type Type
@@ -202,28 +239,20 @@ type Call struct {
 	Ell  bool
 }
 
-func (e Call) expr() {}
-
 type Conversion struct {
 	Type Type
 	X    Expr
 }
-
-func (e Conversion) expr() {}
 
 type MethodExpr struct {
 	Type Type
 	Id   string
 }
 
-func (e MethodExpr) expr() {}
-
 type ParensExpr struct {
 	Off int
 	X   Expr
 }
-
-func (e ParensExpr) expr() {}
 
 type FuncLiteral struct {
 	Sig *FuncType
@@ -235,34 +264,24 @@ type FuncLiteralDecl struct {
 	Blk *Block
 }
 
-func (e FuncLiteralDecl) expr() {}
-
 type TypeAssertion struct {
 	Type Type
 	X    Expr
 }
-
-func (e TypeAssertion) expr() {}
 
 type Selector struct {
 	X  Expr
 	Id string
 }
 
-func (e Selector) expr() {}
-
 type IndexExpr struct {
 	X, I Expr
 }
-
-func (e IndexExpr) expr() {}
 
 type SliceExpr struct {
 	X           Expr
 	Lo, Hi, Cap Expr
 }
-
-func (e SliceExpr) expr() {}
 
 type UnaryExpr struct {
 	Off int
@@ -270,14 +289,10 @@ type UnaryExpr struct {
 	X   Expr
 }
 
-func (ex UnaryExpr) expr() {}
-
 type BinaryExpr struct {
 	Op   uint
 	X, Y Expr
 }
-
-func (ex BinaryExpr) expr() {}
 
 //
 // Types
@@ -287,45 +302,32 @@ type QualifiedId struct {
 	Pkg, Id string
 }
 
-func (t QualifiedId) typ()  {}
-func (t QualifiedId) expr() {}
-
 type ArrayType struct {
 	Off int
 	Dim Expr
 	Elt Type
 }
 
-func (t ArrayType) typ() {}
-
 type SliceType struct {
 	Off int
 	Elt Type
 }
-
-func (t SliceType) typ() {}
 
 type PtrType struct {
 	Off  int
 	Base Type
 }
 
-func (t PtrType) typ() {}
-
 type MapType struct {
 	Off      int
 	Key, Elt Type
 }
-
-func (t MapType) typ() {}
 
 type ChanType struct {
 	Off        int
 	Send, Recv bool
 	Elt        Type
 }
-
-func (t ChanType) typ() {}
 
 type Field struct {
 	Off  int
@@ -350,8 +352,6 @@ type StructSpec struct {
 	Off    int
 	Fields []FieldDecl
 }
-
-func (t StructSpec) typ() {}
 
 type Param struct {
 	Off  int
@@ -379,8 +379,6 @@ type FuncSpec struct {
 	Returns []ParamDecl
 }
 
-func (f FuncSpec) typ() {}
-
 type MethodSpec struct {
 	Off  int
 	Name string
@@ -392,8 +390,6 @@ type InterfaceType struct {
 	Methods []*MethodSpec
 }
 
-func (t InterfaceType) typ() {}
-
 //
 // Statements
 //
@@ -401,13 +397,9 @@ type EmptyStmt struct {
 	Off int
 }
 
-func (e EmptyStmt) stmt() {}
-
 type Block struct {
 	Body []Stmt
 }
-
-func (b Block) stmt() {}
 
 type LabeledStmt struct {
 	Off   int
@@ -415,67 +407,47 @@ type LabeledStmt struct {
 	Stmt  Stmt
 }
 
-func (l LabeledStmt) stmt() {}
-
 type GoStmt struct {
 	Off int
 	X   Expr
 }
-
-func (b GoStmt) stmt() {}
 
 type ReturnStmt struct {
 	Off int
 	Xs  []Expr
 }
 
-func (b ReturnStmt) stmt() {}
-
 type BreakStmt struct {
 	Off   int
 	Label string
 }
-
-func (b BreakStmt) stmt() {}
 
 type ContinueStmt struct {
 	Off   int
 	Label string
 }
 
-func (b ContinueStmt) stmt() {}
-
 type GotoStmt struct {
 	Off   int
 	Label string
 }
 
-func (b GotoStmt) stmt() {}
-
 type FallthroughStmt struct {
 	Off int
 }
-
-func (b FallthroughStmt) stmt() {}
 
 type SendStmt struct {
 	Ch Expr
 	X  Expr
 }
 
-func (b SendStmt) stmt() {}
-
 type IncStmt struct {
 	X Expr
 }
 
-func (b IncStmt) stmt() {}
-
 type DecStmt struct {
 	X Expr
 }
-
-func (b DecStmt) stmt() {}
 
 type AssignStmt struct {
 	Op  uint
@@ -483,13 +455,9 @@ type AssignStmt struct {
 	RHS []Expr
 }
 
-func (a AssignStmt) stmt() {}
-
 type ExprStmt struct {
 	X Expr
 }
-
-func (e ExprStmt) stmt() {}
 
 type IfStmt struct {
 	Off  int
@@ -499,8 +467,6 @@ type IfStmt struct {
 	Else Stmt
 }
 
-func (i *IfStmt) stmt() {}
-
 type ForStmt struct {
 	Off  int
 	Init Stmt
@@ -508,8 +474,6 @@ type ForStmt struct {
 	Post Stmt
 	Blk  *Block
 }
-
-func (f ForStmt) stmt() {}
 
 type ForRangeStmt struct {
 	Off   int
@@ -519,14 +483,10 @@ type ForRangeStmt struct {
 	Blk   *Block
 }
 
-func (f ForRangeStmt) stmt() {}
-
 type DeferStmt struct {
 	Off int
 	X   Expr
 }
-
-func (d DeferStmt) stmt() {}
 
 type ExprCaseClause struct {
 	Xs   []Expr
@@ -539,8 +499,6 @@ type ExprSwitchStmt struct {
 	X     Expr
 	Cases []ExprCaseClause
 }
-
-func (d ExprSwitchStmt) stmt() {}
 
 type TypeCaseClause struct {
 	Types []Type
@@ -555,8 +513,6 @@ type TypeSwitchStmt struct {
 	Cases []TypeCaseClause
 }
 
-func (d TypeSwitchStmt) stmt() {}
-
 type CommClause struct {
 	Comm Stmt
 	Body []Stmt
@@ -567,5 +523,3 @@ type SelectStmt struct {
 	in, End int // positions of the opening and the closing braces
 	Comms   []CommClause
 }
-
-func (s SelectStmt) stmt() {}
