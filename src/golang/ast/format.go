@@ -127,7 +127,7 @@ func (f *UnresolvedFile) Format(ctx *FormatContext) string {
 }
 
 // Formats an import clause with N levels of indentation.
-func (i *Import) Format(ctx *FormatContext, _ uint) {
+func (i *ImportDecl) Format(ctx *FormatContext, _ uint) {
 	ctx.WriteString("import ")
 	if ctx.identPositions() {
 		ctx.WriteV(0, "/* #", i.Off, " */")

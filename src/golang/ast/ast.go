@@ -113,7 +113,7 @@ type UnresolvedFile struct {
 	Off      int // position of the "package" keyword
 	Pkg      *UnresolvedPackage
 	PkgName  string
-	Imports  []*Import
+	Imports  []*ImportDecl
 	Decls    []Decl
 	Comments []Comment
 	Name     string
@@ -121,7 +121,7 @@ type UnresolvedFile struct {
 }
 
 // Import declaration
-type Import struct {
+type ImportDecl struct {
 	Off  int
 	Name string
 	Path []byte

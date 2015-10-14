@@ -271,7 +271,7 @@ func (p *parser) parsePackageClause() string {
 // Parse import declarations(s).
 //
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
-func (p *parser) parseImportDecls() (is []*ast.Import) {
+func (p *parser) parseImportDecls() (is []*ast.ImportDecl) {
 	for p.token == s.IMPORT {
 		p.match(s.IMPORT)
 		if p.token == '(' {
@@ -295,7 +295,7 @@ func (p *parser) parseImportDecls() (is []*ast.Import) {
 //
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-func (p *parser) parseImportSpec() *ast.Import {
+func (p *parser) parseImportSpec() *ast.ImportDecl {
 	var name string
 	off := p.scan.TOff
 	if p.token == '.' {
@@ -307,7 +307,7 @@ func (p *parser) parseImportSpec() *ast.Import {
 		name = ""
 	}
 	path, _ := p.matchRaw(s.STRING)
-	return &ast.Import{Off: off, Name: name, Path: path}
+	return &ast.ImportDecl{Off: off, Name: name, Path: path}
 }
 
 // Parse toplevel declaration(s)
