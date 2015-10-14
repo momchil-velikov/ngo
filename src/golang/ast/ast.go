@@ -37,17 +37,17 @@ func (c *Comment) IsLineComment() bool {
 }
 
 // Package
-type Package struct {
+type UnresolvedPackage struct {
 	Path, Name string
-	Files      []*File
-	Imports    map[string]*Package
+	Files      []*UnresolvedFile
+	Imports    map[string]*UnresolvedPackage
 	Mark       int
 }
 
 // Source file
-type File struct {
+type UnresolvedFile struct {
 	Off      int // position of the "package" keyword
-	Pkg      *Package
+	Pkg      *UnresolvedPackage
 	PkgName  string
 	Imports  []*Import
 	Decls    []Decl

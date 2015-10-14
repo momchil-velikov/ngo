@@ -43,9 +43,9 @@ func (p *parser) setBrackets(n int) int {
 }
 
 // Parse all the source files of a package
-func ParsePackage(dir string, names []string) (*ast.Package, error) {
+func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
 	// Parse sources
-	var files []*ast.File
+	var files []*ast.UnresolvedFile
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		src, err := ioutil.ReadFile(path)
@@ -74,11 +74,11 @@ func ParsePackage(dir string, names []string) (*ast.Package, error) {
 			}
 		}
 	}
-	pkg := &ast.Package{
+	pkg := &ast.UnresolvedPackage{
 		Path:    dir,
 		Name:    pkgname,
 		Files:   files,
-		Imports: make(map[string]*ast.Package),
+		Imports: make(map[string]*ast.UnresolvedPackage),
 	}
 	for _, f := range pkg.Files {
 		f.Pkg = pkg
@@ -87,7 +87,7 @@ func ParsePackage(dir string, names []string) (*ast.Package, error) {
 }
 
 // Parse a source file
-func Parse(name string, src string) (*ast.File, error) {
+func Parse(name string, src string) (*ast.UnresolvedFile, error) {
 	p := parser{}
 	p.init(name, src)
 
@@ -222,7 +222,7 @@ func (p *parser) syncDecl() {
 }
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
-func (p *parser) parseFile() *ast.File {
+func (p *parser) parseFile() *ast.UnresolvedFile {
 	var off int
 
 	// Parse package name
@@ -247,7 +247,7 @@ func (p *parser) parseFile() *ast.File {
 
 	p.match(s.EOF)
 
-	return &ast.File{
+	return &ast.UnresolvedFile{
 		Off:      off,
 		PkgName:  name,
 		Imports:  is,
