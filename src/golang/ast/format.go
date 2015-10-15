@@ -252,7 +252,7 @@ func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 	}
 	ctx.WriteString(" ")
 	formatIdent(ctx, f.Off, f.Name)
-	formatSignature(ctx, f.Sig, n)
+	formatFuncSpecSig(ctx, n, f.Sig)
 	if f.Blk != nil {
 		ctx.WriteString(" ")
 		f.Blk.Format(ctx, n)
@@ -327,6 +327,32 @@ func (t *ChanType) Format(ctx *FormatContext, n uint) {
 	}
 }
 
+func (t *StructType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
+	if len(t.Fields) == 0 {
+		ctx.WriteString("struct{}")
+	} else {
+		ctx.WriteString("struct {\n")
+		for i := range t.Fields {
+			f := &t.Fields[i]
+			ctx.Indent(n + 1)
+			if len(f.Name) > 0 {
+				formatIdent(ctx, f.Off, f.Name)
+				ctx.WriteString(" ")
+			}
+			f.Type.Format(ctx, n+1)
+			if f.Tag != nil {
+				ctx.WriteV(0, " ", f.Tag)
+			}
+			ctx.WriteString("\n")
+		}
+		ctx.Indent(n)
+		ctx.WriteString("}")
+	}
+}
+
 func (t *StructSpec) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
@@ -356,41 +382,86 @@ func (t *StructSpec) Format(ctx *FormatContext, n uint) {
 	}
 }
 
+func (t *FuncType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
+	ctx.WriteString("func")
+	formatFuncTypeSig(ctx, n, t)
+}
+
 func (t *FuncSpec) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
 	}
 	ctx.WriteString("func")
-	formatSignature(ctx, t, n)
+	formatFuncSpecSig(ctx, n, t)
 }
 
-func formatSignature(ctx *FormatContext, t *FuncSpec, n uint) {
-	formatParams(ctx, t.Params, n)
-
-	k := len(t.Returns)
-	if k > 0 {
+func formatFuncTypeSig(ctx *FormatContext, n uint, t *FuncType) {
+	formatParams(ctx, t.Params, n, t.Var)
+	if k := len(t.Returns); k > 0 {
 		ctx.WriteString(" ")
-	}
-	if k == 1 && len(t.Returns[0].Names) == 0 {
-		t.Returns[0].Type.Format(ctx, n)
-	} else if k > 0 {
-		formatParams(ctx, t.Returns, n)
+		if k == 1 {
+			t.Returns[0].Type.Format(ctx, n)
+		} else {
+			formatParams(ctx, t.Returns, n, false)
+		}
 	}
 }
 
-func formatParams(ctx *FormatContext, ps []ParamDecl, n uint) {
+func formatFuncSpecSig(ctx *FormatContext, n uint, t *FuncSpec) {
+	formatParamDecls(ctx, t.Params, n)
+	if k := len(t.Returns); k > 0 {
+		ctx.WriteString(" ")
+		if k == 1 && len(t.Returns[0].Names) == 0 {
+			t.Returns[0].Type.Format(ctx, n)
+		} else {
+			formatParamDecls(ctx, t.Returns, n)
+		}
+	}
+}
+
+func formatParams(ctx *FormatContext, ps []Param, n uint, variadic bool) {
 	ctx.WriteString("(")
 	if len(ps) > 0 {
-		ps[0].Format(ctx, 0)
+		formatParam(ctx, n, &ps[0], variadic && len(ps) == 1)
 		for i := 1; i < len(ps); i++ {
 			ctx.WriteString(", ")
-			ps[i].Format(ctx, 0)
+			formatParam(ctx, n, &ps[0], variadic && i+1 == len(ps))
 		}
 	}
 	ctx.WriteString(")")
 }
 
-func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
+func formatParam(ctx *FormatContext, n uint, p *Param, variadic bool) {
+	name := p.Name
+	if len(name) == 0 && ctx.anon {
+		name = "_"
+	}
+	if len(name) > 0 {
+		formatIdent(ctx, p.Off, name)
+		ctx.WriteString(" ")
+	}
+	if variadic {
+		ctx.WriteString("...")
+	}
+	p.Type.Format(ctx, n)
+}
+
+func formatParamDecls(ctx *FormatContext, ps []ParamDecl, n uint) {
+	ctx.WriteString("(")
+	if len(ps) > 0 {
+		formatParamDecl(ctx, 0, &ps[0])
+		for i := 1; i < len(ps); i++ {
+			ctx.WriteString(", ")
+			formatParamDecl(ctx, 0, &ps[i])
+		}
+	}
+	ctx.WriteString(")")
+}
+
+func formatParamDecl(ctx *FormatContext, n uint, p *ParamDecl) {
 	if m := len(p.Names); m > 0 {
 		formatIdent(ctx, p.Names[0].Off, p.Names[0].Id)
 		for i := 1; i < m; i++ {
@@ -421,7 +492,12 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 			} else {
 				ctx.WriteV(n+1, "\n", ctx.Indent)
 				formatIdent(ctx, m.Off, m.Name)
-				formatSignature(ctx, m.Type.(*FuncSpec), n+1)
+				switch t := m.Type.(type) {
+				case *FuncType:
+					formatFuncTypeSig(ctx, n, t)
+				case *FuncSpec:
+					formatFuncSpecSig(ctx, n, t)
+				}
 			}
 		}
 		ctx.WriteV(n, "\n", ctx.Indent, "}")

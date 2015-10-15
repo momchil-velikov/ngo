@@ -33,6 +33,7 @@ func (PtrType) typ()       {}
 func (MapType) typ()       {}
 func (ChanType) typ()      {}
 func (StructSpec) typ()    {}
+func (FuncType) typ()      {}
 func (FuncSpec) typ()      {}
 func (InterfaceType) typ() {}
 
