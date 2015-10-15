@@ -705,15 +705,15 @@ func appendParamTypes(ds []ast.ParamDecl, ids []ast.Ident) []ast.ParamDecl {
 // MethodName         = identifier .
 // InterfaceTypeName  = TypeName .
 func (p *parser) parseInterfaceType() *ast.InterfaceType {
-	var ms []*ast.MethodSpec
+	var ms []ast.MethodSpec
 	off := p.match(s.INTERFACE)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
-		var m *ast.MethodSpec
+		var m ast.MethodSpec
 		id, off := p.matchString(s.ID)
 		if p.token == '(' {
 			sig := p.parseSignature()
-			m = &ast.MethodSpec{Off: off, Name: id, Type: sig}
+			m = ast.MethodSpec{Off: off, Name: id, Type: sig}
 		} else {
 			pkg := ""
 			if p.token == '.' {
@@ -721,7 +721,7 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 				pkg = id
 				id, _ = p.matchString(s.ID)
 			}
-			m = &ast.MethodSpec{Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}}
+			m = ast.MethodSpec{Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}}
 		}
 		ms = append(ms, m)
 		if p.token != '}' {

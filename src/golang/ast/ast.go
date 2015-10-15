@@ -388,7 +388,7 @@ type MethodSpec struct {
 
 type InterfaceType struct {
 	Off     int
-	Methods []*MethodSpec
+	Methods []MethodSpec
 }
 
 //
