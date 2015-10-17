@@ -312,3 +312,40 @@ var a = "123"[1]
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
 	}
 }
+
+func TestParseAmbiguity1(tst *testing.T) {
+	srcs := []string{"Id(X)", "(Id)(X)", "(*Id)(X)"} // all might be Conversions
+	for _, src := range srcs {
+		P := parser{}
+		P.init("amb-1.go", src)
+		t := P.parseExpr()
+		if P.errors == nil {
+			_, ok := t.(*ast.Call)
+			if !ok {
+				tst.Error(src + " has to be parsed as Call")
+			}
+		} else {
+			tst.Error(ErrorList(P.errors))
+		}
+	}
+}
+
+func TestParseAmbiguity2(tst *testing.T) {
+	srcs := []string{
+		"Id.X",              // might be QualifiedId
+		"(Id).X", "(*Id).X", // might be MethodExpr
+	}
+	for _, src := range srcs {
+		P := parser{}
+		P.init("amb-1.go", src)
+		t := P.parseExpr()
+		if P.errors == nil {
+			_, ok := t.(*ast.Selector)
+			if !ok {
+				tst.Error(src + " has to be parsed as Selector")
+			}
+		} else {
+			tst.Error(ErrorList(P.errors))
+		}
+	}
+}
