@@ -314,7 +314,8 @@ var a = "123"[1]
 }
 
 func TestParseAmbiguity1(tst *testing.T) {
-	srcs := []string{"Id(X)", "(Id)(X)", "(*Id)(X)"} // all might be Conversions
+	// all might be Conversions
+	srcs := []string{"Id(X)", "(Id)(X)", "(*Id)(X)", "P.Id(X)", "(P.Id)(X)", "(*P.Id)(X)"}
 	for _, src := range srcs {
 		P := parser{}
 		P.init("amb-1.go", src)
@@ -332,7 +333,7 @@ func TestParseAmbiguity1(tst *testing.T) {
 
 func TestParseAmbiguity2(tst *testing.T) {
 	srcs := []string{
-		"(Id).X", "(*Id).X", // might be MethodExpr
+		"(Id).X", "(*Id).X", "(P.Id).X", "(*P.Id).X", "P.Id.X", // might be MethodExpr
 	}
 	for _, src := range srcs {
 		P := parser{}
