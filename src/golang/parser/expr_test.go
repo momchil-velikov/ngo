@@ -332,12 +332,11 @@ func TestParseAmbiguity1(tst *testing.T) {
 
 func TestParseAmbiguity2(tst *testing.T) {
 	srcs := []string{
-		"Id.X",              // might be QualifiedId
 		"(Id).X", "(*Id).X", // might be MethodExpr
 	}
 	for _, src := range srcs {
 		P := parser{}
-		P.init("amb-1.go", src)
+		P.init("amb-2.go", src)
 		t := P.parseExpr()
 		if P.errors == nil {
 			_, ok := t.(*ast.Selector)
@@ -347,5 +346,20 @@ func TestParseAmbiguity2(tst *testing.T) {
 		} else {
 			tst.Error(ErrorList(P.errors))
 		}
+	}
+}
+
+func TestParseAmbiguity3(tst *testing.T) {
+	src := "Id.X"
+	P := parser{}
+	P.init("amb-3.go", src)
+	t := P.parseExpr()
+	if P.errors == nil {
+		_, ok := t.(*ast.QualifiedId)
+		if !ok {
+			tst.Error(src + " has to be parsed as QualifiedId")
+		}
+	} else {
+		tst.Error(ErrorList(P.errors))
 	}
 }
