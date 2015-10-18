@@ -1115,6 +1115,19 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 			x = p.parseCompositeLiteral(id)
 		} else if p.token == '(' {
 			x = p.parseCall(id)
+		} else if p.token == '.' {
+			p.next()
+			if p.token == '(' {
+				// PrimaryExpr TypeAssertion
+				// TypeAssertion = "." "(" Type ")" .
+				x = p.parseTypeAssertion(id)
+			} else {
+				// QualifiedId or Selector. Parsed as QualifiedId
+				name, _ = p.matchString(s.ID)
+				id.Pkg = id.Id
+				id.Id = name
+				x = id
+			}
 		} else {
 			x = id
 		}
