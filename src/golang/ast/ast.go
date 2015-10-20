@@ -322,23 +322,12 @@ type Field struct {
 	Anon bool
 }
 
-type FieldDecl struct {
-	Names []Ident
-	Type  Type
-	Tag   []byte
-}
-
 type StructType struct {
 	Off    int
 	Fields []Field
 }
 
-type StructSpec struct {
-	Off    int
-	Fields []FieldDecl
-}
-
-func (t StructSpec) typ() {}
+func (t StructType) typ() {}
 
 type Param struct {
 	Off  int
