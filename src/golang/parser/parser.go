@@ -477,30 +477,29 @@ func (p *parser) parseQualifiedId() *ast.QualifiedId {
 }
 
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
-func (p *parser) parseStructType() *ast.StructSpec {
-	fs := []ast.FieldDecl{}
+func (p *parser) parseStructType() *ast.StructType {
+	fs := []ast.Field{}
 	off := p.match(s.STRUCT)
 	p.match('{')
 	for p.token != s.EOF && p.token != '}' {
-		fs = append(fs, p.parseFieldDecl())
+		fs = p.parseFieldDecls(fs)
 		if p.token != '}' {
 			p.sync2(';', '}')
 		}
 	}
 	p.match('}')
-	return &ast.StructSpec{Off: off, Fields: fs}
+	return &ast.StructType{Off: off, Fields: fs}
 }
 
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
-func (p *parser) parseFieldDecl() ast.FieldDecl {
-
+func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 	if p.token == '*' {
 		// Anonymous field.
 		off := p.next()
 		pt := &ast.PtrType{Off: off, Base: p.parseQualifiedId()}
-		return ast.FieldDecl{Type: pt, Tag: p.parseTagOpt()}
+		return append(fs, ast.Field{Type: pt, Tag: p.parseTagOpt()})
 	}
 
 	if p.token == s.ID {
@@ -513,23 +512,23 @@ func (p *parser) parseFieldDecl() ast.FieldDecl {
 			p.next()
 			id.Pkg = id.Id
 			id.Id, _ = p.matchString(s.ID)
-			return ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
 		}
 
 		// If it's only a single identifier, with no separate type
 		// declaration, it's also an anonymous filed.
 		if p.token == s.STRING || p.token == ';' || p.token == '}' {
-			return ast.FieldDecl{Type: id, Tag: p.parseTagOpt()}
+			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
 		}
 
-		return ast.FieldDecl{
-			Names: p.parseFieldIdList(off, name),
-			Type:  p.parseType(),
-			Tag:   p.parseTagOpt(),
-		}
+		fs = p.parseFieldIdList(off, name, fs)
+		n := len(fs)
+		fs[n-1].Type = p.parseType()
+		fs[n-1].Tag = p.parseTagOpt()
+		return fs
 	}
 	p.error("Invalid field declaration")
-	return ast.FieldDecl{Type: &ast.Error{Off: p.scan.TOff}}
+	return append(fs, ast.Field{Type: &ast.Error{Off: p.scan.TOff}})
 }
 
 func (p *parser) parseTagOpt() (tag []byte) {
@@ -591,20 +590,20 @@ func (p *parser) parseVarIdList() (id []*ast.Var) {
 }
 
 // Parse an IdentifierList in the context of a FieldDecl.
-func (p *parser) parseFieldIdList(off int, name string) (id []ast.Ident) {
-	id = append(id, ast.Ident{Off: off, Id: name})
+func (p *parser) parseFieldIdList(off int, name string, fs []ast.Field) []ast.Field {
+	fs = append(fs, ast.Field{Off: off, Name: name})
 	for p.token == ',' {
 		p.next()
 		name, off = p.matchString(s.ID)
 		if len(name) > 0 {
-			id = append(id, ast.Ident{Off: off, Id: name})
+			fs = append(fs, ast.Field{Off: off, Name: name})
 		}
 	}
-	return id
+	return fs
 }
 
 // FunctionType = "func" Signature .
-func (p *parser) parseFuncType() *ast.FuncSpec {
+func (p *parser) parseFuncType() *ast.FuncType {
 	off := p.match(s.FUNC)
 	t := p.parseSignature()
 	t.Off = off
@@ -613,59 +612,77 @@ func (p *parser) parseFuncType() *ast.FuncSpec {
 
 // Signature = Parameters [ Result ] .
 // Result    = Parameters | Type .
-func (p *parser) parseSignature() *ast.FuncSpec {
-	ps := p.parseParameters()
-	var rs []ast.ParamDecl
+func (p *parser) parseSignature() *ast.FuncType {
+	ps, v := p.parseParameters()
+	var rs []ast.Param
 	if p.token == '(' {
-		rs = p.parseParameters()
+		vr := false
+		rs, vr = p.parseParameters()
+		if vr {
+			p.error("output parameters cannot be variadic")
+		}
 	} else if isTypeLookahead(p.token) {
 		off := p.scan.TOff
-		rs = []ast.ParamDecl{ast.ParamDecl{Off: off, Type: p.parseType()}}
+		rs = []ast.Param{ast.Param{Off: off, Type: p.parseType()}}
 	}
-	return &ast.FuncSpec{Params: ps, Returns: rs}
+	return &ast.FuncType{Params: ps, Returns: rs, Var: v}
 }
 
 // Parameters    = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList = ParameterDecl { "," ParameterDecl } .
-func (p *parser) parseParameters() []ast.ParamDecl {
-	var (
-		ids []ast.Ident
-		ds  []ast.ParamDecl
-	)
+func (p *parser) parseParameters() ([]ast.Param, bool) {
+	var ns, ps []ast.Param
+	variadic := false
 	p.match('(')
 	if p.token == ')' {
 		p.next()
-		return nil
+		return nil, false
 	}
 	for p.token != s.EOF && p.token != ')' {
-		id, t, v := p.parseIdOrType()
-		if t != nil {
-			ds = appendParamTypes(ds, ids)
-			ds = append(ds, ast.ParamDecl{Type: t, Var: v})
-			ids = ids[:0]
+		parm, v := p.parseIdOrType()
+		if parm.Type != nil {
+			convertToParamTypes(ns)
+			ps = append(ps, ns...)
+			ns = ns[:0]
+			ps = append(ps, parm)
+			if variadic {
+				p.error("only the last parameter can be variadic")
+			}
+			variadic = variadic || v
 		} else {
-			ids = append(ids, id)
+			ns = append(ns, parm)
 			if p.token != ',' && p.token != ')' {
-				id, t, v = p.parseIdOrType()
-				if t == nil {
-					t = &ast.QualifiedId{Off: id.Off, Id: id.Id}
+				parm, v = p.parseIdOrType()
+				if parm.Type == nil {
+					parm.Type = &ast.QualifiedId{Off: parm.Off, Id: parm.Name}
 				}
-				ds = append(ds, ast.ParamDecl{Names: ids, Type: t, Var: v})
-				ids = nil
+				ps = append(ps, ns...)
+				ns = ns[:0]
+				ps[len(ps)-1].Type = parm.Type
+				if variadic {
+					p.error("only the last parameter can be variadic")
+				}
+				variadic = variadic || v
 			}
 		}
 		if p.token != ')' {
 			p.sync2(',', ')')
 		}
 	}
-	ds = appendParamTypes(ds, ids)
+	if len(ns) > 0 {
+		convertToParamTypes(ns)
+		ps = append(ps, ns...)
+		if variadic {
+			p.error("only the last parameter can be variadic")
+		}
+	}
 	p.match(')')
-	return ds
+	return ps, variadic
 }
 
 // Parses an identifier or a type. A qualified identifier is considered a
 // type.
-func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
+func (p *parser) parseIdOrType() (ast.Param, bool) {
 	if p.token == s.ID {
 		id, off := p.matchString(s.ID)
 		if p.token == '.' {
@@ -677,9 +694,9 @@ func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
 				p.error("incomplete qualified id")
 				id = ""
 			}
-			return ast.Ident{}, &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}, false
+			return ast.Param{Off: off, Type: &ast.QualifiedId{Pkg: pkg, Id: id}}, false
 		}
-		return ast.Ident{Off: off, Id: id}, nil, false
+		return ast.Param{Off: off, Name: id}, false
 	}
 	v := false
 	if p.token == s.DOTS {
@@ -687,17 +704,18 @@ func (p *parser) parseIdOrType() (ast.Ident, ast.Type, bool) {
 		v = true
 	}
 	t := p.parseType() // FIXME: parenthesized types not allowed
-	return ast.Ident{}, t, v
+	return ast.Param{Type: t}, v
 }
 
 // Converts an identifier list to a list of parameter declarations, taking
 // each identifier to be a type name.
-func appendParamTypes(ds []ast.ParamDecl, ids []ast.Ident) []ast.ParamDecl {
-	for i := range ids {
-		t := &ast.QualifiedId{Off: ids[i].Off, Id: ids[i].Id}
-		ds = append(ds, ast.ParamDecl{Off: ids[i].Off, Type: t})
+func convertToParamTypes(ps []ast.Param) {
+	for i := range ps {
+		p := &ps[i]
+		p.Type = &ast.QualifiedId{Off: p.Off, Id: p.Name}
+		p.Off = 0
+		p.Name = ""
 	}
-	return ds
 }
 
 // InterfaceType      = "interface" "{" { MethodSpec ";" } "}" .
@@ -810,7 +828,7 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 // Function     = Signature FunctionBody .
 // FunctionBody = Block .
 func (p *parser) parseFuncDecl() ast.Decl {
-	p.match(s.FUNC)
+	foff := p.match(s.FUNC)
 	var r *ast.Param
 	if p.token == '(' {
 		r = p.parseReceiver()
@@ -824,9 +842,12 @@ func (p *parser) parseFuncDecl() ast.Decl {
 	return &ast.FuncDecl{
 		Off:  off,
 		Name: name,
-		Recv: r,
-		Sig:  sig,
-		Blk:  blk,
+		Func: ast.Func{
+			Off:  foff,
+			Recv: r,
+			Sig:  sig,
+			Blk:  blk,
+		},
 	}
 }
 
@@ -1333,9 +1354,9 @@ func (p *parser) parseCall(f ast.Expr) ast.Expr {
 
 // FunctionLit = "func" Function .
 func (p *parser) parseFuncLiteral(typ ast.Type) ast.Expr {
-	sig := typ.(*ast.FuncSpec)
+	sig := typ.(*ast.FuncType)
 	b := p.parseBlock()
-	return &ast.FuncLiteralDecl{Sig: sig, Blk: b}
+	return &ast.Func{Sig: sig, Blk: b}
 }
 
 // Index          = "[" Expression "]" .

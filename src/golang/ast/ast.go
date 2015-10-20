@@ -32,9 +32,8 @@ func (SliceType) typ()     {}
 func (PtrType) typ()       {}
 func (MapType) typ()       {}
 func (ChanType) typ()      {}
-func (StructSpec) typ()    {}
+func (StructType) typ()    {}
 func (FuncType) typ()      {}
-func (FuncSpec) typ()      {}
 func (InterfaceType) typ() {}
 
 type Expr interface {
@@ -42,21 +41,21 @@ type Expr interface {
 	expr()
 }
 
-func (Error) expr()           {}
-func (Literal) expr()         {}
-func (CompLiteral) expr()     {}
-func (Call) expr()            {}
-func (Conversion) expr()      {}
-func (MethodExpr) expr()      {}
-func (ParensExpr) expr()      {}
-func (FuncLiteralDecl) expr() {}
-func (TypeAssertion) expr()   {}
-func (Selector) expr()        {}
-func (IndexExpr) expr()       {}
-func (SliceExpr) expr()       {}
-func (UnaryExpr) expr()       {}
-func (BinaryExpr) expr()      {}
-func (QualifiedId) expr()     {}
+func (Error) expr()         {}
+func (Literal) expr()       {}
+func (CompLiteral) expr()   {}
+func (Call) expr()          {}
+func (Conversion) expr()    {}
+func (MethodExpr) expr()    {}
+func (ParensExpr) expr()    {}
+func (Func) expr()          {}
+func (TypeAssertion) expr() {}
+func (Selector) expr()      {}
+func (IndexExpr) expr()     {}
+func (SliceExpr) expr()     {}
+func (UnaryExpr) expr()     {}
+func (BinaryExpr) expr()    {}
+func (QualifiedId) expr()   {}
 
 type Stmt interface {
 	Node
@@ -190,7 +189,6 @@ type VarDeclGroup struct {
 
 type Func struct {
 	Off  int
-	Name string
 	Recv *Param
 	Sig  *FuncType
 	Blk  *Block
@@ -199,9 +197,7 @@ type Func struct {
 type FuncDecl struct {
 	Off  int
 	Name string
-	Recv *Param
-	Sig  *FuncSpec
-	Blk  *Block
+	Func Func
 }
 
 //
@@ -253,16 +249,6 @@ type MethodExpr struct {
 type ParensExpr struct {
 	Off int
 	X   Expr
-}
-
-type FuncLiteral struct {
-	Sig *FuncType
-	Blk *Block
-}
-
-type FuncLiteralDecl struct {
-	Sig *FuncSpec
-	Blk *Block
 }
 
 type TypeAssertion struct {
@@ -338,20 +324,9 @@ type Field struct {
 	Anon bool
 }
 
-type FieldDecl struct {
-	Names []Ident
-	Type  Type
-	Tag   []byte
-}
-
 type StructType struct {
 	Off    int
 	Fields []Field
-}
-
-type StructSpec struct {
-	Off    int
-	Fields []FieldDecl
 }
 
 type Param struct {
@@ -360,24 +335,11 @@ type Param struct {
 	Type Type
 }
 
-type ParamDecl struct {
-	Off   int
-	Names []Ident
-	Type  Type
-	Var   bool
-}
-
 type FuncType struct {
 	Off     int
 	Params  []Param
 	Returns []Param
 	Var     bool
-}
-
-type FuncSpec struct {
-	Off     int
-	Params  []ParamDecl
-	Returns []ParamDecl
 }
 
 type MethodSpec struct {
