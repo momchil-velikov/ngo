@@ -241,21 +241,21 @@ func (g *VarDeclGroup) Format(ctx *FormatContext, n uint) {
 // Formats a function declaration.
 func (f *FuncDecl) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("func")
-	if f.Recv != nil {
+	if rcv := f.Func.Recv; rcv != nil {
 		ctx.WriteString(" (")
-		if len(f.Recv.Name) > 0 {
-			formatIdent(ctx, f.Recv.Off, f.Recv.Name)
+		if len(rcv.Name) > 0 {
+			formatIdent(ctx, rcv.Off, rcv.Name)
 			ctx.WriteString(" ")
 		}
-		f.Recv.Type.Format(ctx, n+1)
+		rcv.Type.Format(ctx, n+1)
 		ctx.WriteString(")")
 	}
 	ctx.WriteString(" ")
 	formatIdent(ctx, f.Off, f.Name)
-	formatSignature(ctx, f.Sig, n)
-	if f.Blk != nil {
+	formatSignature(ctx, f.Func.Sig, n)
+	if f.Func.Blk != nil {
 		ctx.WriteString(" ")
-		f.Blk.Format(ctx, n)
+		f.Func.Blk.Format(ctx, n)
 	}
 }
 
@@ -356,7 +356,7 @@ func (t *StructSpec) Format(ctx *FormatContext, n uint) {
 	}
 }
 
-func (t *FuncSpec) Format(ctx *FormatContext, n uint) {
+func (t *FuncType) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
 	}
@@ -364,47 +364,49 @@ func (t *FuncSpec) Format(ctx *FormatContext, n uint) {
 	formatSignature(ctx, t, n)
 }
 
-func formatSignature(ctx *FormatContext, t *FuncSpec, n uint) {
-	formatParams(ctx, t.Params, n)
+func formatSignature(ctx *FormatContext, t *FuncType, n uint) {
+	formatParams(ctx, n, t.Params, t.Var)
 
 	k := len(t.Returns)
 	if k > 0 {
 		ctx.WriteString(" ")
 	}
-	if k == 1 && len(t.Returns[0].Names) == 0 {
+	if k == 1 && len(t.Returns[0].Name) == 0 {
 		t.Returns[0].Type.Format(ctx, n)
 	} else if k > 0 {
-		formatParams(ctx, t.Returns, n)
+		formatParams(ctx, n, t.Returns, false)
 	}
 }
 
-func formatParams(ctx *FormatContext, ps []ParamDecl, n uint) {
+func formatParams(ctx *FormatContext, n uint, ps []Param, variadic bool) {
 	ctx.WriteString("(")
 	if len(ps) > 0 {
-		ps[0].Format(ctx, 0)
+		formatParam(ctx, n, &ps[0], variadic && len(ps) == 1)
 		for i := 1; i < len(ps); i++ {
 			ctx.WriteString(", ")
-			ps[i].Format(ctx, 0)
+			formatParam(ctx, n, &ps[i], variadic && i+1 == len(ps))
 		}
 	}
 	ctx.WriteString(")")
 }
 
-func (p *ParamDecl) Format(ctx *FormatContext, n uint) {
-	if m := len(p.Names); m > 0 {
-		formatIdent(ctx, p.Names[0].Off, p.Names[0].Id)
-		for i := 1; i < m; i++ {
-			ctx.WriteString(", ")
-			formatIdent(ctx, p.Names[i].Off, p.Names[i].Id)
+func formatParam(ctx *FormatContext, n uint, p *Param, variadic bool) {
+	if len(p.Name) > 0 || ctx.anon {
+		if len(p.Name) > 0 {
+			formatIdent(ctx, p.Off, p.Name)
+		} else {
+			ctx.WriteString("_")
 		}
-		ctx.WriteString(" ")
-	} else if ctx.anon {
-		ctx.WriteString("_ ")
+		if p.Type != nil {
+			ctx.WriteString(" ")
+		}
 	}
-	if p.Var {
-		ctx.WriteString("...")
+	if p.Type != nil {
+		if variadic {
+			ctx.WriteString("...")
+		}
+		p.Type.Format(ctx, n+1)
 	}
-	p.Type.Format(ctx, n+1)
 }
 
 func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
@@ -421,7 +423,7 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 			} else {
 				ctx.WriteV(n+1, "\n", ctx.Indent)
 				formatIdent(ctx, m.Off, m.Name)
-				formatSignature(ctx, m.Type.(*FuncSpec), n+1)
+				formatSignature(ctx, m.Type.(*FuncType), n+1)
 			}
 		}
 		ctx.WriteV(n, "\n", ctx.Indent, "}")
@@ -523,7 +525,7 @@ func (e *Element) format(ctx *FormatContext) {
 
 func (e *Conversion) Format(ctx *FormatContext, n uint) {
 	switch f := e.Type.(type) {
-	case *FuncSpec:
+	case *FuncType:
 		if len(f.Returns) == 0 {
 			ctx.WriteV(n, "(", e.Type.Format, ")")
 		} else {
@@ -564,7 +566,7 @@ func (e *Call) Format(ctx *FormatContext, n uint) {
 	}
 }
 
-func (e *FuncLiteralDecl) Format(ctx *FormatContext, n uint) {
+func (e *Func) Format(ctx *FormatContext, n uint) {
 	ctx.WriteV(n, e.Sig.Format, " ", e.Blk.Format)
 }
 

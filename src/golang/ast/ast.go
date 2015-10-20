@@ -146,7 +146,6 @@ func (d VarDeclGroup) stmt() {}
 
 type Func struct {
 	Off  int
-	Name string
 	Recv *Param
 	Sig  *FuncType
 	Blk  *Block
@@ -155,9 +154,7 @@ type Func struct {
 type FuncDecl struct {
 	Off  int
 	Name string
-	Recv *Param
-	Sig  *FuncSpec
-	Blk  *Block
+	Func Func
 }
 
 func (d FuncDecl) decl() {}
@@ -225,17 +222,7 @@ type ParensExpr struct {
 
 func (e ParensExpr) expr() {}
 
-type FuncLiteral struct {
-	Sig *FuncType
-	Blk *Block
-}
-
-type FuncLiteralDecl struct {
-	Sig *FuncSpec
-	Blk *Block
-}
-
-func (e FuncLiteralDecl) expr() {}
+func (e Func) expr() {}
 
 type TypeAssertion struct {
 	Type Type
@@ -359,13 +346,6 @@ type Param struct {
 	Type Type
 }
 
-type ParamDecl struct {
-	Off   int
-	Names []Ident
-	Type  Type
-	Var   bool
-}
-
 type FuncType struct {
 	Off     int
 	Params  []Param
@@ -373,13 +353,7 @@ type FuncType struct {
 	Var     bool
 }
 
-type FuncSpec struct {
-	Off     int
-	Params  []ParamDecl
-	Returns []ParamDecl
-}
-
-func (f FuncSpec) typ() {}
+func (f FuncType) typ() {}
 
 type MethodSpec struct {
 	Off  int
