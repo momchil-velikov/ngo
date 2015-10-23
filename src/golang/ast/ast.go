@@ -452,8 +452,8 @@ type DeferStmt struct {
 }
 
 type ExprCaseClause struct {
-	Xs   []Expr
-	Body []Stmt
+	Xs  []Expr
+	Blk *Block
 }
 
 type ExprSwitchStmt struct {
@@ -465,7 +465,7 @@ type ExprSwitchStmt struct {
 
 type TypeCaseClause struct {
 	Types []Type
-	Body  []Stmt
+	Blk   *Block
 }
 
 type TypeSwitchStmt struct {
@@ -478,7 +478,7 @@ type TypeSwitchStmt struct {
 
 type CommClause struct {
 	Comm Stmt
-	Body []Stmt
+	Blk  *Block
 }
 
 type SelectStmt struct {
