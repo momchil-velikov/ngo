@@ -835,7 +835,7 @@ func (s *ExprSwitchStmt) Format(ctx *FormatContext, n uint) {
 			}
 			ctx.WriteString(":")
 		}
-		for _, s := range c.Body {
+		for _, s := range c.Blk.Body {
 			if _, ok := s.(*EmptyStmt); ok {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			} else {
@@ -875,7 +875,7 @@ func (s *TypeSwitchStmt) Format(ctx *FormatContext, n uint) {
 			}
 			ctx.WriteString(":")
 		}
-		for _, s := range c.Body {
+		for _, s := range c.Blk.Body {
 			if _, ok := s.(*EmptyStmt); !ok {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}
@@ -901,7 +901,7 @@ func (s *SelectStmt) Format(ctx *FormatContext, n uint) {
 		} else {
 			ctx.WriteV(n, "\n", ctx.Indent, "case ", c.Comm.Format, ":")
 		}
-		for _, s := range c.Body {
+		for _, s := range c.Blk.Body {
 			if _, ok := s.(*EmptyStmt); !ok {
 				ctx.WriteV(n+1, "\n", ctx.Indent, s.Format)
 			}

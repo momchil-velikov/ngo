@@ -492,8 +492,8 @@ type DeferStmt struct {
 func (d DeferStmt) stmt() {}
 
 type ExprCaseClause struct {
-	Xs   []Expr
-	Body []Stmt
+	Xs  []Expr
+	Blk *Block
 }
 
 type ExprSwitchStmt struct {
@@ -507,7 +507,7 @@ func (d ExprSwitchStmt) stmt() {}
 
 type TypeCaseClause struct {
 	Types []Type
-	Body  []Stmt
+	Blk   *Block
 }
 
 type TypeSwitchStmt struct {
@@ -522,7 +522,7 @@ func (d TypeSwitchStmt) stmt() {}
 
 type CommClause struct {
 	Comm Stmt
-	Body []Stmt
+	Blk  *Block
 }
 
 type SelectStmt struct {
