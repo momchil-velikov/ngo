@@ -1,6 +1,6 @@
 package ast
 
-import s "golang/scanner"
+import "golang/scanner"
 
 type Node interface {
 	Format(*FormatContext, uint)
@@ -78,6 +78,7 @@ func (ContinueStmt) stmt()    {}
 func (GotoStmt) stmt()        {}
 func (FallthroughStmt) stmt() {}
 func (SendStmt) stmt()        {}
+func (RecvStmt) stmt()        {}
 func (IncStmt) stmt()         {}
 func (DecStmt) stmt()         {}
 func (AssignStmt) stmt()      {}
@@ -117,7 +118,7 @@ type UnresolvedFile struct {
 	Decls    []Decl
 	Comments []Comment
 	Name     string
-	SrcMap   s.SourceMap
+	SrcMap   scanner.SourceMap
 }
 
 // Import declaration
@@ -206,11 +207,25 @@ type FuncDecl struct {
 
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
-	'*': 5, '/': 5, '%': 5, s.SHL: 5, s.SHR: 5, '&': 5, s.ANDN: 5,
-	'+': 4, '-': 4, '|': 4, '^': 4,
-	s.EQ: 3, s.NE: 3, s.LT: 3, s.LE: 3, s.GT: 3, s.GE: 3,
-	s.AND: 2,
-	s.OR:  1,
+	'*':          5,
+	'/':          5,
+	'%':          5,
+	scanner.SHL:  5,
+	scanner.SHR:  5,
+	'&':          5,
+	scanner.ANDN: 5,
+	'+':          4,
+	'-':          4,
+	'|':          4,
+	'^':          4,
+	scanner.EQ:   3,
+	scanner.NE:   3,
+	scanner.LT:   3,
+	scanner.LE:   3,
+	scanner.GT:   3,
+	scanner.GE:   3,
+	scanner.AND:  2,
+	scanner.OR:   1,
 }
 
 type Literal struct {
@@ -402,6 +417,12 @@ type FallthroughStmt struct {
 type SendStmt struct {
 	Ch Expr
 	X  Expr
+}
+
+type RecvStmt struct {
+	Op   uint
+	X, Y Expr
+	Rcv  Expr
 }
 
 type IncStmt struct {
