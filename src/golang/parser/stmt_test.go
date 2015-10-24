@@ -758,17 +758,19 @@ func TestSelectStmt(tst *testing.T) {
 func foo() {
   select{}
   select{
-    case ch1 <-ex:
-      bar()
+    case ch1 <- ex:
+      foo()
     default:
+      bar()
+    case x = <- ch2:
       baz()
-    case x, y = <- ch2:
+    case x, y = <- ch3:
       xyzzy();;
-    case u, v:= <- ch3:
+    case u := <- ch4:
       quux()
-    case x++:
-;
- case <- ch3:
+    case u, v:= <- ch5:
+      quuux()
+    case <- ch6:
   }
 }
 `
@@ -778,15 +780,18 @@ func foo() {
     select {}
     select {
     case ch1 <- ex:
-        bar()
+        foo()
     default:
+        bar()
+    case x = <-ch2:
         baz()
-    case x, y = <-ch2:
+    case x, y = <-ch3:
         xyzzy()
-    case u, v := <-ch3:
+    case u := <-ch4:
         quux()
-    case x++:
-    case <-ch3:
+    case u, v := <-ch5:
+        quuux()
+    case <-ch6:
     }
 }
 `

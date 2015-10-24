@@ -700,6 +700,17 @@ func (s *SendStmt) Format(ctx *FormatContext, n uint) {
 	ctx.WriteV(n, s.Ch.Format, " <- ", s.X.Format)
 }
 
+func (s *RecvStmt) Format(ctx *FormatContext, n uint) {
+	if s.Op == '=' || s.Op == scanner.DEFINE {
+		s.X.Format(ctx, n)
+		if s.Y != nil {
+			ctx.WriteV(0, ", ", s.Y.Format)
+		}
+		ctx.WriteV(0, " ", scanner.TokenNames[s.Op], " ")
+	}
+	s.Rcv.Format(ctx, n)
+}
+
 func (s *IncStmt) Format(ctx *FormatContext, n uint) {
 	s.X.Format(ctx, n)
 	ctx.WriteString("++")

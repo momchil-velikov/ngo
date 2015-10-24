@@ -1738,12 +1738,49 @@ func (p *parser) parseTypeList() (ts []ast.Type) {
 	return
 }
 
-// SelectStmt = "select" "{" { CommClause } "}" .
-// CommClause = CommCase ":" StatementList .
-// CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
 // SendStmt = Channel "<-" Expression .
 // RecvStmt   = [ ExpressionList "=" | IdentifierList ":=" ] RecvExpr .
 // RecvExpr   = Expression .
+func (p *parser) parseSendOrRecv() ast.Stmt {
+	x := p.parseExpr()
+	if p.token == scanner.RECV {
+		// Send statement.
+		p.next()
+		y := p.parseExpr()
+		return &ast.SendStmt{Ch: x, X: y}
+	} else {
+		// Receive statement.
+		op := uint(0)
+		var y, rcv ast.Expr
+		if p.token == ',' {
+			p.next()
+			y = p.parseExpr()
+			op = p.token
+			if op != '=' && op != scanner.DEFINE {
+				p.error("expected = or := in a receive statement")
+				op = '='
+			} else {
+				p.next()
+			}
+			rcv = p.parseExpr()
+		} else if p.token == '=' || p.token == scanner.DEFINE {
+			op = p.token
+			p.next()
+			rcv = p.parseExpr()
+		} else {
+			rcv = x
+			x = nil
+		}
+		if u, ok := rcv.(*ast.UnaryExpr); !ok || u.Op != scanner.RECV {
+			p.error("receive statement must contain a receive expression")
+		}
+		return &ast.RecvStmt{Op: op, X: x, Y: y, Rcv: rcv}
+	}
+}
+
+// SelectStmt = "select" "{" { CommClause } "}" .
+// CommClause = CommCase ":" StatementList .
+// CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
 func (p *parser) parseSelectStmt() ast.Stmt {
 	def := false
 	var cs []ast.CommClause
@@ -1754,7 +1791,7 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 		p.next()
 		var c ast.Stmt
 		if t == scanner.CASE {
-			c = p.parseSimpleStmt(p.parseExpr())
+			c = p.parseSendOrRecv()
 		} else {
 			if def {
 				p.error("multiple defaults in select")

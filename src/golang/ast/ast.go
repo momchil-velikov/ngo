@@ -442,6 +442,14 @@ type SendStmt struct {
 
 func (b SendStmt) stmt() {}
 
+type RecvStmt struct {
+	Op   uint
+	X, Y Expr
+	Rcv  Expr
+}
+
+func (b RecvStmt) stmt() {}
+
 type IncStmt struct {
 	X Expr
 }
