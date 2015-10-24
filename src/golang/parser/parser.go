@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 	"golang/ast"
-	s "golang/scanner"
+	"golang/scanner"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,7 +13,7 @@ import (
 
 type parser struct {
 	errors   []error
-	scan     s.Scanner
+	scan     scanner.Scanner
 	comments []ast.Comment
 
 	token    uint // current token
@@ -130,14 +130,14 @@ func (p *parser) error(msg string) {
 
 // Emit an expected token mismatch error.
 func (p *parser) expectError(exp, act uint) {
-	p.error(fmt.Sprintf("expected %s, got %s", s.TokenNames[exp], s.TokenNames[act]))
+	p.error(fmt.Sprintf("expected %s, got %s", scanner.TokenNames[exp], scanner.TokenNames[act]))
 }
 
 // Get the next token from the scanner.
 func (p *parser) next() int {
 	off := p.scan.TOff
 	p.token = p.scan.Get()
-	for p.token == s.LINE_COMMENT || p.token == s.BLOCK_COMMENT {
+	for p.token == scanner.LINE_COMMENT || p.token == scanner.BLOCK_COMMENT {
 		p.comments = append(p.comments, ast.Comment{Off: p.scan.TOff, Text: p.scan.Value})
 		p.token = p.scan.Get()
 	}
@@ -189,7 +189,7 @@ func (p *parser) sync(token uint) {
 	if p.token != token {
 		p.expectError(token, p.token)
 	}
-	for p.token != s.EOF && p.token != token {
+	for p.token != scanner.EOF && p.token != token {
 		p.next()
 	}
 	p.next()
@@ -201,7 +201,7 @@ func (p *parser) sync2(t1, t2 uint) {
 	if p.token != t1 {
 		p.expectError(t1, p.token)
 	}
-	for p.token != s.EOF && p.token != t1 && p.token != t2 {
+	for p.token != scanner.EOF && p.token != t1 && p.token != t2 {
 		p.next()
 	}
 	if p.token == t1 {
@@ -213,7 +213,7 @@ func (p *parser) sync2(t1, t2 uint) {
 func (p *parser) syncDecl() {
 	for {
 		switch p.token {
-		case s.CONST, s.TYPE, s.VAR, s.FUNC, s.EOF:
+		case scanner.CONST, scanner.TYPE, scanner.VAR, scanner.FUNC, scanner.EOF:
 			return
 		default:
 			p.next()
@@ -226,7 +226,7 @@ func (p *parser) parseFile() *ast.File {
 	var off int
 
 	// Parse package name
-	if p.token == s.PACKAGE {
+	if p.token == scanner.PACKAGE {
 		off = p.scan.TOff
 	}
 	name := p.parsePackageClause()
@@ -245,7 +245,7 @@ func (p *parser) parseFile() *ast.File {
 	// Parse toplevel declarations.
 	ds := p.parseToplevelDecls()
 
-	p.match(s.EOF)
+	p.match(scanner.EOF)
 
 	return &ast.File{
 		Off:      off,
@@ -263,8 +263,8 @@ func (p *parser) parseFile() *ast.File {
 // PackageClause  = "package" PackageName .
 // PackageName    = identifier .
 func (p *parser) parsePackageClause() string {
-	p.match(s.PACKAGE)
-	pkg, _ := p.matchString(s.ID)
+	p.match(scanner.PACKAGE)
+	pkg, _ := p.matchString(scanner.ID)
 	return pkg
 }
 
@@ -272,11 +272,11 @@ func (p *parser) parsePackageClause() string {
 //
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
 func (p *parser) parseImportDecls() (is []*ast.Import) {
-	for p.token == s.IMPORT {
-		p.match(s.IMPORT)
+	for p.token == scanner.IMPORT {
+		p.match(scanner.IMPORT)
 		if p.token == '(' {
 			p.next()
-			for p.token != s.EOF && p.token != ')' {
+			for p.token != scanner.EOF && p.token != ')' {
 				is = append(is, p.parseImportSpec())
 				if p.token != ')' {
 					p.sync2(';', ')')
@@ -301,12 +301,12 @@ func (p *parser) parseImportSpec() *ast.Import {
 	if p.token == '.' {
 		name = "."
 		p.next()
-	} else if p.token == s.ID {
-		name, _ = p.matchString(s.ID)
+	} else if p.token == scanner.ID {
+		name, _ = p.matchString(scanner.ID)
 	} else {
 		name = ""
 	}
-	path, _ := p.matchRaw(s.STRING)
+	path, _ := p.matchRaw(scanner.STRING)
 	return &ast.Import{Off: off, Name: name, Path: path}
 }
 
@@ -318,15 +318,15 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 	for {
 		var f func() ast.Decl
 		switch p.token {
-		case s.TYPE:
+		case scanner.TYPE:
 			f = p.parseTypeDecl
-		case s.CONST:
+		case scanner.CONST:
 			f = p.parseConstDecl
-		case s.VAR:
+		case scanner.VAR:
 			f = p.parseVarDecl
-		case s.FUNC:
+		case scanner.FUNC:
 			f = p.parseFuncDecl
-		case s.EOF:
+		case scanner.EOF:
 			return
 		default:
 			p.error("expected type, const, var or func/method declaration")
@@ -344,11 +344,11 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 func (p *parser) parseTypeDecl() ast.Decl {
-	p.match(s.TYPE)
+	p.match(scanner.TYPE)
 	if p.token == '(' {
 		p.next()
 		grp := &ast.TypeDeclGroup{}
-		for p.token != s.EOF && p.token != ')' {
+		for p.token != scanner.EOF && p.token != ')' {
 			grp.Types = append(grp.Types, p.parseTypeSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
@@ -363,7 +363,7 @@ func (p *parser) parseTypeDecl() ast.Decl {
 
 // TypeSpec = identifier Type .
 func (p *parser) parseTypeSpec() *ast.TypeDecl {
-	id, off := p.matchString(s.ID)
+	id, off := p.matchString(scanner.ID)
 	t := p.parseType()
 	return &ast.TypeDecl{Off: off, Name: id, Type: t}
 }
@@ -371,7 +371,8 @@ func (p *parser) parseTypeSpec() *ast.TypeDecl {
 // Determine if the given TOKEN could be a beginning of a typespec.
 func isTypeLookahead(token uint) bool {
 	switch token {
-	case s.ID, '[', s.STRUCT, '*', s.FUNC, s.INTERFACE, s.MAP, s.CHAN, s.RECV, '(':
+	case scanner.ID, '[', scanner.STRUCT, '*', scanner.FUNC, scanner.INTERFACE,
+		scanner.MAP, scanner.CHAN, scanner.RECV, '(':
 		return true
 	default:
 		return false
@@ -384,7 +385,7 @@ func isTypeLookahead(token uint) bool {
 //            SliceType | MapType | ChannelType .
 func (p *parser) parseType() ast.Type {
 	switch p.token {
-	case s.ID:
+	case scanner.ID:
 		return p.parseQualifiedId()
 
 	// ArrayType   = "[" ArrayLength "]" ElementType .
@@ -399,7 +400,7 @@ func (p *parser) parseType() ast.Type {
 		if p.token == ']' {
 			p.next()
 			return &ast.SliceType{Off: off, Elt: p.parseType()}
-		} else if p.token == s.DOTS {
+		} else if p.token == scanner.DOTS {
 			p.next()
 			p.match(']')
 			return &ast.ArrayType{Off: off, Elt: p.parseType()}
@@ -418,7 +419,7 @@ func (p *parser) parseType() ast.Type {
 
 	// MapType     = "map" "[" KeyType "]" ElementType .
 	// KeyType     = Type .
-	case s.MAP:
+	case scanner.MAP:
 		off := p.next()
 		p.match('[')
 		k := p.parseType()
@@ -427,28 +428,28 @@ func (p *parser) parseType() ast.Type {
 		return &ast.MapType{Off: off, Key: k, Elt: t}
 
 	// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
-	case s.RECV:
+	case scanner.RECV:
 		off := p.next()
-		p.match(s.CHAN)
+		p.match(scanner.CHAN)
 		t := p.parseType()
 		return &ast.ChanType{Off: off, Send: false, Recv: true, Elt: t}
-	case s.CHAN:
+	case scanner.CHAN:
 		off := p.next()
 		send, recv := true, true
-		if p.token == s.RECV {
+		if p.token == scanner.RECV {
 			p.next()
 			send, recv = true, false
 		}
 		t := p.parseType()
 		return &ast.ChanType{Off: off, Send: send, Recv: recv, Elt: t}
 
-	case s.STRUCT:
+	case scanner.STRUCT:
 		return p.parseStructType()
 
-	case s.FUNC:
+	case scanner.FUNC:
 		return p.parseFuncType()
 
-	case s.INTERFACE:
+	case scanner.INTERFACE:
 		return p.parseInterfaceType()
 
 	case '(':
@@ -465,11 +466,11 @@ func (p *parser) parseType() ast.Type {
 
 // TypeName = identifier | QualifiedIdent .
 func (p *parser) parseQualifiedId() *ast.QualifiedId {
-	pkg, off := p.matchString(s.ID)
+	pkg, off := p.matchString(scanner.ID)
 	var id string
 	if p.token == '.' {
 		p.next()
-		id, _ = p.matchString(s.ID)
+		id, _ = p.matchString(scanner.ID)
 	} else {
 		pkg, id = "", pkg
 	}
@@ -479,9 +480,9 @@ func (p *parser) parseQualifiedId() *ast.QualifiedId {
 // StructType     = "struct" "{" { FieldDecl ";" } "}" .
 func (p *parser) parseStructType() *ast.StructType {
 	fs := []ast.Field{}
-	off := p.match(s.STRUCT)
+	off := p.match(scanner.STRUCT)
 	p.match('{')
-	for p.token != s.EOF && p.token != '}' {
+	for p.token != scanner.EOF && p.token != '}' {
 		fs = p.parseFieldDecls(fs)
 		if p.token != '}' {
 			p.sync2(';', '}')
@@ -502,8 +503,8 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 		return append(fs, ast.Field{Type: pt, Tag: p.parseTagOpt()})
 	}
 
-	if p.token == s.ID {
-		name, off := p.matchString(s.ID)
+	if p.token == scanner.ID {
+		name, off := p.matchString(scanner.ID)
 		id := &ast.QualifiedId{Off: off, Id: name}
 
 		// If the field decl begins with a qualified-id, it's parsed as an
@@ -511,13 +512,13 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 		if p.token == '.' {
 			p.next()
 			id.Pkg = id.Id
-			id.Id, _ = p.matchString(s.ID)
+			id.Id, _ = p.matchString(scanner.ID)
 			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
 		}
 
 		// If it's only a single identifier, with no separate type
 		// declaration, it's also an anonymous filed.
-		if p.token == s.STRING || p.token == ';' || p.token == '}' {
+		if p.token == scanner.STRING || p.token == ';' || p.token == '}' {
 			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
 		}
 
@@ -532,8 +533,8 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 }
 
 func (p *parser) parseTagOpt() (tag []byte) {
-	if p.token == s.STRING {
-		tag, _ = p.matchRaw(s.STRING)
+	if p.token == scanner.STRING {
+		tag, _ = p.matchRaw(scanner.STRING)
 	} else {
 		tag = nil
 	}
@@ -543,13 +544,13 @@ func (p *parser) parseTagOpt() (tag []byte) {
 // IdentifierList = identifier { "," identifier } .
 func (p *parser) parseIdList(id *ast.Ident) (ids []*ast.Ident) {
 	if id == nil {
-		name, off := p.matchString(s.ID)
+		name, off := p.matchString(scanner.ID)
 		id = &ast.Ident{Off: off, Id: name}
 	}
 	ids = append(ids, id)
 	for p.token == ',' {
 		p.next()
-		name, off := p.matchString(s.ID)
+		name, off := p.matchString(scanner.ID)
 		if len(name) > 0 {
 			ids = append(ids, &ast.Ident{Off: off, Id: name})
 		}
@@ -559,13 +560,13 @@ func (p *parser) parseIdList(id *ast.Ident) (ids []*ast.Ident) {
 
 // Parse an IdentifierList in the context of a ConstSpec.
 func (p *parser) parseConstIdList() (id []*ast.Const) {
-	name, off := p.matchString(s.ID)
+	name, off := p.matchString(scanner.ID)
 	// Ensure the list containes at least one element even in the case of a
 	// missing identifier.
 	id = append(id, &ast.Const{Off: off, Name: name})
 	for p.token == ',' {
 		p.next()
-		name, off = p.matchString(s.ID)
+		name, off = p.matchString(scanner.ID)
 		if len(name) > 0 {
 			id = append(id, &ast.Const{Off: off, Name: name})
 		}
@@ -575,13 +576,13 @@ func (p *parser) parseConstIdList() (id []*ast.Const) {
 
 // Parse an IdentifierList in the context of a VarSpec.
 func (p *parser) parseVarIdList() (id []*ast.Var) {
-	name, off := p.matchString(s.ID)
+	name, off := p.matchString(scanner.ID)
 	// Ensure the list containes at least one element even in the case of a
 	// missing identifier.
 	id = append(id, &ast.Var{Off: off, Name: name})
 	for p.token == ',' {
 		p.next()
-		name, off = p.matchString(s.ID)
+		name, off = p.matchString(scanner.ID)
 		if len(name) > 0 {
 			id = append(id, &ast.Var{Off: off, Name: name})
 		}
@@ -594,7 +595,7 @@ func (p *parser) parseFieldIdList(off int, name string, fs []ast.Field) []ast.Fi
 	fs = append(fs, ast.Field{Off: off, Name: name})
 	for p.token == ',' {
 		p.next()
-		name, off = p.matchString(s.ID)
+		name, off = p.matchString(scanner.ID)
 		if len(name) > 0 {
 			fs = append(fs, ast.Field{Off: off, Name: name})
 		}
@@ -604,7 +605,7 @@ func (p *parser) parseFieldIdList(off int, name string, fs []ast.Field) []ast.Fi
 
 // FunctionType = "func" Signature .
 func (p *parser) parseFuncType() *ast.FuncType {
-	off := p.match(s.FUNC)
+	off := p.match(scanner.FUNC)
 	t := p.parseSignature()
 	t.Off = off
 	return t
@@ -638,7 +639,7 @@ func (p *parser) parseParameters() ([]ast.Param, bool) {
 		p.next()
 		return nil, false
 	}
-	for p.token != s.EOF && p.token != ')' {
+	for p.token != scanner.EOF && p.token != ')' {
 		parm, v := p.parseIdOrType()
 		if parm.Type != nil {
 			convertToParamTypes(ns)
@@ -683,13 +684,13 @@ func (p *parser) parseParameters() ([]ast.Param, bool) {
 // Parses an identifier or a type. A qualified identifier is considered a
 // type.
 func (p *parser) parseIdOrType() (ast.Param, bool) {
-	if p.token == s.ID {
-		id, off := p.matchString(s.ID)
+	if p.token == scanner.ID {
+		id, off := p.matchString(scanner.ID)
 		if p.token == '.' {
 			p.next()
 			pkg := id
-			if p.token == s.ID {
-				id, _ = p.matchString(s.ID)
+			if p.token == scanner.ID {
+				id, _ = p.matchString(scanner.ID)
 			} else {
 				p.error("incomplete qualified id")
 				id = ""
@@ -699,7 +700,7 @@ func (p *parser) parseIdOrType() (ast.Param, bool) {
 		return ast.Param{Off: off, Name: id}, false
 	}
 	v := false
-	if p.token == s.DOTS {
+	if p.token == scanner.DOTS {
 		p.next()
 		v = true
 	}
@@ -724,11 +725,11 @@ func convertToParamTypes(ps []ast.Param) {
 // InterfaceTypeName  = TypeName .
 func (p *parser) parseInterfaceType() *ast.InterfaceType {
 	var ms []*ast.MethodSpec
-	off := p.match(s.INTERFACE)
+	off := p.match(scanner.INTERFACE)
 	p.match('{')
-	for p.token != s.EOF && p.token != '}' {
+	for p.token != scanner.EOF && p.token != '}' {
 		var m *ast.MethodSpec
-		id, off := p.matchString(s.ID)
+		id, off := p.matchString(scanner.ID)
 		if p.token == '(' {
 			sig := p.parseSignature()
 			m = &ast.MethodSpec{Off: off, Name: id, Type: sig}
@@ -737,7 +738,7 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 			if p.token == '.' {
 				p.next()
 				pkg = id
-				id, _ = p.matchString(s.ID)
+				id, _ = p.matchString(scanner.ID)
 			}
 			m = &ast.MethodSpec{Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}}
 		}
@@ -752,11 +753,11 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 func (p *parser) parseConstDecl() ast.Decl {
-	p.match(s.CONST)
+	p.match(scanner.CONST)
 	if p.token == '(' {
 		p.next()
 		grp := &ast.ConstDeclGroup{}
-		for p.token != s.EOF && p.token != ')' {
+		for p.token != scanner.EOF && p.token != ')' {
 			grp.Consts = append(grp.Consts, p.parseConstSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
@@ -788,11 +789,11 @@ func (p *parser) parseConstSpec() *ast.ConstDecl {
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 func (p *parser) parseVarDecl() ast.Decl {
-	p.match(s.VAR)
+	p.match(scanner.VAR)
 	if p.token == '(' {
 		p.next()
 		grp := &ast.VarDeclGroup{}
-		for p.token != s.EOF && p.token != ')' {
+		for p.token != scanner.EOF && p.token != ')' {
 			grp.Vars = append(grp.Vars, p.parseVarSpec())
 			if p.token != ')' {
 				p.sync2(';', ')')
@@ -828,12 +829,12 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 // Function     = Signature FunctionBody .
 // FunctionBody = Block .
 func (p *parser) parseFuncDecl() ast.Decl {
-	foff := p.match(s.FUNC)
+	foff := p.match(scanner.FUNC)
 	var r *ast.Param
 	if p.token == '(' {
 		r = p.parseReceiver()
 	}
-	name, off := p.matchString(s.ID)
+	name, off := p.matchString(scanner.ID)
 	sig := p.parseSignature()
 	var blk *ast.Block
 	if p.token == '{' {
@@ -859,14 +860,14 @@ func (p *parser) parseReceiver() *ast.Param {
 		off  int
 	)
 	p.match('(')
-	if p.token == s.ID {
-		name, off = p.matchString(s.ID)
+	if p.token == scanner.ID {
+		name, off = p.matchString(scanner.ID)
 	}
 
 	var t ast.Type
 	if p.token == '*' {
 		t = &ast.PtrType{Off: p.next(), Base: p.parseQualifiedId()}
-	} else if p.token == s.ID {
+	} else if p.token == scanner.ID {
 		t = p.parseQualifiedId()
 	} else {
 		if len(name) == 0 {
@@ -930,10 +931,10 @@ func (p *parser) parseOrExprOrType() (ast.Expr, ast.Type) {
 	if x == nil {
 		return nil, t
 	}
-	for p.token == s.OR {
+	for p.token == scanner.OR {
 		p.next()
 		y, _ := p.parseAndExprOrType()
-		x = &ast.BinaryExpr{Op: s.OR, X: x, Y: y}
+		x = &ast.BinaryExpr{Op: scanner.OR, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -946,10 +947,10 @@ func (p *parser) parseAndExprOrType() (ast.Expr, ast.Type) {
 	if x == nil {
 		return nil, t
 	}
-	for p.token == s.AND {
+	for p.token == scanner.AND {
 		p.next()
 		y, _ := p.parseCompareExprOrType()
-		x = &ast.BinaryExpr{Op: s.AND, X: x, Y: y}
+		x = &ast.BinaryExpr{Op: scanner.AND, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -1010,7 +1011,7 @@ func (p *parser) parseMulExprOrType() (ast.Expr, ast.Type) {
 // rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
 func isRelOp(t uint) bool {
 	switch t {
-	case s.EQ, s.NE, s.LT, s.LE, s.GT, s.GE:
+	case scanner.EQ, scanner.NE, scanner.LT, scanner.LE, scanner.GT, scanner.GE:
 		return true
 	default:
 		return false
@@ -1030,7 +1031,7 @@ func isAddOp(t uint) bool {
 // mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
 func isMulOp(t uint) bool {
 	switch t {
-	case '*', '/', '%', s.SHL, s.SHR, '&', s.ANDN:
+	case '*', '/', '%', scanner.SHL, scanner.SHR, '&', scanner.ANDN:
 		return true
 	default:
 		return false
@@ -1040,9 +1041,9 @@ func isMulOp(t uint) bool {
 // assign_op = [ add_op | mul_op ] "=" .
 func isAssignOp(t uint) bool {
 	switch t {
-	case '=', s.PLUS_ASSIGN, s.MINUS_ASSIGN, s.MUL_ASSIGN, s.DIV_ASSIGN,
-		s.REM_ASSIGN, s.AND_ASSIGN, s.OR_ASSIGN, s.XOR_ASSIGN, s.SHL_ASSIGN,
-		s.SHR_ASSIGN, s.ANDN_ASSIGN:
+	case '=', scanner.PLUS_ASSIGN, scanner.MINUS_ASSIGN, scanner.MUL_ASSIGN,
+		scanner.DIV_ASSIGN, scanner.REM_ASSIGN, scanner.AND_ASSIGN, scanner.OR_ASSIGN,
+		scanner.XOR_ASSIGN, scanner.SHL_ASSIGN, scanner.SHR_ASSIGN, scanner.ANDN_ASSIGN:
 		return true
 	default:
 		return false
@@ -1067,10 +1068,10 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			return nil, &ast.PtrType{Off: off, Base: t}
 		}
-	case s.RECV:
+	case scanner.RECV:
 		off := p.next()
 		if x, t := p.parseUnaryExprOrType(); t == nil {
-			return &ast.UnaryExpr{Off: off, Op: s.RECV, X: x}, nil
+			return &ast.UnaryExpr{Off: off, Op: scanner.RECV, X: x}, nil
 		} else if ch, ok := t.(*ast.ChanType); ok {
 			ch.Recv, ch.Send = true, false
 			ch.Off = off
@@ -1101,7 +1102,7 @@ func (p *parser) needType(x ast.Expr) (ast.Type, bool) {
 func (p *parser) parseTypeAssertion(x ast.Expr) ast.Expr {
 	p.match('(')
 	var t ast.Type
-	if p.token == s.TYPE {
+	if p.token == scanner.TYPE {
 		p.next()
 	} else {
 		t = p.parseType()
@@ -1129,8 +1130,8 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 	)
 	// Handle initial Operand, Conversion or a BuiltinCall
 	switch p.token {
-	case s.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
-		name, off := p.matchString(s.ID)
+	case scanner.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
+		name, off := p.matchString(scanner.ID)
 		id := &ast.QualifiedId{Off: off, Id: name}
 		if p.token == '{' && p.brackets > 0 {
 			x = p.parseCompositeLiteral(id)
@@ -1144,7 +1145,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 				x = p.parseTypeAssertion(id)
 			} else {
 				// QualifiedId or Selector. Parsed as QualifiedId
-				name, _ = p.matchString(s.ID)
+				name, _ = p.matchString(scanner.ID)
 				id.Pkg = id.Id
 				id.Id = name
 				x = id
@@ -1167,7 +1168,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			x = &ast.ParensExpr{Off: off, X: x}
 		}
-	case '[', s.STRUCT, s.MAP: // Conversion, CompositeLit
+	case '[', scanner.STRUCT, scanner.MAP: // Conversion, CompositeLit
 		t = p.parseType()
 		if p.token == '(' {
 			x = p.parseConversion(t)
@@ -1176,7 +1177,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			return nil, t
 		}
-	case s.FUNC: // Conversion, FunctionLiteral
+	case scanner.FUNC: // Conversion, FunctionLiteral
 		t = p.parseType()
 		if p.token == '(' {
 			x = p.parseConversion(t)
@@ -1185,22 +1186,22 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			return nil, t
 		}
-	case '*', s.RECV:
+	case '*', scanner.RECV:
 		panic("should not reach here")
-	case s.INTERFACE, s.CHAN: // Conversion
+	case scanner.INTERFACE, scanner.CHAN: // Conversion
 		t = p.parseType()
 		if p.token == '(' {
 			x = p.parseConversion(t)
 		} else {
 			return nil, t
 		}
-	case s.INTEGER, s.FLOAT, s.IMAGINARY, s.RUNE: // BasicLiteral
+	case scanner.INTEGER, scanner.FLOAT, scanner.IMAGINARY, scanner.RUNE: // BasicLiteral
 		k := p.token
 		v, off := p.matchRaw(k)
 		return &ast.Literal{Off: off, Kind: k, Value: v}, nil
-	case s.STRING:
-		v, off := p.matchRaw(s.STRING)
-		x = &ast.Literal{Off: off, Kind: s.STRING, Value: v}
+	case scanner.STRING:
+		v, off := p.matchRaw(scanner.STRING)
+		x = &ast.Literal{Off: off, Kind: scanner.STRING, Value: v}
 	default:
 		p.error("token cannot start neither expression nor type")
 		x = &ast.Error{p.scan.TOff}
@@ -1218,7 +1219,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 			} else {
 				// PrimaryExpr Selector
 				// Selector = "." identifier .
-				id, _ := p.matchString(s.ID)
+				id, _ := p.matchString(scanner.ID)
 				x = &ast.Selector{X: x, Id: id}
 			}
 		case '[':
@@ -1265,7 +1266,7 @@ func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
 func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 	p.match('{')
 	p.beginBrackets()
-	for p.token != s.EOF && p.token != '}' {
+	for p.token != scanner.EOF && p.token != '}' {
 		elts = append(elts, p.parseElement())
 		if p.token != '}' {
 			p.sync2(',', '}')
@@ -1331,16 +1332,16 @@ func (p *parser) parseCall(f ast.Expr) ast.Expr {
 		xs = append(xs, x)
 	}
 	dots := false
-	if p.token == s.DOTS {
+	if p.token == scanner.DOTS {
 		p.next()
 		dots = true
 	}
 	if p.token != ')' {
 		p.match(',')
 	}
-	for p.token != s.EOF && p.token != ')' && !dots {
+	for p.token != scanner.EOF && p.token != ')' && !dots {
 		xs = append(xs, p.parseExpr())
-		if p.token == s.DOTS {
+		if p.token == scanner.DOTS {
 			p.next()
 			dots = true
 		}
@@ -1418,7 +1419,8 @@ func (p *parser) parseBlock() *ast.Block {
 func (p *parser) parseStatementList() *ast.Block {
 	var st []ast.Stmt
 	b := p.setBrackets(1)
-	for p.token != s.EOF && p.token != '}' && p.token != s.CASE && p.token != s.DEFAULT {
+	for p.token != scanner.EOF && p.token != '}' &&
+		p.token != scanner.CASE && p.token != scanner.DEFAULT {
 		st = append(st, p.parseStmt())
 		p.syncEndStatement()
 	}
@@ -1434,8 +1436,8 @@ func (p *parser) syncEndStatement() {
 		p.next()
 		return
 	}
-	for p.token != s.EOF && p.token != ';' && p.token != '}' &&
-		p.token != s.CASE && p.token != s.DEFAULT {
+	for p.token != scanner.EOF && p.token != ';' && p.token != '}' &&
+		p.token != scanner.CASE && p.token != scanner.DEFAULT {
 		p.next()
 	}
 	if p.token == ';' {
@@ -1455,36 +1457,36 @@ func (p *parser) parseStmt() ast.Stmt {
 	//	defer p.trace("Statement")()
 
 	switch p.token {
-	case s.CONST:
+	case scanner.CONST:
 		// FIXME: these type assertions are rather dubious
 		return p.parseConstDecl().(ast.Stmt)
-	case s.TYPE:
+	case scanner.TYPE:
 		return p.parseTypeDecl().(ast.Stmt)
-	case s.VAR:
+	case scanner.VAR:
 		return p.parseVarDecl().(ast.Stmt)
-	case s.GO:
+	case scanner.GO:
 		return p.parseGoStmt()
-	case s.RETURN:
+	case scanner.RETURN:
 		return p.parseReturnStmt()
-	case s.BREAK:
+	case scanner.BREAK:
 		return p.parseBreakStmt()
-	case s.CONTINUE:
+	case scanner.CONTINUE:
 		return p.parseContinueStmt()
-	case s.GOTO:
+	case scanner.GOTO:
 		return p.parseGotoStmt()
-	case s.FALLTHROUGH:
+	case scanner.FALLTHROUGH:
 		return p.parseFallthroughStmt()
 	case '{':
 		return p.parseBlock()
-	case s.IF:
+	case scanner.IF:
 		return p.parseIfStmt()
-	case s.SWITCH:
+	case scanner.SWITCH:
 		return p.parseSwitchStmt()
-	case s.SELECT:
+	case scanner.SELECT:
 		return p.parseSelectStmt()
-	case s.FOR:
+	case scanner.FOR:
 		return p.parseForStmt()
-	case s.DEFER:
+	case scanner.DEFER:
 		return p.parseDeferStmt()
 	case ';', '}':
 		return &ast.EmptyStmt{p.scan.TOff}
@@ -1515,12 +1517,12 @@ func (p *parser) parseLabeledStmt(x ast.Expr) ast.Stmt {
 
 // GoStmt = "go" Expression .
 func (p *parser) parseGoStmt() ast.Stmt {
-	return &ast.GoStmt{Off: p.match(s.GO), X: p.parseExpr()}
+	return &ast.GoStmt{Off: p.match(scanner.GO), X: p.parseExpr()}
 }
 
 // ReturnStmt = "return" [ ExpressionList ] .
 func (p *parser) parseReturnStmt() ast.Stmt {
-	off := p.match(s.RETURN)
+	off := p.match(scanner.RETURN)
 	if p.token != ';' && p.token != '}' {
 		return &ast.ReturnStmt{Off: off, Xs: p.parseExprList(nil)}
 	} else {
@@ -1530,9 +1532,9 @@ func (p *parser) parseReturnStmt() ast.Stmt {
 
 // BreakStmt = "break" [ Label ] .
 func (p *parser) parseBreakStmt() ast.Stmt {
-	off := p.match(s.BREAK)
-	if p.token == s.ID {
-		label, _ := p.matchString(s.ID)
+	off := p.match(scanner.BREAK)
+	if p.token == scanner.ID {
+		label, _ := p.matchString(scanner.ID)
 		return &ast.BreakStmt{Off: off, Label: label}
 	} else {
 		return &ast.BreakStmt{Off: off}
@@ -1541,9 +1543,9 @@ func (p *parser) parseBreakStmt() ast.Stmt {
 
 // ContinueStmt = "continue" [ Label ] .
 func (p *parser) parseContinueStmt() ast.Stmt {
-	off := p.match(s.CONTINUE)
-	if p.token == s.ID {
-		label, _ := p.matchString(s.ID)
+	off := p.match(scanner.CONTINUE)
+	if p.token == scanner.ID {
+		label, _ := p.matchString(scanner.ID)
 		return &ast.ContinueStmt{Off: off, Label: label}
 	} else {
 		return &ast.ContinueStmt{Off: off}
@@ -1552,19 +1554,19 @@ func (p *parser) parseContinueStmt() ast.Stmt {
 
 // GotoStmt = "goto" Label .
 func (p *parser) parseGotoStmt() ast.Stmt {
-	off := p.match(s.GOTO)
-	label, _ := p.matchString(s.ID)
+	off := p.match(scanner.GOTO)
+	label, _ := p.matchString(scanner.ID)
 	return &ast.GotoStmt{Off: off, Label: label}
 }
 
 // FallthroughStmt = "fallthrough" .
 func (p *parser) parseFallthroughStmt() ast.Stmt {
-	return &ast.FallthroughStmt{Off: p.match(s.FALLTHROUGH)}
+	return &ast.FallthroughStmt{Off: p.match(scanner.FALLTHROUGH)}
 }
 
 // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 func (p *parser) parseIfStmt() ast.Stmt {
-	off := p.match(s.IF)
+	off := p.match(scanner.IF)
 	b := p.setBrackets(0)
 	var init ast.Stmt
 	x := p.parseExpr()
@@ -1575,10 +1577,10 @@ func (p *parser) parseIfStmt() ast.Stmt {
 	}
 	p.setBrackets(b)
 	then := p.parseBlock()
-	if p.token == s.ELSE {
+	if p.token == scanner.ELSE {
 		var els ast.Stmt
 		p.next()
-		if p.token == s.IF {
+		if p.token == scanner.IF {
 			els = p.parseIfStmt()
 		} else {
 			els = p.parseBlock()
@@ -1612,7 +1614,7 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 				} else {
 					id = z.Id
 				}
-				if a.Op != s.DEFINE {
+				if a.Op != scanner.DEFINE {
 					p.error("type switch guard must use := instead of =")
 				}
 				return id, y, true
@@ -1627,7 +1629,7 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 // TypeSwitchStmt = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" {TypeCaseClause} "}" .
 // TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
 func (p *parser) parseSwitchStmt() ast.Stmt {
-	off := p.match(s.SWITCH)
+	off := p.match(scanner.SWITCH)
 
 	b := p.setBrackets(0)
 	defer p.setBrackets(b)
@@ -1680,11 +1682,11 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 		def bool
 	)
 	p.match('{')
-	for p.token == s.CASE || p.token == s.DEFAULT {
+	for p.token == scanner.CASE || p.token == scanner.DEFAULT {
 		t := p.token
 		p.next()
 		var xs []ast.Expr
-		if t == s.CASE {
+		if t == scanner.CASE {
 			xs = p.parseExprList(nil)
 		} else {
 			if def {
@@ -1705,11 +1707,11 @@ func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Ex
 	def := false
 	var cs []ast.TypeCaseClause
 	p.match('{')
-	for p.token == s.CASE || p.token == s.DEFAULT {
+	for p.token == scanner.CASE || p.token == scanner.DEFAULT {
 		t := p.token
 		p.next()
 		var ts []ast.Type
-		if t == s.CASE {
+		if t == scanner.CASE {
 			ts = p.parseTypeList()
 		} else {
 			if def {
@@ -1745,13 +1747,13 @@ func (p *parser) parseTypeList() (ts []ast.Type) {
 func (p *parser) parseSelectStmt() ast.Stmt {
 	def := false
 	var cs []ast.CommClause
-	off := p.match(s.SELECT)
+	off := p.match(scanner.SELECT)
 	p.match('{')
-	for p.token == s.CASE || p.token == s.DEFAULT {
+	for p.token == scanner.CASE || p.token == scanner.DEFAULT {
 		t := p.token
 		p.next()
 		var c ast.Stmt
-		if t == s.CASE {
+		if t == scanner.CASE {
 			c = p.parseSimpleStmt(p.parseExpr())
 		} else {
 			if def {
@@ -1773,7 +1775,7 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 // PostStmt = SimpleStmt .
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 func (p *parser) parseForStmt() ast.Stmt {
-	off := p.match(s.FOR)
+	off := p.match(scanner.FOR)
 	b := p.setBrackets(0)
 	defer p.setBrackets(b)
 
@@ -1782,7 +1784,7 @@ func (p *parser) parseForStmt() ast.Stmt {
 		return &ast.ForStmt{Off: off, Blk: p.parseBlock()}
 	}
 
-	if p.token == s.RANGE {
+	if p.token == scanner.RANGE {
 		// range for: "for range ex { ..."
 		p.next()
 		return &ast.ForRangeStmt{
@@ -1840,7 +1842,7 @@ func (p *parser) parseForStmt() ast.Stmt {
 
 // DeferStmt = "defer" Expression .
 func (p *parser) parseDeferStmt() ast.Stmt {
-	return &ast.DeferStmt{Off: p.match(s.DEFER), X: p.parseExpr()}
+	return &ast.DeferStmt{Off: p.match(scanner.DEFER), X: p.parseExpr()}
 }
 
 // SimpleStmt =
@@ -1848,9 +1850,9 @@ func (p *parser) parseDeferStmt() ast.Stmt {
 //     ShortVarDecl .
 func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	switch p.token {
-	case s.RECV:
+	case scanner.RECV:
 		return p.parseSendStmt(e)
-	case s.INC, s.DEC:
+	case scanner.INC, scanner.DEC:
 		return p.parseIncDecStmt(e)
 	}
 	if p.token == ';' || p.token == ':' || p.token == '}' || p.token == '{' {
@@ -1864,7 +1866,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 		es = append(es, e)
 	}
 	t := p.token
-	if t == s.DEFINE {
+	if t == scanner.DEFINE {
 		p.next()
 		return p.parseShortVarDecl(es)
 	} else if isAssignOp(t) {
@@ -1880,9 +1882,9 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 // disambiguate between a range for and an ordinary for.
 func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 	switch p.token {
-	case s.RECV:
+	case scanner.RECV:
 		return p.parseSendStmt(e)
-	case s.INC, s.DEC:
+	case scanner.INC, scanner.DEC:
 		return p.parseIncDecStmt(e)
 	}
 	if p.token == ';' || p.token == '{' {
@@ -1896,12 +1898,12 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 		es = append(es, e)
 	}
 	t := p.token
-	if t == s.DEFINE || isAssignOp(t) {
+	if t == scanner.DEFINE || isAssignOp(t) {
 		p.next()
-		if p.token == s.RANGE {
+		if p.token == scanner.RANGE {
 			return p.parseRangeClause(t, es)
 		}
-		if t == s.DEFINE {
+		if t == scanner.DEFINE {
 			return p.parseShortVarDecl(es)
 		} else {
 			return p.parseAssignment(t, es)
@@ -1914,17 +1916,17 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 // SendStmt = Channel "<-" Expression .
 // Channel  = Expression .
 func (p *parser) parseSendStmt(ch ast.Expr) ast.Stmt {
-	p.match(s.RECV)
+	p.match(scanner.RECV)
 	return &ast.SendStmt{Ch: ch, X: p.parseExpr()}
 }
 
 // IncDecStmt = Expression ( "++" | "--" ) .
 func (p *parser) parseIncDecStmt(e ast.Expr) ast.Stmt {
-	if p.token == s.INC {
-		p.match(s.INC)
+	if p.token == scanner.INC {
+		p.match(scanner.INC)
 		return &ast.IncStmt{e}
 	} else {
-		p.match(s.DEC)
+		p.match(scanner.DEC)
 		return &ast.DecStmt{e}
 	}
 }
@@ -1939,11 +1941,11 @@ func (p *parser) parseAssignment(op uint, lhs []ast.Expr) ast.Stmt {
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
 	rhs := p.parseExprList(nil)
-	return &ast.AssignStmt{s.DEFINE, lhs, rhs}
+	return &ast.AssignStmt{scanner.DEFINE, lhs, rhs}
 }
 
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 func (p *parser) parseRangeClause(op uint, lhs []ast.Expr) *ast.ForRangeStmt {
-	p.match(s.RANGE)
+	p.match(scanner.RANGE)
 	return &ast.ForRangeStmt{Op: op, LHS: lhs, Range: p.parseExpr()}
 }

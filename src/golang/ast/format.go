@@ -3,7 +3,7 @@ package ast
 import (
 	"bytes"
 	"fmt"
-	s "golang/scanner"
+	"golang/scanner"
 	"io"
 )
 
@@ -444,13 +444,13 @@ func (e *Literal) Format(ctx *FormatContext, _ uint) {
 		ctx.WriteV(0, "/* #", e.Off, " */")
 	}
 	switch e.Kind {
-	case s.INTEGER, s.FLOAT:
+	case scanner.INTEGER, scanner.FLOAT:
 		ctx.Write(e.Value)
-	case s.RUNE:
+	case scanner.RUNE:
 		ctx.WriteV(0, "'", e.Value, "'")
-	case s.IMAGINARY:
+	case scanner.IMAGINARY:
 		ctx.WriteV(0, e.Value, "i")
-	case s.STRING:
+	case scanner.STRING:
 		ctx.Write(e.Value)
 	default:
 		panic("invalid literal")
@@ -580,12 +580,12 @@ func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
 	if ctx.exprPositions() {
 		ctx.WriteV(n, "/* #", e.Off, " */")
 	}
-	ctx.WriteString(s.TokenNames[e.Op])
+	ctx.WriteString(scanner.TokenNames[e.Op])
 	e.X.Format(ctx, n)
 }
 
 func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, e.X.Format, " ", s.TokenNames[e.Op], " ", e.Y.Format)
+	ctx.WriteV(n, e.X.Format, " ", scanner.TokenNames[e.Op], " ", e.Y.Format)
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {
@@ -719,7 +719,7 @@ func (a *AssignStmt) Format(ctx *FormatContext, n uint) {
 			a.LHS[i].Format(ctx, n)
 		}
 	}
-	ctx.WriteV(0, " ", s.TokenNames[a.Op], " ")
+	ctx.WriteV(0, " ", scanner.TokenNames[a.Op], " ")
 	m = len(a.RHS)
 	if m > 0 {
 		a.RHS[0].Format(ctx, n)
@@ -793,7 +793,7 @@ func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
 			ctx.WriteString(", ")
 			f.LHS[i].Format(ctx, n)
 		}
-		ctx.WriteV(0, " ", s.TokenNames[f.Op], " ")
+		ctx.WriteV(0, " ", scanner.TokenNames[f.Op], " ")
 	}
 	ctx.WriteV(n, "range ", f.Range.Format, " ", f.Blk.Format)
 }
