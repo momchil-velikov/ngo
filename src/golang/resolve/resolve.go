@@ -73,17 +73,19 @@ func resolveFile(f *ast.UnresolvedFile, pkg *ast.Package) (*ast.File, error) {
 	}
 
 	// Declare imported package names.
-	for _, i := range f.Imports {
-		if i.Name == "_" {
+	for i, idcl := range f.Imports {
+		if idcl.Name == "_" {
 			// do not import package decls
 			continue
 		}
-		path := constexpr.String(i.Path)
+		path := constexpr.String(idcl.Path)
 		dep, ok := pkg.PkgMap[path]
 		if !ok {
 			panic("internal error: package path not found: " + path)
 		}
-		if i.Name == "." {
+		imp := &ast.Import{Off: idcl.Off, No: i, File: file, Name: idcl.Name, Pkg: dep}
+		file.Imports = append(file.Imports, imp)
+		if idcl.Name == "." {
 			// Import package exported identifiers into the file block.
 			for name, sym := range dep.Decls {
 				if isExported(name) {
@@ -94,14 +96,13 @@ func resolveFile(f *ast.UnresolvedFile, pkg *ast.Package) (*ast.File, error) {
 			}
 		} else {
 			// Declare the package name in the file block.
-			if len(i.Name) == 0 {
-				i.Name = filepath.Base(path)
+			if len(imp.Name) == 0 {
+				imp.Name = filepath.Base(path)
 			}
-			if !isValidPackageName(i.Name) {
-				return nil, errors.New(i.Name + " is not a valid package name") // FIXME
+			if !isValidPackageName(imp.Name) {
+				return nil, errors.New(imp.Name + " is not a valid package name") // FIXME
 			}
-			sym := &ast.Import{Off: i.Off, File: file, Name: i.Name, Pkg: dep}
-			if err := file.Declare(i.Name, sym); err != nil {
+			if err := file.Declare(imp.Name, imp); err != nil {
 				return nil, err
 			}
 		}

@@ -129,7 +129,8 @@ type File struct {
 	PkgName string            // Package name
 	Name    string            // File name
 	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
-	Decls   map[string]Symbol // File scope declararions
+	Imports []*Import         // Imported packages
+	Decls   map[string]Symbol // File scope declarations
 }
 
 type UnresolvedFile struct {
@@ -146,6 +147,7 @@ type UnresolvedFile struct {
 // Imported package
 type Import struct {
 	Off  int
+	No   int
 	File *File
 	Name string
 	Pkg  *Package
