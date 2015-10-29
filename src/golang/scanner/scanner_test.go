@@ -636,6 +636,17 @@ f
 		tok = s.Get()
 		i++
 	}
+
+	o := 0
+	for i, ln := range s.SrcMap.line {
+		if ln.off != o {
+			t.Error("line ", i, "expected at offset", o, "got", ln.off, "instead")
+		}
+		o += ln.len
+	}
+	if o != s.SrcMap.size {
+		t.Error("expected source size", o, "got", s.SrcMap.size, "instead")
+	}
 }
 
 func TestBug20150809T112324(t *testing.T) {
