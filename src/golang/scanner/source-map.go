@@ -8,7 +8,7 @@ type SourceMap struct {
 	size int
 }
 
-func (s *SourceMap) addLine(sz int) {
+func (s *SourceMap) AddLine(sz int) {
 	s.line = append(s.line, lineExtent{s.size, sz})
 	s.size += sz
 }
@@ -21,6 +21,11 @@ func (s *SourceMap) Size() int {
 // Returns the number of source lines.
 func (s *SourceMap) LineCount() int {
 	return len(s.line)
+}
+
+// Returns the start offset and the length of a source line.
+func (s *SourceMap) LineExtent(i int) (int, int) {
+	return s.line[i].off, s.line[i].len
 }
 
 // Returns the 1-based line and column numbers corresponding to the given

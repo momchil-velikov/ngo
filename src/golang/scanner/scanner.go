@@ -79,7 +79,7 @@ func (s *Scanner) next() rune {
 	if sz > 0 {
 		s.off += sz
 		if r == NL {
-			s.SrcMap.addLine(s.off - s.lineOff)
+			s.SrcMap.AddLine(s.off - s.lineOff)
 			s.lineOff = s.off
 		}
 	}
@@ -105,7 +105,7 @@ func (s *Scanner) nextChar() rune {
 	if r != EOF {
 		s.off++
 		if r == NL {
-			s.SrcMap.addLine(s.off - s.lineOff)
+			s.SrcMap.AddLine(s.off - s.lineOff)
 		}
 	}
 	return r
@@ -434,7 +434,7 @@ func (s *Scanner) Get() uint {
 				return ';'
 			} else {
 				if s.lineOff < s.off {
-					s.SrcMap.addLine(s.off - s.lineOff)
+					s.SrcMap.AddLine(s.off - s.lineOff)
 					s.lineOff = s.off
 				}
 				return EOF

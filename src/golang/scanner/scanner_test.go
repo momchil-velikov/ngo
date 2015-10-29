@@ -625,27 +625,28 @@ d e
 // fofofof
 f
 `
-	off := []int{0, 2, 4, 4, 16, 16, 18, 28, 30, 30, 32, 44, 55, 55}
+	offs := []int{0, 2, 4, 4, 16, 16, 18, 28, 30, 30, 32, 44, 55, 55}
 	s := New("test-position.go", src)
 	i := 0
 	tok := s.Get()
 	for tok != ERROR && tok != EOF {
-		if s.TOff != off[i] {
+		if s.TOff != offs[i] {
 			t.Error("wrong token offset: token:", TokenNames[tok], "off:", s.TOff)
 		}
 		tok = s.Get()
 		i++
 	}
 
-	o := 0
-	for i, ln := range s.SrcMap.line {
-		if ln.off != o {
-			t.Error("line ", i, "expected at offset", o, "got", ln.off, "instead")
+	off := 0
+	for i := 0; i < s.SrcMap.LineCount(); i++ {
+		o, len := s.SrcMap.LineExtent(i)
+		if off != o {
+			t.Error("line ", i+1, "expected at offset", off, "got", o, "instead")
 		}
-		o += ln.len
+		off += len
 	}
-	if o != s.SrcMap.size {
-		t.Error("expected source size", o, "got", s.SrcMap.size, "instead")
+	if off != s.SrcMap.Size() {
+		t.Error("expected source size", off, "got", s.SrcMap.Size(), "instead")
 	}
 }
 
