@@ -42,14 +42,14 @@ func isDigit(ch rune) bool {
 }
 
 func ResolvePackage(
-	p *ast.UnresolvedPackage, pmap map[string]*ast.Package) (*ast.Package, error) {
+	p *ast.UnresolvedPackage, deps map[string]*ast.Package) (*ast.Package, error) {
 
 	pkg := &ast.Package{
-		Path:   p.Path,
-		Name:   p.Name,
-		Files:  nil,
-		Decls:  make(map[string]ast.Symbol),
-		PkgMap: pmap,
+		Path:  p.Path,
+		Name:  p.Name,
+		Files: nil,
+		Decls: make(map[string]ast.Symbol),
+		Deps:  deps,
 	}
 	for _, f := range p.Files {
 		if file, err := resolveFile(f, pkg); err != nil {
@@ -77,7 +77,7 @@ func resolveFile(f *ast.UnresolvedFile, pkg *ast.Package) (*ast.File, error) {
 			continue
 		}
 		path := constexpr.String(idcl.Path)
-		dep, ok := pkg.PkgMap[path]
+		dep, ok := pkg.Deps[path]
 		if !ok {
 			panic("internal error: package path not found: " + path)
 		}

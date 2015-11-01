@@ -6,6 +6,7 @@ golang/parser
 golang/constexpr
 golang/build
 golang/resolve
+golang/pdb
 "
 
 PROGS="

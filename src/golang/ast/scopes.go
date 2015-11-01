@@ -1,12 +1,25 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+
+	"unicode"
+	"unicode/utf8"
+)
+
+func isExported(name string) bool {
+	r, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsLetter(r) && unicode.IsUpper(r)
+}
 
 // The Symbol interface denotes entities, which are put into various Scopes
 // (symbol tables) and can be looked up by name
 type Symbol interface {
 	symbol()
-	DeclaredAt() (string, int, *File) // Returns the source position of the declaration
+	// Returns source position of the declaration
+	DeclaredAt() (string, int, *File)
+	// Returns true if the declaration begins with an upper case letter
+	IsExported() bool
 }
 
 // The names of the imported packages are inserted into the file scope of the
@@ -15,26 +28,31 @@ func (Import) symbol() {}
 func (i *Import) DeclaredAt() (string, int, *File) {
 	return i.Name, i.Off, i.File
 }
+func (*Import) IsExported() bool { return false }
 
 func (TypeDecl) symbol() {}
 func (t *TypeDecl) DeclaredAt() (string, int, *File) {
 	return t.Name, t.Off, t.File
 }
+func (t *TypeDecl) IsExported() bool { return isExported(t.Name) }
 
 func (Const) symbol() {}
 func (c *Const) DeclaredAt() (string, int, *File) {
 	return c.Name, c.Off, c.File
 }
+func (c *Const) IsExported() bool { return isExported(c.Name) }
 
 func (Var) symbol() {}
 func (v *Var) DeclaredAt() (string, int, *File) {
 	return v.Name, v.Off, v.File
 }
+func (v *Var) IsExported() bool { return isExported(v.Name) }
 
 func (FuncDecl) symbol() {}
 func (f *FuncDecl) DeclaredAt() (string, int, *File) {
 	return f.Name, f.Off, f.File
 }
+func (f *FuncDecl) IsExported() bool { return isExported(f.Name) }
 
 // The Scope interface determines the set of visible names at each point of a
 // program

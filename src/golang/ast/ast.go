@@ -108,11 +108,13 @@ func (c *Comment) IsLineComment() bool {
 
 // Package
 type Package struct {
-	Path   string              // Absolute path of the package directory
-	Name   string              // Last component of the path name or "main"
-	Files  []*File             // Source files of the package
-	Decls  map[string]Symbol   // Package level declarations
-	PkgMap map[string]*Package // Global map of package paths
+	No    int                 // Sequence number
+	Path  string              // Absolute path of the package directory
+	Name  string              // Last component of the path name or "main"
+	Sig   [20]byte            // SHA-1 signature of something unrelated here
+	Files []*File             // Source files of the package
+	Decls map[string]Symbol   // Package level declarations
+	Deps  map[string]*Package // Map of package dependencies
 }
 
 type UnresolvedPackage struct {
@@ -124,6 +126,7 @@ type UnresolvedPackage struct {
 // Source file
 type File struct {
 	Off     int               // Position of the "package" keyword
+	No      int               // Sequence number
 	Pkg     *Package          // Owner package
 	PkgName string            // Package name
 	Name    string            // File name
