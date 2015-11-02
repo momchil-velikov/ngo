@@ -211,13 +211,13 @@ func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	pkg, err := parsePackage(dir, srcs)
+	pkg, err := parsePackage(path, dir, srcs)
 	if err != nil {
 		return nil, err
 	}
 	pkg.Files = c.filterByTags(pkg.Files)
 	// Find all the dependency packages.
-	err = c.findPackageDeps(pkg, map[string]*Package{dir: pkg})
+	err = c.findPackageDeps(pkg, map[string]*Package{path: pkg})
 	if err != nil {
 		return nil, err
 	}
@@ -262,33 +262,33 @@ func (c *Config) findPackageDeps(pkg *Package, found map[string]*Package) error 
 	// package.
 	for _, f := range pkg.Files {
 		for _, path := range f.Imports {
-			// Find the dependent package directory.
-			dir := c.FindPackageDir(path)
-			if len(dir) == 0 {
-				return errors.New(fmt.Sprintf("package \"%s\" not found", path))
-			}
 			// Check if the package was already encountered.
-			dep, ok := found[dir]
+			dep, ok := found[path]
 			if !ok {
+				// Find the dependent package directory.
+				dir := c.FindPackageDir(path)
+				if len(dir) == 0 {
+					return errors.New(fmt.Sprintf("package \"%s\" not found", path))
+				}
 				// Find the source files and parse the package.
 				srcs, err := c.FindPackageFiles(dir, false)
 				if err != nil {
 					return err
 				}
-				dep, err = parsePackage(dir, srcs)
+				dep, err = parsePackage(path, dir, srcs)
 				if err != nil {
 					return err
 				}
 				dep.Files = c.filterByTags(dep.Files)
 				// Find the dependencies of the new package, recursively.
-				found[dir] = dep
+				found[path] = dep
 				err = c.findPackageDeps(dep, found)
 				if err != nil {
 					return err
 				}
 			}
 			// Record the package dependency.
-			pkg.Imports[dir] = dep
+			pkg.Imports[path] = dep
 		}
 	}
 	return nil

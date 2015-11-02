@@ -21,10 +21,12 @@ type parser struct {
 
 // Package
 type Package struct {
-	Path, Name string
-	Files      []*File
-	Imports    map[string]*Package
-	Mark       int
+	Dir     string // Full pathname of the package directory
+	Path    string // Import path of the package
+	Name    string // Package name
+	Files   []*File
+	Imports map[string]*Package
+	Mark    int
 }
 
 // Source file
@@ -73,7 +75,7 @@ func (p *parser) error(msg string) error {
 }
 
 // Parse all the source files of a package
-func parsePackage(dir string, names []string) (*Package, error) {
+func parsePackage(path string, dir string, names []string) (*Package, error) {
 	// Parse sources
 	var files []*File
 	for _, name := range names {
@@ -109,7 +111,8 @@ func parsePackage(dir string, names []string) (*Package, error) {
 	}
 
 	pkg := &Package{
-		Path:    dir,
+		Dir:     dir,
+		Path:    path,
 		Name:    pkgname,
 		Files:   files,
 		Imports: make(map[string]*Package),
