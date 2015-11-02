@@ -100,7 +100,7 @@ func TestParserParsePackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parsePackage(dir, srcs)
+	_, err = parsePackage("a", dir, srcs)
 	if err == nil ||
 		!strings.Contains(err.Error(), "inconsistent package name: a, should be main") {
 		t.Error("expected inconsistent package name error")
