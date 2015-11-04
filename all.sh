@@ -1,6 +1,18 @@
 #! /bin/sh
+PKGS="
+lib/sort
+golang/scanner
+golang/parser
+golang/constexpr
+golang/build
+golang/resolve
+"
 
-go test golang/scanner golang/parser golang/constexpr golang/build golang/resolve
-go install scanfilt
-go install parsefilt
-go install pkgdep
+PROGS="
+scanfilt
+parsefilt
+pkgdep
+"
+
+go test ${PKGS}
+go install ${PROGS}
