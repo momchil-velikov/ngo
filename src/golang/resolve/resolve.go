@@ -42,16 +42,14 @@ func isDigit(ch rune) bool {
 }
 
 func ResolvePackage(
-	p *ast.UnresolvedPackage, pmap map[string]*ast.Package, uni ast.Scope,
-) (*ast.Package, error) {
+	p *ast.UnresolvedPackage, pmap map[string]*ast.Package) (*ast.Package, error) {
 
 	pkg := &ast.Package{
-		Path:     p.Path,
-		Name:     p.Name,
-		Files:    nil,
-		Decls:    make(map[string]ast.Symbol),
-		PkgMap:   pmap,
-		Universe: uni,
+		Path:   p.Path,
+		Name:   p.Name,
+		Files:  nil,
+		Decls:  make(map[string]ast.Symbol),
+		PkgMap: pmap,
 	}
 	for _, f := range p.Files {
 		if file, err := resolveFile(f, pkg); err != nil {
