@@ -30,6 +30,7 @@ type Type interface {
 func (Error) typ()         {}
 func (QualifiedId) typ()   {}
 func (Typename) typ()      {}
+func (BuiltinType) typ()   {}
 func (ArrayType) typ()     {}
 func (SliceType) typ()     {}
 func (PtrType) typ()       {}
@@ -343,6 +344,30 @@ type QualifiedId struct {
 type Typename struct {
 	Name *QualifiedId
 	Decl *TypeDecl
+}
+
+const (
+	BUILTIN_NIL = iota
+	BUILTIN_BOOL
+	BUILTIN_UINT8
+	BUILTIN_UINT16
+	BUILTIN_UINT32
+	BUILTIN_UINT64
+	BUILTIN_INT8
+	BUILTIN_INT16
+	BUILTIN_INT32
+	BUILTIN_INT64
+	BUILTIN_FLOAT32
+	BUILTIN_FLOAT64
+	BUILTIN_COMPLEX64
+	BUILTIN_COMPLEX128
+	BUILTIN_UINT
+	BUILTIN_INT
+	BUILTIN_UINTPTR
+)
+
+type BuiltinType struct {
+	Kind int
 }
 
 type ArrayType struct {

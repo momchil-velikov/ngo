@@ -276,6 +276,49 @@ func (t *Typename) Format(ctx *FormatContext, n uint) {
 	t.Name.Format(ctx, n)
 }
 
+func (t *BuiltinType) Format(ctx *FormatContext, _ uint) {
+	var name string
+	switch t.Kind {
+	case BUILTIN_NIL:
+		name = "#nil"
+	case BUILTIN_BOOL:
+		name = "bool"
+	case BUILTIN_UINT8:
+		name = "uint8"
+	case BUILTIN_UINT16:
+		name = "uint16"
+	case BUILTIN_UINT32:
+		name = "uint32"
+	case BUILTIN_UINT64:
+		name = "uint64"
+	case BUILTIN_INT8:
+		name = "int8"
+	case BUILTIN_INT16:
+		name = "int16"
+	case BUILTIN_INT32:
+		name = "int32"
+	case BUILTIN_INT64:
+		name = "int64"
+	case BUILTIN_FLOAT32:
+		name = "float32"
+	case BUILTIN_FLOAT64:
+		name = "float64"
+	case BUILTIN_COMPLEX64:
+		name = "complex64"
+	case BUILTIN_COMPLEX128:
+		name = "complex128"
+	case BUILTIN_UINT:
+		name = "uint"
+	case BUILTIN_INT:
+		name = "int"
+	case BUILTIN_UINTPTR:
+		name = "uintptr"
+	default:
+		panic("not reached")
+	}
+	ctx.WriteString(name)
+}
+
 func (t *ArrayType) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
