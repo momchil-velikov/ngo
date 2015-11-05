@@ -399,7 +399,7 @@ type Field struct {
 	Off  int
 	Name string
 	Type Type
-	Tag  []byte
+	Tag  string
 }
 
 type StructType struct {

@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"golang/ast"
+	"golang/constexpr"
 	"golang/scanner"
 	"io"
 	"io/ioutil"
@@ -531,13 +532,13 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 	return append(fs, ast.Field{Type: &ast.Error{Off: p.scan.TOff}})
 }
 
-func (p *parser) parseTagOpt() (tag []byte) {
+func (p *parser) parseTagOpt() string {
 	if p.token == scanner.STRING {
-		tag, _ = p.matchRaw(scanner.STRING)
+		tag, _ := p.matchRaw(scanner.STRING)
+		return constexpr.String(tag)
 	} else {
-		tag = nil
+		return ""
 	}
-	return
 }
 
 // IdentifierList = identifier { "," identifier } .

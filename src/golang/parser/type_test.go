@@ -171,7 +171,7 @@ type ( a uint; b[] ; c float64 )`
 
 func TestStructType(tst *testing.T) {
 	src := `package foo
-    type S struct { a uint; b, c *float64 "field1" 
+    type S struct { a uint; b, c *float64 "fi\x65ld1"
                     bar.Z ; S "foo"; *T "bar" ;
                     c <-chan string; e, f string
                     g []struct { x, y float64; z struct {zn, zf float32} }
@@ -183,10 +183,10 @@ func TestStructType(tst *testing.T) {
 
 type S struct {
     a uint
-    b, c *float64 "field1"
+    b, c *float64` + " `field1`" + `
     bar.Z
-    S "foo"
-    *T "bar"
+    S` + " `foo`" + `
+    *T` + " `bar`" + `
     c <-chan string
     e, f string
     g []struct {
@@ -226,9 +226,9 @@ g []struct { x, y float64; z struct zn, zf float32} }
 
 type S struct {
     a uint
-    b *float64 "field1"
+    b *float64` + " `field1`" + `
     bar.Z
-    S "foo"
+    S` + " `foo`" + `
     ch <error>
     e, f string
     g []struct {
