@@ -348,8 +348,8 @@ func (t *StructType) Format(ctx *FormatContext, n uint) {
 					ctx.WriteString(" ")
 				}
 				f.Type.Format(ctx, n+1)
-				if f.Tag != nil {
-					ctx.WriteV(0, " ", f.Tag)
+				if len(f.Tag) > 0 {
+					ctx.WriteV(0, " `", f.Tag, "`")
 				}
 				ctx.WriteString("\n")
 				if i+1 < len(t.Fields) {
