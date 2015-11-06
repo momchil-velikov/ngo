@@ -87,7 +87,7 @@ func TestParserParsePackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(d, "test", "07")
+	gopath := filepath.Join(d, _TEST, "07")
 	c, err := new(Config).Init(gopath, "linux", "amd64")
 	if err != nil {
 		t.Fatal(err)
