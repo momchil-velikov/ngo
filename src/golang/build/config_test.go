@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+const _TEST = "_test"
+
 func TestConfig(t *testing.T) {
 	os.Setenv("GOOS", "darwin")
 	os.Setenv("GOARCH", "arm")
@@ -52,9 +54,9 @@ func TestConfigPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1 := filepath.Join(d, "test", "01", "src1")
-	p2 := filepath.Join(d, "test", "01", "src2")
-	p3 := filepath.Join(d, "test", "01", "src3")
+	p1 := filepath.Join(d, _TEST, "01", "src1")
+	p2 := filepath.Join(d, _TEST, "01", "src2")
+	p3 := filepath.Join(d, _TEST, "01", "src3")
 	gopath :=
 		strings.Join([]string{p1, "", p2, ".", "./src", p3}, string(os.PathListSeparator))
 	c, err := new(Config).Init(gopath, "linux", "amd64")
@@ -172,7 +174,7 @@ func TestConfigFilterNames(t *testing.T) {
 
 	for i := range cases {
 		c, err :=
-			new(Config).Init(filepath.Join(cwd, "test", "02"), cases[i].os, cases[i].arch)
+			new(Config).Init(filepath.Join(cwd, _TEST, "02"), cases[i].os, cases[i].arch)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -211,7 +213,7 @@ func TestConfigImportLoop1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(d, "test", "03")
+	gopath := filepath.Join(d, _TEST, "03")
 	c, err := new(Config).Init(gopath, "linux", "amd64")
 
 	_, err = c.CreateBuildSet("a", false)
@@ -227,7 +229,7 @@ func TestConfigImportLoop2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(d, "test", "04")
+	gopath := filepath.Join(d, _TEST, "04")
 	c, err := new(Config).Init(gopath, "linux", "amd64")
 
 	_, err = c.CreateBuildSet("a", false)
@@ -243,7 +245,7 @@ func TestConfigImportLoop3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(d, "test", "05")
+	gopath := filepath.Join(d, _TEST, "05")
 	c, err := new(Config).Init(gopath, "linux", "amd64")
 
 	_, err = c.CreateBuildSet("a", false)
@@ -259,7 +261,7 @@ func TestConfigDirectives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(d, "test", "08")
+	gopath := filepath.Join(d, _TEST, "08")
 	c, err := new(Config).Init(gopath, "android", "arm")
 	if err != nil {
 		t.Fatal(err)
