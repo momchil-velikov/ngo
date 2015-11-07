@@ -214,7 +214,7 @@ func init() {
 	u.dcl["uint16"] = &TypeDecl{Name: "uint16", Type: &BuiltinType{BUILTIN_UINT16}}
 	u.dcl["uint32"] = &TypeDecl{Name: "uint32", Type: &BuiltinType{BUILTIN_UINT32}}
 	u.dcl["uint64"] = &TypeDecl{Name: "uint64", Type: &BuiltinType{BUILTIN_UINT64}}
-	u.dcl["int8"] = &TypeDecl{Name: "int8", Type: &BuiltinType{BUILTIN_INT16}}
+	u.dcl["int8"] = &TypeDecl{Name: "int8", Type: &BuiltinType{BUILTIN_INT8}}
 	u.dcl["int16"] = &TypeDecl{Name: "int16", Type: &BuiltinType{BUILTIN_INT16}}
 	i32 := &BuiltinType{BUILTIN_INT32}
 	u.dcl["rune"] = &TypeDecl{Name: "rune", Type: i32}
