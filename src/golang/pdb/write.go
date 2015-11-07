@@ -11,7 +11,10 @@ const VERSION = 1
 func Write(w io.Writer, pkg *ast.Package) error {
 	enc := Encoder{}
 	enc.Init(w)
+	return writePkg(&enc, pkg)
+}
 
+func writePkg(enc *Encoder, pkg *ast.Package) error {
 	// Version
 	if err := enc.WriteNum(VERSION); err != nil {
 		return err
@@ -48,15 +51,15 @@ func Write(w io.Writer, pkg *ast.Package) error {
 		ss = append(ss, sort.StringKey{Key: f.Name, Value: f})
 	}
 	sort.StringKeySlice(ss).Quicksort()
+	if err := enc.WriteNum(uint64(len(ss))); err != nil {
+		return err
+	}
 	for i := range ss {
 		f := ss[i].Value.(*ast.File)
-		f.No = i
-		if err := writeFile(&enc, f); err != nil {
+		f.No = i + 1
+		if err := writeFile(enc, f); err != nil {
 			return err
 		}
-	}
-	if err := enc.WriteString(""); err != nil {
-		return nil
 	}
 
 	// Declarations
@@ -69,9 +72,14 @@ func Write(w io.Writer, pkg *ast.Package) error {
 	}
 	sort.StringKeySlice(ss).Quicksort()
 	for i := range ss {
-		if err := writeDecl(&enc, ss[i].Value.(ast.Symbol)); err != nil {
+		if err := writeDecl(enc, ss[i].Value.(ast.Symbol)); err != nil {
 			return err
 		}
+	}
+
+	// End of declarations
+	if err := enc.WriteByte(_END); err != nil {
+		return err
 	}
 	return nil
 }
@@ -81,7 +89,6 @@ func writeFile(enc *Encoder, file *ast.File) error {
 	if err := enc.WriteString(file.Name); err != nil {
 		return err
 	}
-
 	// Output source map.
 	for i, n := 0, file.SrcMap.LineCount(); i < n; i++ {
 		_, len := file.SrcMap.LineExtent(i)
@@ -93,17 +100,6 @@ func writeFile(enc *Encoder, file *ast.File) error {
 	if err := enc.WriteNum(0); err != nil {
 		return err
 	}
-
-	// Output imports
-	for _, i := range file.Imports {
-		if err := enc.WriteString(i.Name); err != nil {
-			return err
-		}
-		if err := enc.WriteNum(uint64(i.Pkg.No)); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -116,9 +112,15 @@ const (
 )
 
 func writeDecl(enc *Encoder, d ast.Symbol) error {
-	k := _END
-	t := ast.Type(nil)
+	var (
+		k  byte
+		t  ast.Type
+		fn int
+	)
 	name, off, file := d.DeclaredAt()
+	if file != nil {
+		fn = file.No
+	}
 	switch d := d.(type) {
 	case *ast.FuncDecl:
 		if err := enc.WriteByte(_FUNC_DECL); err != nil {
@@ -145,14 +147,17 @@ func writeDecl(enc *Encoder, d ast.Symbol) error {
 		return err
 	case *ast.Var:
 		k = _VAR_DECL
+		t = d.Type
 	case *ast.Const:
 		k = _CONST_DECL
+		t = d.Type
 	case *ast.TypeDecl:
 		k = _TYPE_DECL
+		t = d.Type
 	default:
 		panic("not reached")
 	}
-	return writedcl(enc, k, file.No, off, name, t)
+	return writedcl(enc, k, fn, off, name, t)
 }
 
 func writedcl(enc *Encoder, k byte, file, off int, name string, t ast.Type) error {
@@ -300,6 +305,8 @@ func writeBuiltinType(enc *Encoder, k int) error {
 		b = _INT
 	case ast.BUILTIN_UINTPTR:
 		b = _UINTPTR
+	case ast.BUILTIN_STRING:
+		b = _STRING
 	default:
 		panic("not reached")
 	}
@@ -334,7 +341,7 @@ func writeStructType(enc *Encoder, t *ast.StructType) error {
 	for i := range t.Fields {
 		f := &t.Fields[i]
 		if err := enc.WriteString(f.Name); err != nil {
-			return nil
+			return err
 		}
 		if err := writeType(enc, f.Type); err != nil {
 			return err
@@ -346,11 +353,30 @@ func writeStructType(enc *Encoder, t *ast.StructType) error {
 	return nil
 }
 
-func writeFuncType(enc *Encoder, t *ast.FuncType) error {
-	if err := enc.WriteNum(uint64(len(t.Params))); err != nil {
+func writeParams(enc *Encoder, ps []ast.Param) error {
+	if err := enc.WriteNum(uint64(len(ps))); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(len(t.Returns))); err != nil {
+	for i := range ps {
+		p := &ps[i]
+		if err := enc.WriteString(p.Name); err != nil {
+			return err
+		}
+		if err := writeType(enc, p.Type); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeFuncType(enc *Encoder, t *ast.FuncType) error {
+	if err := enc.WriteByte(_FUNC); err != nil {
+		return err
+	}
+	if err := writeParams(enc, t.Params); err != nil {
+		return err
+	}
+	if err := writeParams(enc, t.Returns); err != nil {
 		return err
 	}
 	b := byte(0)

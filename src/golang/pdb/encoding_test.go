@@ -18,6 +18,12 @@ func eq(a []byte, b []byte) bool {
 	return false
 }
 
+func expect_eq(t *testing.T, ctx string, a []byte, b []byte) {
+	if !eq(a, b) {
+		t.Error(ctx, ": expect", b, "actual", a)
+	}
+}
+
 func TestULEB128(t *testing.T) {
 	n := []uint64{
 		0, 1, 5, 0x7e, 0x7f, 0x80, 0x81, 0xef, 0xfe, 0xff, 0x7ffe, 0x7fff,
