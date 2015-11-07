@@ -227,5 +227,6 @@ func init() {
 	u.dcl["uint"] = &TypeDecl{Name: "uint", Type: &BuiltinType{BUILTIN_UINT}}
 	u.dcl["int"] = &TypeDecl{Name: "int", Type: &BuiltinType{BUILTIN_INT}}
 	u.dcl["uintptr"] = &TypeDecl{Name: "uintptr", Type: &BuiltinType{BUILTIN_UINTPTR}}
+	u.dcl["string"] = &TypeDecl{Name: "string", Type: &BuiltinType{BUILTIN_STRING}}
 	universeScope = u
 }

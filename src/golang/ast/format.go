@@ -313,6 +313,8 @@ func (t *BuiltinType) Format(ctx *FormatContext, _ uint) {
 		name = "int"
 	case BUILTIN_UINTPTR:
 		name = "uintptr"
+	case BUILTIN_STRING:
+		name = "string"
 	default:
 		panic("not reached")
 	}

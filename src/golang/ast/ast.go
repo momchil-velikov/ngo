@@ -365,6 +365,7 @@ const (
 	BUILTIN_UINT
 	BUILTIN_INT
 	BUILTIN_UINTPTR
+	BUILTIN_STRING
 )
 
 type BuiltinType struct {
