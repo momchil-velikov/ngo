@@ -25,20 +25,30 @@ func keepEncoding(t *testing.T, fn func(*Encoder) error) []byte {
 }
 
 func TestWriteBuiltinType(t *testing.T) {
-	ns := []string{
-		"#nil", "bool", "byte",
-		"uint8", "uint16", "uint32", "uint64",
-		"int8", "int16", "int32", "int64", "rune",
-		"float32", "float64",
-		"complex64", "complex128",
-		"uint", "int", "uintptr",
-		"string",
+	ts := []ast.Type{
+		ast.BuiltinNil,
+		ast.BuiltinBool,
+		ast.BuiltinUint8,
+		ast.BuiltinUint16,
+		ast.BuiltinUint32,
+		ast.BuiltinUint64,
+		ast.BuiltinInt8,
+		ast.BuiltinInt16,
+		ast.BuiltinInt32,
+		ast.BuiltinInt64,
+		ast.BuiltinFloat32,
+		ast.BuiltinFloat64,
+		ast.BuiltinComplex64,
+		ast.BuiltinComplex128,
+		ast.BuiltinUint,
+		ast.BuiltinInt,
+		ast.BuiltinUintptr,
+		ast.BuiltinString,
 	}
 
 	tk := []byte{
 		_NIL,
 		_BOOL,
-		_UINT8,
 		_UINT8,
 		_UINT16,
 		_UINT32,
@@ -47,7 +57,6 @@ func TestWriteBuiltinType(t *testing.T) {
 		_INT16,
 		_INT32,
 		_INT64,
-		_INT32,
 		_FLOAT32,
 		_FLOAT64,
 		_COMPLEX64,
@@ -58,22 +67,10 @@ func TestWriteBuiltinType(t *testing.T) {
 		_STRING,
 	}
 
-	pkg := &ast.Package{}
-
-	for i, n := range ns {
-		d := pkg.Lookup(n)
-		if d == nil {
-			t.Fatal("cannot look up", n)
-		}
-		_, ok := d.(*ast.TypeDecl)
-		if !ok {
-			t.Fatal(n, "is not a type declaration")
-		}
-
-		buf := keepEncoding(t, func(enc *Encoder) error { return writeDecl(enc, d) })
-		exp := []byte{_TYPE_DECL, 0, 0, byte(len(n))}
-		exp = append(exp, []byte(n)...)
-		exp = append(exp, tk[i])
+	exp := []byte{0}
+	for i, typ := range ts {
+		buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+		exp[0] = tk[i]
 		expect_eq(t, "write builtin types", buf, exp)
 	}
 }
@@ -247,6 +244,23 @@ func TestWriteTypename1(t *testing.T) {
 			_TYPENAME,
 			42,
 			1, 'S',
+		},
+	)
+}
+
+func TestWriteTypeDecl(t *testing.T) {
+	d := &ast.TypeDecl{
+		Name: "S",
+		Type: &ast.PtrType{Base: &ast.BuiltinType{Kind: ast.BUILTIN_FLOAT32}},
+	}
+	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, d) })
+	expect_eq(t, "r decl",
+		buf,
+		[]byte{
+			_TYPE_DECL,
+			0, 0, // file, off
+			1, 'S', // name
+			_PTR, _FLOAT32,
 		},
 	)
 }
