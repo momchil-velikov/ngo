@@ -200,33 +200,3 @@ func (u *_UniverseScope) Lookup(name string) Symbol {
 func (u *_UniverseScope) Find(name string) Symbol {
 	return u.dcl[name]
 }
-
-var universeScope *_UniverseScope
-
-func init() {
-	u := &_UniverseScope{make(map[string]Symbol)}
-
-	u.dcl["#nil"] = &TypeDecl{Name: "#nil", Type: &BuiltinType{BUILTIN_NIL}}
-	u.dcl["bool"] = &TypeDecl{Name: "bool", Type: &BuiltinType{BUILTIN_BOOL}}
-	ui8 := &BuiltinType{BUILTIN_UINT8}
-	u.dcl["byte"] = &TypeDecl{Name: "byte", Type: ui8}
-	u.dcl["uint8"] = &TypeDecl{Name: "uint8", Type: ui8}
-	u.dcl["uint16"] = &TypeDecl{Name: "uint16", Type: &BuiltinType{BUILTIN_UINT16}}
-	u.dcl["uint32"] = &TypeDecl{Name: "uint32", Type: &BuiltinType{BUILTIN_UINT32}}
-	u.dcl["uint64"] = &TypeDecl{Name: "uint64", Type: &BuiltinType{BUILTIN_UINT64}}
-	u.dcl["int8"] = &TypeDecl{Name: "int8", Type: &BuiltinType{BUILTIN_INT8}}
-	u.dcl["int16"] = &TypeDecl{Name: "int16", Type: &BuiltinType{BUILTIN_INT16}}
-	i32 := &BuiltinType{BUILTIN_INT32}
-	u.dcl["rune"] = &TypeDecl{Name: "rune", Type: i32}
-	u.dcl["int32"] = &TypeDecl{Name: "int32", Type: i32}
-	u.dcl["int64"] = &TypeDecl{Name: "int64", Type: &BuiltinType{BUILTIN_INT64}}
-	u.dcl["float32"] = &TypeDecl{Name: "float32", Type: &BuiltinType{BUILTIN_FLOAT32}}
-	u.dcl["float64"] = &TypeDecl{Name: "float64", Type: &BuiltinType{BUILTIN_FLOAT64}}
-	u.dcl["complex64"] = &TypeDecl{Name: "complex64", Type: &BuiltinType{BUILTIN_COMPLEX64}}
-	u.dcl["complex128"] = &TypeDecl{Name: "complex128", Type: &BuiltinType{BUILTIN_COMPLEX128}}
-	u.dcl["uint"] = &TypeDecl{Name: "uint", Type: &BuiltinType{BUILTIN_UINT}}
-	u.dcl["int"] = &TypeDecl{Name: "int", Type: &BuiltinType{BUILTIN_INT}}
-	u.dcl["uintptr"] = &TypeDecl{Name: "uintptr", Type: &BuiltinType{BUILTIN_UINTPTR}}
-	u.dcl["string"] = &TypeDecl{Name: "string", Type: &BuiltinType{BUILTIN_STRING}}
-	universeScope = u
-}
