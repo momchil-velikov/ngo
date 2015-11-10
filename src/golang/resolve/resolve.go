@@ -42,17 +42,17 @@ func isDigit(ch rune) bool {
 }
 
 func ResolvePackage(
-	p *ast.UnresolvedPackage, deps map[string]*ast.Package) (*ast.Package, error) {
+	p *ast.UnresolvedPackage, loc ast.PackageLocator) (*ast.Package, error) {
 
 	pkg := &ast.Package{
 		Path:  p.Path,
 		Name:  p.Name,
 		Files: nil,
 		Decls: make(map[string]ast.Symbol),
-		Deps:  deps,
+		Deps:  make(map[string]*ast.Package),
 	}
 	for _, f := range p.Files {
-		if file, err := resolveFile(f, pkg); err != nil {
+		if file, err := resolveFile(f, pkg, loc); err != nil {
 			return nil, err
 		} else {
 			pkg.Files = append(pkg.Files, file)
@@ -61,7 +61,9 @@ func ResolvePackage(
 	return pkg, nil
 }
 
-func resolveFile(f *ast.UnresolvedFile, pkg *ast.Package) (*ast.File, error) {
+func resolveFile(
+	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
+
 	file := &ast.File{
 		Off:     f.Off,
 		Pkg:     pkg,
@@ -79,7 +81,12 @@ func resolveFile(f *ast.UnresolvedFile, pkg *ast.Package) (*ast.File, error) {
 		path := constexpr.String(idcl.Path)
 		dep, ok := pkg.Deps[path]
 		if !ok {
-			panic("internal error: package path not found: " + path)
+			var err error
+			dep, err = loc.FindPackage(path)
+			if err != nil {
+				return nil, err
+			}
+			pkg.Deps[path] = dep
 		}
 		imp := &ast.Import{Off: idcl.Off, No: i, File: file, Name: idcl.Name, Pkg: dep}
 		file.Imports = append(file.Imports, imp)

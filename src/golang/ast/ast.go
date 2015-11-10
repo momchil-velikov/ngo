@@ -106,6 +106,12 @@ func (c *Comment) IsLineComment() bool {
 	return c.Text != nil && c.Text[0] == '/' && c.Text[1] == '/'
 }
 
+// The PackageLocator interface abstracts mapping an import path to an actual
+// package.
+type PackageLocator interface {
+	FindPackage(string) (*Package, error)
+}
+
 // Package
 type Package struct {
 	No    int                 // Sequence number
