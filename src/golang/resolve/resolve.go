@@ -74,10 +74,6 @@ func resolveFile(
 
 	// Declare imported package names.
 	for i, idcl := range f.Imports {
-		if idcl.Name == "_" {
-			// do not import package decls
-			continue
-		}
 		path := constexpr.String(idcl.Path)
 		dep, ok := pkg.Deps[path]
 		if !ok {
@@ -87,6 +83,10 @@ func resolveFile(
 				return nil, err
 			}
 			pkg.Deps[path] = dep
+		}
+		if idcl.Name == "_" {
+			// do not import package decls
+			continue
 		}
 		imp := &ast.Import{Off: idcl.Off, No: i, File: file, Name: idcl.Name, Pkg: dep}
 		file.Imports = append(file.Imports, imp)
