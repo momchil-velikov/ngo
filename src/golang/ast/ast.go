@@ -114,7 +114,6 @@ type PackageLocator interface {
 
 // Package
 type Package struct {
-	No    int                // Sequence number
 	Path  string             // Absolute path of the package directory
 	Name  string             // Last component of the path name or "main"
 	Sig   [20]byte           // SHA-1 signature of something unrelated here

@@ -69,7 +69,7 @@ func TestWriteBuiltinType(t *testing.T) {
 
 	exp := []byte{0}
 	for i, typ := range ts {
-		buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+		buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 		exp[0] = tk[i]
 		expect_eq(t, "write builtin types", buf, exp)
 	}
@@ -80,7 +80,7 @@ func TestWriteArrayType(t *testing.T) {
 		Dim: &ast.Literal{Value: []byte{'1', '0'}},
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write array type", buf, []byte{_ARRAY, 10, _UINT8})
 }
 
@@ -88,7 +88,7 @@ func TestWriteSliceType(t *testing.T) {
 	typ := &ast.SliceType{
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write slice type", buf, []byte{_SLICE, _UINT8})
 }
 
@@ -96,7 +96,7 @@ func TestWritePtrType(t *testing.T) {
 	typ := &ast.PtrType{
 		Base: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write ptr type", buf, []byte{_PTR, _UINT8})
 }
 
@@ -105,7 +105,7 @@ func TestWriteMapType(t *testing.T) {
 		Key: &ast.BuiltinType{Kind: ast.BUILTIN_STRING},
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write map type", buf, []byte{_MAP, _STRING, _UINT8})
 }
 
@@ -115,13 +115,13 @@ func TestWriteChanType(t *testing.T) {
 		Recv: true,
 		Elt:  &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write chan type", buf, []byte{_CHAN, 3, _UINT8})
 }
 
 func TestWriteStructType1(t *testing.T) {
 	typ := &ast.StructType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write struct type", buf, []byte{_STRUCT, 0})
 }
 
@@ -132,7 +132,7 @@ func TestWriteStructType2(t *testing.T) {
 			{Name: "b", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}, Tag: "xy"},
 		},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write struct type",
 		buf,
 		[]byte{
@@ -146,7 +146,7 @@ func TestWriteStructType2(t *testing.T) {
 
 func TestWriteFuncType1(t *testing.T) {
 	typ := &ast.FuncType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write func type", buf, []byte{_FUNC, 0, 0, 0})
 }
 
@@ -161,7 +161,7 @@ func TestWriteFuncType2(t *testing.T) {
 		},
 		Var: true,
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write func type",
 		buf,
 		[]byte{
@@ -177,7 +177,7 @@ func TestWriteFuncType2(t *testing.T) {
 
 func TestWriteIfaceType1(t *testing.T) {
 	typ := &ast.InterfaceType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write iface type", buf, []byte{_IFACE, 0})
 }
 
@@ -188,7 +188,7 @@ func TestWriteIfaceType2(t *testing.T) {
 			{Name: "F", Type: &ast.FuncType{}},
 		},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write iface type",
 		buf,
 		[]byte{
@@ -206,7 +206,7 @@ func TestWriteTypename1(t *testing.T) {
 			Name: "S",
 			Type: &ast.PtrType{Base: &ast.BuiltinType{Kind: ast.BUILTIN_FLOAT32}}},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, typ) })
+	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -216,10 +216,11 @@ func TestWriteTypename1(t *testing.T) {
 		},
 	)
 
-	typ.Decl.File = &ast.File{}
+	pkg := &ast.Package{}
+	typ.Decl.File = &ast.File{Pkg: pkg}
 	b := &bytes.Buffer{}
 	enc := new(Encoder).Init(b)
-	if err := writeType(enc, typ); err != nil {
+	if err := writeType(enc, pkg, typ); err != nil {
 		t.Fatal(err)
 	}
 	buf = b.Bytes()
@@ -232,9 +233,13 @@ func TestWriteTypename1(t *testing.T) {
 		},
 	)
 
-	typ.Decl.File.Pkg = &ast.Package{No: 42}
+	imp := &ast.Package{}
+	imp.Files = []*ast.File{&ast.File{Pkg: imp}}
+	pkg.Deps = make(map[string]*ast.Import)
+	pkg.Deps["a"] = &ast.Import{No: 42, Pkg: imp}
+	typ.Decl.File = imp.Files[0]
 	b.Reset()
-	if err := writeType(enc, typ); err != nil {
+	if err := writeType(enc, pkg, typ); err != nil {
 		t.Fatal(err)
 	}
 	buf = b.Bytes()
@@ -253,7 +258,7 @@ func TestWriteTypeDecl(t *testing.T) {
 		Name: "S",
 		Type: &ast.PtrType{Base: &ast.BuiltinType{Kind: ast.BUILTIN_FLOAT32}},
 	}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, d) })
+	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, d) })
 	expect_eq(t, "r decl",
 		buf,
 		[]byte{
@@ -267,7 +272,7 @@ func TestWriteTypeDecl(t *testing.T) {
 
 func TestWriteVarDecl(t *testing.T) {
 	v := &ast.Var{}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, v) })
+	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, v) })
 	expect_eq(t, "var decl",
 		buf,
 		[]byte{
@@ -281,7 +286,7 @@ func TestWriteVarDecl(t *testing.T) {
 	v.File = &ast.File{No: 42}
 	v.Name = "xyz"
 	v.Type = &ast.BuiltinType{Kind: ast.BUILTIN_INT32}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, v) })
+	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, v) })
 	expect_eq(t, "var decl",
 		buf,
 		[]byte{
@@ -295,7 +300,7 @@ func TestWriteVarDecl(t *testing.T) {
 
 func TestWriteConstDecl(t *testing.T) {
 	c := &ast.Const{}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, c) })
+	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, c) })
 	expect_eq(t, "const decl",
 		buf,
 		[]byte{
@@ -309,7 +314,7 @@ func TestWriteConstDecl(t *testing.T) {
 	c.File = &ast.File{No: 42}
 	c.Name = "xyz"
 	c.Type = &ast.BuiltinType{Kind: ast.BUILTIN_INT32}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, c) })
+	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, c) })
 	expect_eq(t, "const decl",
 		buf,
 		[]byte{
@@ -329,7 +334,7 @@ func TestWriteFuncDecl(t *testing.T) {
 			Sig: &ast.FuncType{},
 		},
 	}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, fn) })
+	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, fn) })
 	expect_eq(t, "func decl",
 		buf,
 		[]byte{
@@ -352,7 +357,7 @@ func TestWriteFuncDecl(t *testing.T) {
 			},
 		},
 	}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, fn) })
+	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, fn) })
 	expect_eq(t, "func decl",
 		buf,
 		[]byte{
