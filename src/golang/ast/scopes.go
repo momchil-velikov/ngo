@@ -24,11 +24,11 @@ type Symbol interface {
 
 // The names of the imported packages are inserted into the file scope of the
 // importing source file. Their position refers to the import declaration.
-func (Import) symbol() {}
-func (i *Import) DeclaredAt() (string, int, *File) {
+func (ImportDecl) symbol() {}
+func (i *ImportDecl) DeclaredAt() (string, int, *File) {
 	return i.Name, i.Off, i.File
 }
-func (*Import) IsExported() bool { return false }
+func (*ImportDecl) IsExported() bool { return false }
 
 func (TypeDecl) symbol() {}
 func (t *TypeDecl) DeclaredAt() (string, int, *File) {

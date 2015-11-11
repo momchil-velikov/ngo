@@ -426,15 +426,19 @@ func TestWritePackage1(t *testing.T) {
 func TestWritePackage2(t *testing.T) {
 	pkg := &ast.Package{
 		Name:  "test",
-		Deps:  make(map[string]*ast.Package),
+		Deps:  make(map[string]*ast.Import),
 		Decls: make(map[string]ast.Symbol),
 	}
-	deps := []*ast.Package{
-		&ast.Package{Name: "depX", Sig: [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1}},
-		&ast.Package{Name: "dep1", Sig: [20]byte{5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}},
+	deps := []*ast.Import{
+		&ast.Import{
+			Pkg: &ast.Package{Name: "depX", Sig: [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1}},
+		},
+		&ast.Import{
+			Pkg: &ast.Package{Name: "dep1", Sig: [20]byte{5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}},
+		},
 	}
 	for _, d := range deps {
-		pkg.Deps[d.Name] = d
+		pkg.Deps[d.Pkg.Name] = d
 	}
 
 	d0 := &ast.Var{

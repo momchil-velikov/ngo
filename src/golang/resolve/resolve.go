@@ -49,7 +49,7 @@ func ResolvePackage(
 		Name:  p.Name,
 		Files: nil,
 		Decls: make(map[string]ast.Symbol),
-		Deps:  make(map[string]*ast.Package),
+		Deps:  make(map[string]*ast.Import),
 	}
 	for _, f := range p.Files {
 		if file, err := resolveFile(f, pkg, loc); err != nil {
@@ -68,31 +68,32 @@ func resolveFile(
 		Off:     f.Off,
 		Pkg:     pkg,
 		PkgName: f.PkgName,
+		Imports: f.Imports,
 		Name:    f.Name,
 		SrcMap:  f.SrcMap,
 	}
 
 	// Declare imported package names.
-	for i, idcl := range f.Imports {
-		path := constexpr.String(idcl.Path)
+	for _, i := range file.Imports {
+		path := constexpr.String(i.Path)
 		dep, ok := pkg.Deps[path]
 		if !ok {
-			var err error
-			dep, err = loc.FindPackage(path)
+			p, err := loc.FindPackage(path)
 			if err != nil {
 				return nil, err
 			}
+			dep = &ast.Import{Pkg: p}
 			pkg.Deps[path] = dep
 		}
-		if idcl.Name == "_" {
+		i.File = file
+		i.Pkg = dep.Pkg
+		if i.Name == "_" {
 			// do not import package decls
 			continue
 		}
-		imp := &ast.Import{Off: idcl.Off, No: i, File: file, Name: idcl.Name, Pkg: dep}
-		file.Imports = append(file.Imports, imp)
-		if idcl.Name == "." {
+		if i.Name == "." {
 			// Import package exported identifiers into the file block.
-			for name, sym := range dep.Decls {
+			for name, sym := range i.Pkg.Decls {
 				if isExported(name) {
 					if err := file.Declare(name, sym); err != nil {
 						return nil, err
@@ -101,13 +102,13 @@ func resolveFile(
 			}
 		} else {
 			// Declare the package name in the file block.
-			if len(imp.Name) == 0 {
-				imp.Name = filepath.Base(path)
+			if len(i.Name) == 0 {
+				i.Name = filepath.Base(path)
 			}
-			if !isValidPackageName(imp.Name) {
-				return nil, errors.New(imp.Name + " is not a valid package name") // FIXME
+			if !isValidPackageName(i.Name) {
+				return nil, errors.New(i.Name + " is not a valid package name") // FIXME
 			}
-			if err := file.Declare(imp.Name, imp); err != nil {
+			if err := file.Declare(i.Name, i); err != nil {
 				return nil, err
 			}
 		}
@@ -348,7 +349,7 @@ func lookupIdent(id *ast.QualifiedId, scope ast.Scope) (ast.Symbol, error) {
 	if len(id.Pkg) > 0 {
 		if d := scope.Lookup(id.Pkg); d == nil {
 			return nil, errors.New("package name " + id.Pkg + " not declared")
-		} else if imp, ok := d.(*ast.Import); !ok {
+		} else if imp, ok := d.(*ast.ImportDecl); !ok {
 			return nil, errors.New(id.Pkg + " does not refer to package name")
 		} else if d := imp.Pkg.Lookup(id.Id); d == nil {
 			return nil, errors.New(id.Pkg + "." + id.Id + " not declared")
@@ -556,7 +557,7 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 		if len(x.Pkg) > 0 {
 			if d := scope.Lookup(x.Pkg); d == nil {
 				return nil, errors.New(x.Pkg + " not declared")
-			} else if imp, ok := d.(*ast.Import); !ok {
+			} else if imp, ok := d.(*ast.ImportDecl); !ok {
 				return nil, nil
 			} else if d := imp.Pkg.Lookup(x.Id); d == nil {
 				return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
@@ -791,7 +792,7 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 			//    is a Selector
 			if d := scope.Lookup(x.Pkg); d == nil {
 				return nil, errors.New(x.Pkg + " not declared")
-			} else if imp, ok := d.(*ast.Import); ok {
+			} else if imp, ok := d.(*ast.ImportDecl); ok {
 				if d := imp.Pkg.Lookup(x.Id); d == nil {
 					return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
 				} else if _, ok := d.(*ast.TypeDecl); ok {

@@ -114,13 +114,20 @@ type PackageLocator interface {
 
 // Package
 type Package struct {
-	No    int                 // Sequence number
-	Path  string              // Absolute path of the package directory
-	Name  string              // Last component of the path name or "main"
-	Sig   [20]byte            // SHA-1 signature of something unrelated here
-	Files []*File             // Source files of the package
-	Decls map[string]Symbol   // Package level declarations
-	Deps  map[string]*Package // Map of package dependencies
+	No    int                // Sequence number
+	Path  string             // Absolute path of the package directory
+	Name  string             // Last component of the path name or "main"
+	Sig   [20]byte           // SHA-1 signature of something unrelated here
+	Files []*File            // Source files of the package
+	Decls map[string]Symbol  // Package level declarations
+	Deps  map[string]*Import // Map of package dependencies
+}
+
+// Imported package
+type Import struct {
+	No  int
+	Pkg *Package
+	Sig [20]byte
 }
 
 type UnresolvedPackage struct {
@@ -135,9 +142,9 @@ type File struct {
 	No      int               // Sequence number
 	Pkg     *Package          // Owner package
 	PkgName string            // Package name
+	Imports []*ImportDecl     // Import declarations
 	Name    string            // File name
 	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
-	Imports []*Import         // Imported packages
 	Decls   map[string]Symbol // File scope declarations
 }
 
@@ -152,20 +159,13 @@ type UnresolvedFile struct {
 	SrcMap   scanner.SourceMap
 }
 
-// Imported package
-type Import struct {
-	Off  int
-	No   int
-	File *File
-	Name string
-	Pkg  *Package
-}
-
 // Import declaration
 type ImportDecl struct {
 	Off  int
 	Name string
 	Path []byte
+	File *File
+	Pkg  *Package
 }
 
 // Universal error node

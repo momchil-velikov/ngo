@@ -38,9 +38,9 @@ func writePkg(enc *Encoder, pkg *ast.Package) error {
 		if err := enc.WriteString(ss[i].Key); err != nil {
 			return err
 		}
-		p := ss[i].Value.(*ast.Package)
-		p.No = i + 2
-		if err := enc.WriteBytes(p.Sig[:]); err != nil {
+		imp := ss[i].Value.(*ast.Import)
+		imp.No = i + 2
+		if err := enc.WriteBytes(imp.Pkg.Sig[:]); err != nil {
 			return err
 		}
 	}
