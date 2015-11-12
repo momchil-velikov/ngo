@@ -126,7 +126,7 @@ func writeDecl(enc *Encoder, pkg *ast.Package, d ast.Symbol) error {
 		if err := enc.WriteByte(_FUNC_DECL); err != nil {
 			return err
 		}
-		if err := enc.WriteNum(uint64(file.No)); err != nil {
+		if err := enc.WriteNum(uint64(fn)); err != nil {
 			return err
 		}
 		if err := enc.WriteNum(uint64(off)); err != nil {
