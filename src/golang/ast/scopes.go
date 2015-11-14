@@ -81,7 +81,7 @@ func (e *redeclarationError) Error() string {
 }
 
 // Package scope
-func (p *Package) Parent() Scope { return universeScope }
+func (p *Package) Parent() Scope { return UniverseScope }
 
 func (p *Package) Package() *Package { return p }
 
@@ -109,7 +109,7 @@ func (p *Package) Declare(name string, sym Symbol) error {
 func (p *Package) Lookup(name string) Symbol {
 	sym := p.Find(name)
 	if sym == nil {
-		sym = universeScope.Lookup(name)
+		sym = UniverseScope.Lookup(name)
 	}
 	return sym
 }

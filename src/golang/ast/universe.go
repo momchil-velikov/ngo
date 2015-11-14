@@ -1,6 +1,6 @@
 package ast
 
-var universeScope *_UniverseScope
+var UniverseScope *_UniverseScope
 
 var (
 	BuiltinNil        Type
@@ -43,7 +43,7 @@ func init() {
 	BuiltinUintptr = &BuiltinType{BUILTIN_UINTPTR}
 	BuiltinString = &BuiltinType{BUILTIN_STRING}
 
-	universeScope = &_UniverseScope{dcl: make(map[string]Symbol)}
+	UniverseScope = &_UniverseScope{dcl: make(map[string]Symbol)}
 	for _, c := range []struct {
 		name string
 		typ  Type
@@ -69,6 +69,6 @@ func init() {
 		{"uintptr", BuiltinUintptr},
 		{"string", BuiltinString},
 	} {
-		universeScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
+		UniverseScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
 	}
 }
