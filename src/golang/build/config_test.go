@@ -1,6 +1,7 @@
 package build
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -253,6 +254,36 @@ func TestConfigImportLoop3(t *testing.T) {
 		t.Error("expected circular dependency error")
 	} else {
 		t.Log(err)
+	}
+}
+func TestConfigBuildSetOrder(t *testing.T) {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gopath := filepath.Join(d, _TEST, "06")
+	c, err := new(Config).Init(gopath, "linux", "amd64")
+
+	pkgs, err := c.CreateBuildSet("a", false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, p := range pkgs {
+		p.Mark = 0
+	}
+	no := 1
+	for _, p := range pkgs {
+		p.Mark = no
+		no++
+		s := fmt.Sprintf("%s(%d): ", p.Name, p.Mark)
+		for _, d := range p.Imports {
+			if d.Mark == 0 || d.Mark >= p.Mark {
+				t.Errorf("invalid order: %s should precede %s\n", d.Name, p.Name)
+			}
+			s += fmt.Sprintf("%s(%d) ", d.Name, d.Mark)
+		}
+		t.Log(s)
 	}
 }
 

@@ -221,19 +221,8 @@ func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Sort the packages in topological order.
-	set, err := postorder(pkg, nil)
-	if err != nil {
-		return nil, err
-	}
-	n := len(set)
-	i, j := 0, n-1
-	for i < n/2 {
-		set[i], set[j] = set[j], set[i]
-		i++
-		j--
-	}
-	return set, nil
+	// Sort the packages in reverse topological order.
+	return postorder(pkg, nil)
 }
 
 func postorder(pkg *Package, set []*Package) ([]*Package, error) {
