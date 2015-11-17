@@ -5,7 +5,6 @@ package build
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,27 +75,15 @@ func parsePackage(path string, dir string, names []string) (*Package, error) {
 		files = append(files, f)
 	}
 
-	// Check that all the source files declare the same package name as the
-	// name of the package directory or, alternatively, that all the source
-	// files declare the package name "main".
-	pkgname := filepath.Base(dir)
-	if len(files) > 0 {
-		if files[0].Package == "main" {
-			pkgname = "main"
-		}
-		for _, f := range files {
-			if f.Package != pkgname {
-				msg := fmt.Sprintf("%s: inconsistent package name: %s, should be %s",
-					f.Path, f.Package, pkgname)
-				return nil, errors.New(msg)
-			}
-		}
-	}
+	// We used to check for package name consistencty accross source files and
+	// with package directory. We don't do this anymore, because build tag
+	// based filtering is done afterwards and an ignored source file may cause
+	// the check to fail here.  Let the real Go parser do it.
 
 	pkg := &Package{
 		Dir:     dir,
 		Path:    path,
-		Name:    pkgname,
+		Name:    filepath.Base(dir),
 		Files:   files,
 		Imports: make(map[string]*Package),
 	}
