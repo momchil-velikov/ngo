@@ -166,7 +166,7 @@ func (c *Config) evalTag(tag string) bool {
 
 func (c *Config) evalBuildDirective(d string) bool {
 	fs := strings.Fields(d)
-	if fs[0] != "+build" {
+	if len(fs) == 0 || fs[0] != "+build" {
 		return true
 	}
 	fs = fs[1:]
