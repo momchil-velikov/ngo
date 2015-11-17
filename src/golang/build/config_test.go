@@ -143,8 +143,6 @@ type filterTestCase struct {
 
 func TestConfigFilterNames(t *testing.T) {
 	cases := []filterTestCase{
-		{"", "", false, []string{"f8.go"}},
-		{"", "", true, []string{"f7_test.go", "f8.go"}},
 		{"linux", "amd64", false,
 			[]string{"f2_linux_amd64.go", "f4_linux.go", "f6_amd64.go", "f8.go"}},
 		{"linux", "amd64", true,

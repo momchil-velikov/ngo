@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -54,12 +55,18 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 	if len(goos) == 0 {
 		goos = os.Getenv("GOOS")
 	}
+	if len(goos) == 0 {
+		goos = runtime.GOOS
+	}
 	if len(goos) > 0 && !matchAny(goos, knownOS) {
 		return nil, errors.New("unrecognized OS: " + goos)
 	}
 	c.OS = goos
 	if len(goarch) == 0 {
 		goarch = os.Getenv("GOARCH")
+	}
+	if len(goarch) == 0 {
+		goarch = runtime.GOARCH
 	}
 	if len(goarch) > 0 && !matchAny(goarch, knownArch) {
 		return nil, errors.New("unrecognized CPU arch: " + goarch)
