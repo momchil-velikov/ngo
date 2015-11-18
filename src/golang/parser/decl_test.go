@@ -2,6 +2,7 @@ package parser
 
 import (
 	"golang/ast"
+	"strings"
 	"testing"
 )
 
@@ -440,5 +441,71 @@ func (id) name() {}
 	f := t.Format(ctx)
 	if f != exp {
 		tst.Errorf("Error output:\n->|%s|<-\n", f)
+	}
+}
+
+func TestParsePackage(t *testing.T) {
+	const TESTDIR = "_test/01/hedgp"
+
+	// Test consistent package naming.
+	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
+	if err != nil {
+		t.Error(err)
+	}
+	if up.Name != "hedgp" {
+		t.Error("incorrect package name: expected 'hedgp'")
+	}
+
+	// Test consistent package name 'main'.
+	up, err = ParsePackage(TESTDIR, []string{"c.go", "d.go"})
+	if err != nil {
+		t.Error(err)
+	}
+	if up.Name != "main" {
+		t.Error("incorrect package name: expected 'main'")
+	}
+
+	// Test inconsistent 'main'
+	up, err = ParsePackage(TESTDIR, []string{"a.go", "b.go", "c.go"})
+	if err == nil || !strings.Contains(err.Error(), "inconsistent package name") {
+		if err != nil {
+			t.Log(err)
+		}
+		t.Error("expected 'inconsistent package name' error")
+	}
+
+	// Test inconsistent other name.
+	up, err = ParsePackage(TESTDIR, []string{"a.go", "b.go", "e.go"})
+	if err == nil || !strings.Contains(err.Error(), "inconsistent package name") {
+		if err != nil {
+			t.Log(err)
+		}
+		t.Error("expected 'inconsistent package name' error")
+	}
+
+	up, err = ParsePackage(TESTDIR, []string{"c.go", "d.go", "e.go"})
+	if err == nil || !strings.Contains(err.Error(), "inconsistent package name") {
+		if err != nil {
+			t.Log(err)
+		}
+		t.Error("expected 'inconsistent package name' error")
+	}
+
+	// Test source file not found.
+	up, err = ParsePackage(TESTDIR, []string{"a.go", "ff.go"})
+	if err == nil || !strings.Contains(err.Error(), "no such file") {
+		if err != nil {
+			t.Log(err)
+		}
+		t.Error("expected 'no such file' error")
+	}
+
+	// Test source file contains errors.
+	up, err = ParsePackage(TESTDIR, []string{"a.go", "f.go"})
+	if err == nil || !strings.Contains(err.Error(), "expected package") {
+		if err != nil {
+			t.Log(err)
+		}
+		t.Error("expected syntax error")
 	}
 }
