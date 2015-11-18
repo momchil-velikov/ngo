@@ -100,9 +100,18 @@ func TestParserParsePackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parsePackage("a", dir, srcs)
-	if err == nil ||
-		!strings.Contains(err.Error(), "inconsistent package name: a, should be main") {
-		t.Error("expected inconsistent package name error")
+	pkg, err := parsePackage("a", dir, srcs)
+	if err != nil {
+		t.Error(err)
+	}
+	if pkg.Name != "a" {
+		t.Error("package name should be the base directory name")
+	}
+	file := pkg.Files[0]
+	if filepath.Base(file.Path) != "a.go" {
+		file = pkg.Files[1]
+	}
+	if file.Package != "main" {
+		t.Error("package clause in a.go should name package main")
 	}
 }

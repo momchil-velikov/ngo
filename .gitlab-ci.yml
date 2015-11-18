@@ -1,0 +1,4 @@
+job1:
+  script:
+    - export GOPATH=$(pwd)
+    - ./all.sh

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -54,12 +55,18 @@ func (c *Config) Init(gopath string, goos string, goarch string) (*Config, error
 	if len(goos) == 0 {
 		goos = os.Getenv("GOOS")
 	}
+	if len(goos) == 0 {
+		goos = runtime.GOOS
+	}
 	if len(goos) > 0 && !matchAny(goos, knownOS) {
 		return nil, errors.New("unrecognized OS: " + goos)
 	}
 	c.OS = goos
 	if len(goarch) == 0 {
 		goarch = os.Getenv("GOARCH")
+	}
+	if len(goarch) == 0 {
+		goarch = runtime.GOARCH
 	}
 	if len(goarch) > 0 && !matchAny(goarch, knownArch) {
 		return nil, errors.New("unrecognized CPU arch: " + goarch)
@@ -166,7 +173,7 @@ func (c *Config) evalTag(tag string) bool {
 
 func (c *Config) evalBuildDirective(d string) bool {
 	fs := strings.Fields(d)
-	if fs[0] != "+build" {
+	if len(fs) == 0 || fs[0] != "+build" {
 		return true
 	}
 	fs = fs[1:]
@@ -221,19 +228,8 @@ func (c *Config) CreateBuildSet(path string, test bool) ([]*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Sort the packages in topological order.
-	set, err := postorder(pkg, nil)
-	if err != nil {
-		return nil, err
-	}
-	n := len(set)
-	i, j := 0, n-1
-	for i < n/2 {
-		set[i], set[j] = set[j], set[i]
-		i++
-		j--
-	}
-	return set, nil
+	// Sort the packages in reverse topological order.
+	return postorder(pkg, nil)
 }
 
 func postorder(pkg *Package, set []*Package) ([]*Package, error) {
