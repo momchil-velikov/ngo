@@ -51,17 +51,40 @@ func ResolvePackage(
 		Decls: make(map[string]ast.Symbol),
 		Deps:  make(map[string]*ast.Import),
 	}
+
+	// Insert package and file scope declarations into the symbol table.
 	for _, f := range p.Files {
-		if file, err := resolveFile(f, pkg, loc); err != nil {
+		if file, err := declareTopLevel(f, pkg, loc); err != nil {
 			return nil, err
 		} else {
 			pkg.Files = append(pkg.Files, file)
 		}
 	}
+
+	// Declare lower level names and resolve all.
+	for _, sym := range pkg.Decls {
+		var err error
+		switch sym := sym.(type) {
+		case *ast.TypeDecl:
+			err = resolveTypeDecl(sym, sym.File)
+		case *ast.Const:
+			err = resolveConst(sym, sym.File)
+		case *ast.Var:
+			err = resolveVar(sym, sym.File)
+		case *ast.FuncDecl:
+			err = resolveFunc(&sym.Func, sym.File)
+		default:
+			panic("not reached")
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return pkg, nil
 }
 
-func resolveFile(
+func declareTopLevel(
 	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
 
 	file := &ast.File{
@@ -154,25 +177,6 @@ func resolveFile(
 		}
 	}
 
-	// Declare lower level names and resolve all.
-	for _, sym := range pkg.Decls {
-		var err error
-		switch sym := sym.(type) {
-		case *ast.TypeDecl:
-			err = resolveTypeDecl(sym, file)
-		case *ast.Const:
-			err = resolveConst(sym, file)
-		case *ast.Var:
-			err = resolveVar(sym, file)
-		case *ast.FuncDecl:
-			err = resolveFunc(&sym.Func, file)
-		default:
-			panic("not reached")
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
 	return file, nil
 }
 
