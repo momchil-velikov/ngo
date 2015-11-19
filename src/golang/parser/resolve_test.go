@@ -69,17 +69,17 @@ func TestDeclareResolveTypeUniverse(t *testing.T) {
 		}
 		// Test type declaration refers to the respective typename at universe
 		// scope.
-		tn, ok := dcl.Type.(*ast.Typename)
+		dcl, ok = dcl.Type.(*ast.TypeDecl)
 		if !ok {
 			t.Fatalf("declaration of `%s` does not refer to a typename\n", cs.decl)
 		}
-		if tn.Decl != ast.UniverseScope.Find(cs.ref) {
-			if tn.Decl == nil {
+		if dcl != ast.UniverseScope.Find(cs.ref) {
+			if dcl == nil {
 				t.Errorf("`%s` refers to an invalid Typename\n", cs.decl)
 			} else {
 				t.Errorf(
 					"`%s` expected to refer to `%s`, refers to `%s` instead\n",
-					cs.decl, cs.ref, tn.Decl.Name,
+					cs.decl, cs.ref, dcl.Name,
 				)
 			}
 		}
@@ -147,11 +147,11 @@ func TestDeclareResolveTypePackageScope(t *testing.T) {
 		if !ok {
 			t.Fatalf("symbol `%s` is not a TypeDecl\n", cs.decl)
 		}
-		tn, ok := td.Type.(*ast.Typename)
+		td, ok = td.Type.(*ast.TypeDecl)
 		if !ok {
 			t.Fatalf("declaration of `%s` does not refer to a typename", cs.decl)
 		}
-		if tn.Decl != p.Find(cs.ref).(*ast.TypeDecl) {
+		if td != p.Find(cs.ref).(*ast.TypeDecl) {
 			t.Errorf(
 				"declaration of `%s` does nor refer to the declaration of `%s`\n",
 				cs.decl, cs.ref,
@@ -181,11 +181,11 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	if sym == nil || tdA == nil {
 		t.Fatal("type declaration `A` not found at `F`s scope")
 	}
-	tn, ok := tdA.Type.(*ast.Typename)
+	dcl, ok := tdA.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `A` does not refer to a typename")
 	}
-	if tn.Decl != ast.UniverseScope.Find("int") {
+	if dcl != ast.UniverseScope.Find("int") {
 		t.Error("declaration of `A` does not refer to predeclared `int`")
 	}
 
@@ -194,11 +194,11 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	if sym == nil || tdAA == nil {
 		t.Fatal("type declaration `AA` not found at `F`s scope")
 	}
-	tn, ok = tdAA.Type.(*ast.Typename)
+	dcl, ok = tdAA.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `AA` does not refer to a typename")
 	}
-	if tn.Decl != tdA {
+	if dcl != tdA {
 		t.Error("declaration of `AA` does not refer to `A`")
 	}
 
@@ -207,11 +207,11 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	if tdB == nil {
 		t.Fatal("type declaration `B` not found in a nested block in `F`")
 	}
-	tn, ok = tdB.Type.(*ast.Typename)
+	dcl, ok = tdB.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `B` does not refer to a typename")
 	}
-	if tn.Decl != ast.UniverseScope.Find("int") {
+	if dcl != ast.UniverseScope.Find("int") {
 		t.Error("declaration of `B` does not refer to predeclared `int`")
 	}
 
@@ -219,11 +219,11 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	if tdB == nil {
 		t.Fatal("type declaration `BB` not found in a nested block in `F`")
 	}
-	tn, ok = tdBB.Type.(*ast.Typename)
+	dcl, ok = tdBB.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `BB` does not refer to a typename")
 	}
-	if tn.Decl != tdAA {
+	if dcl != tdAA {
 		t.Error("declaration of `BB` does not refer to the declaration if `AA`")
 	}
 
@@ -231,11 +231,11 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	if tdB == nil {
 		t.Fatal("type declaration `BBB` not found in a nested block in `F`")
 	}
-	tn, ok = tdBBB.Type.(*ast.Typename)
+	dcl, ok = tdBBB.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `BBB` does not refer to a typename")
 	}
-	if tn.Decl != tdBB {
+	if dcl != tdBB {
 		t.Error("declaration of `BBB` does not refer to the declaration if `BB`")
 	}
 }
@@ -260,7 +260,7 @@ func TestTypeSelfReference(t *testing.T) {
 	if tA == nil || tdA == nil {
 		t.Fatal("type declaration `A` not found at package scope")
 	}
-	if tnA, ok := tdA.Type.(*ast.Typename); !ok || tnA.Decl != tdA {
+	if tdA.Type != tdA {
 		t.Error("type declaration `A` does not refer to itself")
 	}
 
@@ -269,7 +269,7 @@ func TestTypeSelfReference(t *testing.T) {
 	if tB == nil || tdB == nil {
 		t.Fatal("type declaration `B` not found at package scope")
 	}
-	if tnB, ok := tdB.Type.(*ast.Typename); !ok || tnB.Decl != tdB {
+	if tdB.Type != tdB {
 		t.Error("type declaration `B` does not refer to itself")
 	}
 
@@ -283,7 +283,7 @@ func TestTypeSelfReference(t *testing.T) {
 	if tC == nil || tdC == nil {
 		t.Fatal("type declaration `C` not found at `F`s scope")
 	}
-	if tnC, ok := tdC.Type.(*ast.Typename); !ok || tnC.Decl != tdC {
+	if tdC.Type != tdC {
 		t.Error("type declaration `C` does not refer to itself")
 	}
 
@@ -292,7 +292,7 @@ func TestTypeSelfReference(t *testing.T) {
 	if tD == nil || tdD == nil {
 		t.Fatal("type declaration `D` not found at `F`s scope")
 	}
-	if tnD, ok := tdD.Type.(*ast.Typename); !ok || tnD.Decl != tdD {
+	if tdD.Type != tdD {
 		t.Error("type declaration `D` does not refer to itself")
 	}
 }
@@ -310,73 +310,73 @@ func TestDeclareResolveConstructedType(t *testing.T) {
 
 	a := getTypeDecl(p, "a")
 	u := getTypeDecl(p, "u")
-	if u.Type.(*ast.ArrayType).Elt.(*ast.Typename).Decl != a {
+	if u.Type.(*ast.ArrayType).Elt != a {
 		t.Error("elements of `u` are not of type `a`")
 	}
 
 	v := getTypeDecl(p, "v")
-	if v.Type.(*ast.SliceType).Elt.(*ast.Typename).Decl != u {
+	if v.Type.(*ast.SliceType).Elt != u {
 		t.Error("elements of `u` are not of type `v`")
 	}
 
 	w := getTypeDecl(p, "w")
-	if w.Type.(*ast.PtrType).Base.(*ast.Typename).Decl != v {
+	if w.Type.(*ast.PtrType).Base != v {
 		t.Error("base of `w` is not of type `v`")
 	}
 
 	x := getTypeDecl(p, "x")
-	if x.Type.(*ast.MapType).Key.(*ast.Typename).Decl != a {
+	if x.Type.(*ast.MapType).Key != a {
 		t.Error("keys of `x` are not of type `a`")
 	}
-	if x.Type.(*ast.MapType).Elt.(*ast.Typename).Decl != w {
+	if x.Type.(*ast.MapType).Elt != w {
 		t.Error("elements of `x` are not of type `w`")
 	}
 
 	y := getTypeDecl(p, "y")
-	if y.Type.(*ast.ChanType).Elt.(*ast.Typename).Decl != x {
+	if y.Type.(*ast.ChanType).Elt != x {
 		t.Error("elements of `y` are not of type `x`")
 	}
 
 	z := getTypeDecl(p, "z").Type.(*ast.StructType)
-	if z.Fields[0].Type.(*ast.Typename).Decl != u {
+	if z.Fields[0].Type != u {
 		t.Error("field `z.X` is not of type `u`")
 	}
-	if z.Fields[1].Type.(*ast.Typename).Decl != v {
+	if z.Fields[1].Type != v {
 		t.Error("field `z.Y` is not of type `v`")
 	}
 
 	Fn := getTypeDecl(p, "Fn").Type.(*ast.FuncType)
-	if Fn.Params[0].Type.(*ast.Typename).Decl != u {
+	if Fn.Params[0].Type != u {
 		t.Error("parameter #0 of `Fn` is not of type `u`")
 	}
-	if Fn.Params[1].Type.(*ast.Typename).Decl != v {
+	if Fn.Params[1].Type != v {
 		t.Error("parameter #1 of `Fn` is not of type `v`")
 	}
-	if Fn.Returns[0].Type.(*ast.Typename).Decl != w {
+	if Fn.Returns[0].Type != w {
 		t.Error("return #0 of `Fn` is not of type `w`")
 	}
-	if Fn.Returns[1].Type.(*ast.Typename).Decl != x {
+	if Fn.Returns[1].Type != x {
 		t.Error("return #1 of `Fn` is not of type `x`")
 	}
 
-	IfA := getTypeDecl(p, "IfA").Type.(*ast.InterfaceType)
-	mF := IfA.Methods[0].Type.(*ast.FuncType)
-	if mF.Params[0].Type.(*ast.Typename).Decl != u {
+	IfA := getTypeDecl(p, "IfA")
+	mF := IfA.Type.(*ast.InterfaceType).Methods[0].Type.(*ast.FuncType)
+	if mF.Params[0].Type != u {
 		t.Error("parameterof method `IfA.F` is not of type `u`")
 	}
-	if mF.Returns[0].Type.(*ast.Typename).Decl != v {
+	if mF.Returns[0].Type != v {
 		t.Error("return of method `IfA.F` is not of type `v`")
 	}
 
 	IfB := getTypeDecl(p, "IfB").Type.(*ast.InterfaceType)
-	if IfB.Methods[0].Type.(*ast.Typename).Decl.Type.(*ast.InterfaceType) != IfA {
+	if IfB.Methods[0].Type != IfA {
 		t.Error("embedded interface of `IfB` is not `IfA`")
 	}
 	mG := IfB.Methods[1].Type.(*ast.FuncType)
-	if mG.Params[0].Type.(*ast.Typename).Decl != x {
+	if mG.Params[0].Type != x {
 		t.Error("parameterof method `IfB.G` is not of type `x`")
 	}
-	if mG.Returns[0].Type.(*ast.Typename).Decl != y {
+	if mG.Returns[0].Type != y {
 		t.Error("return of method `IfB.G` is not of type `y`")
 	}
 }

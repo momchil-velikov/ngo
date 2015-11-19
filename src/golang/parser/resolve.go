@@ -378,9 +378,8 @@ func fieldName(f *ast.Field) string {
 		if t, ok := f.Type.(*ast.PtrType); ok {
 			typ = t.Base
 		}
-		t := typ.(*ast.Typename)
-		return t.Name.Id
-
+		t := typ.(*ast.TypeDecl)
+		return t.Name
 	} else {
 		return f.Name
 	}
@@ -413,7 +412,7 @@ func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
 		} else if d, ok := d.(*ast.TypeDecl); !ok {
 			return nil, errors.New(t.Id + " is not a typename")
 		} else {
-			return &ast.Typename{Name: t, Decl: d}, nil
+			return d, nil
 		}
 	case *ast.ArrayType:
 		if elt, err := resolveType(t.Elt, scope); err != nil {
@@ -506,8 +505,8 @@ L:
 	switch t := typ.(type) {
 	case *ast.StructType:
 		return t
-	case *ast.Typename:
-		typ = t.Decl.Type
+	case *ast.TypeDecl:
+		typ = t.Type
 		goto L
 	default:
 		return nil
@@ -518,20 +517,15 @@ L:
 // nil, if TYP does not refer to a typename. If TYP begins a chain of
 // typenames, returns the one, which refers directly to the structure.
 func findTypeOrigPackage(typ ast.Type) *ast.Package {
-	var tname *ast.Typename
-L:
-	switch t := typ.(type) {
-	case *ast.Typename:
-		tname = t
-		typ = t.Decl.Type
-		goto L
-	default:
-		if tname == nil {
-			return nil
-		} else {
-			return tname.Decl.File.Pkg
-		}
+	var dcl *ast.TypeDecl
+	for d, ok := typ.(*ast.TypeDecl); ok; d, ok = typ.(*ast.TypeDecl) {
+		dcl = d
+		typ = dcl.Type
 	}
+	if dcl == nil {
+		return nil
+	}
+	return dcl.File.Pkg
 }
 
 //  Finds the field NAME within the structure type STR. Does not consider
@@ -569,13 +563,13 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 			} else if !isExported(x.Id) {
 				return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
 			} else if d, ok := d.(*ast.TypeDecl); ok {
-				return &ast.Typename{Name: x, Decl: d}, nil
+				return d, nil
 			}
 		} else {
 			if d := scope.Lookup(x.Id); d == nil {
 				return nil, errors.New(x.Id + " not declared")
 			} else if d, ok := d.(*ast.TypeDecl); ok {
-				return &ast.Typename{Name: x, Decl: d}, nil
+				return d, nil
 			}
 		}
 	case *ast.UnaryExpr:
@@ -806,11 +800,7 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 					return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
 				}
 			} else if d, ok := d.(*ast.TypeDecl); ok {
-				m := &ast.MethodExpr{
-					Type: &ast.Typename{Name: x, Decl: d},
-					Id:   x.Id,
-				}
-				return m, nil
+				return &ast.MethodExpr{Type: d, Id: x.Id}, nil
 			} else {
 				s := &ast.Selector{
 					X:  &ast.QualifiedId{Off: x.Off, Id: x.Pkg}, // FIXME: OperandName

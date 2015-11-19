@@ -336,7 +336,7 @@ func TestWriteTypename(t *testing.T) {
 		Off:  13,
 		Name: "A",
 		File: pkgA.Files[0],
-		Type: &ast.PtrType{Base: &ast.Typename{Decl: flt32}},
+		Type: &ast.PtrType{Base: flt32},
 	}
 	pkgA.Decls["A"] = typA
 
@@ -344,7 +344,7 @@ func TestWriteTypename(t *testing.T) {
 		Off:  97,
 		Name: "X",
 		File: pkgA.Files[1],
-		Type: &ast.Typename{Decl: typA},
+		Type: typA,
 	}
 	pkgA.Decls["X"] = varX
 
@@ -415,8 +415,7 @@ func TestWriteTypename(t *testing.T) {
 		t.Error("declaration differ")
 	}
 
-	typ := &ast.Typename{Decl: typA}
-	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgA, typ) })
+	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgA, typA) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -433,7 +432,7 @@ func TestWriteTypename(t *testing.T) {
 		}
 		dtyp = typ
 	})
-	if !reflect.DeepEqual(dtyp, typ) {
+	if !reflect.DeepEqual(dtyp, typA) {
 		t.Error("decoded typenames differ")
 	}
 
@@ -449,7 +448,7 @@ func TestWriteTypename(t *testing.T) {
 	}
 	pkgB.Files = files
 
-	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgB, typ) })
+	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgB, typA) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -463,9 +462,9 @@ func TestWriteTypename(t *testing.T) {
 		dtyp, err = readType(d, pkgB)
 		return err
 	})
-	if tn, ok := dtyp.(*ast.Typename); !ok {
-		t.Error("wrong decode: expecting typename")
-	} else if !reflect.DeepEqual(tn, typ) {
+	if tn, ok := dtyp.(*ast.TypeDecl); !ok {
+		t.Error("wrong decode: expecting type declaration")
+	} else if !reflect.DeepEqual(tn, typA) {
 		t.Error("decoded typenames differ")
 	}
 }
@@ -686,7 +685,7 @@ func TestWriteFuncDecl(t *testing.T) {
 	}
 	pkg.Decls["S"] = typS
 
-	fn.Func.Recv = &ast.Param{Type: &ast.PtrType{Base: &ast.Typename{Decl: typS}}}
+	fn.Func.Recv = &ast.Param{Type: &ast.PtrType{Base: typS}}
 	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, pkg, fn) })
 	expect_eq(t, "func decl",
 		buf,

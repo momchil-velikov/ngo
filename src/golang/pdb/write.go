@@ -218,7 +218,7 @@ func writeType(enc *Encoder, pkg *ast.Package, t ast.Type) error {
 	switch t := t.(type) {
 	case *ast.BuiltinType:
 		return writeBuiltinType(enc, t.Kind)
-	case *ast.Typename:
+	case *ast.TypeDecl:
 		return writeTypename(enc, pkg, t)
 	case *ast.ArrayType:
 		if err := enc.WriteByte(_ARRAY); err != nil {
@@ -328,9 +328,9 @@ func findImportNo(pkg *ast.Package, imp *ast.Package) int {
 	panic("not reached")
 }
 
-func writeTypename(enc *Encoder, pkg *ast.Package, t *ast.Typename) error {
+func writeTypename(enc *Encoder, pkg *ast.Package, t *ast.TypeDecl) error {
 	pno := 0
-	if f := t.Decl.File; f != nil {
+	if f := t.File; f != nil {
 		pno = findImportNo(pkg, f.Pkg)
 	}
 	if err := enc.WriteByte(_TYPENAME); err != nil {
@@ -339,7 +339,7 @@ func writeTypename(enc *Encoder, pkg *ast.Package, t *ast.Typename) error {
 	if err := enc.WriteNum(uint64(pno)); err != nil {
 		return err
 	}
-	return enc.WriteString(t.Decl.Name)
+	return enc.WriteString(t.Name)
 }
 
 func writeStructType(enc *Encoder, pkg *ast.Package, t *ast.StructType) error {

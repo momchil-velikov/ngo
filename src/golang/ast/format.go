@@ -272,10 +272,6 @@ func (t *QualifiedId) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString(t.Id)
 }
 
-func (t *Typename) Format(ctx *FormatContext, n uint) {
-	t.Name.Format(ctx, n)
-}
-
 func (t *BuiltinType) Format(ctx *FormatContext, _ uint) {
 	var name string
 	switch t.Kind {

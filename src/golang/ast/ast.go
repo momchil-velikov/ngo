@@ -29,7 +29,7 @@ type Type interface {
 
 func (Error) typ()         {}
 func (QualifiedId) typ()   {}
-func (Typename) typ()      {}
+func (TypeDecl) typ()      {}
 func (BuiltinType) typ()   {}
 func (ArrayType) typ()     {}
 func (SliceType) typ()     {}
@@ -345,11 +345,6 @@ type BinaryExpr struct {
 type QualifiedId struct {
 	Off     int
 	Pkg, Id string
-}
-
-type Typename struct {
-	Name *QualifiedId
-	Decl *TypeDecl
 }
 
 const (

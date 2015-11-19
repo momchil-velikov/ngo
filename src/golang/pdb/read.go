@@ -307,7 +307,7 @@ func findScopeByNo(pkg *ast.Package, no int) ast.Scope {
 	panic("not reached")
 }
 
-func readTypename(dec *Decoder, pkg *ast.Package) (*ast.Typename, error) {
+func readTypename(dec *Decoder, pkg *ast.Package) (*ast.TypeDecl, error) {
 	n, err := dec.ReadNum()
 	if err != nil {
 		return nil, err
@@ -325,7 +325,7 @@ func readTypename(dec *Decoder, pkg *ast.Package) (*ast.Typename, error) {
 	} else if dcl, ok := sym.(*ast.TypeDecl); !ok {
 		return nil, BadFile
 	} else {
-		return &ast.Typename{Decl: dcl}, nil
+		return dcl, nil
 	}
 }
 
