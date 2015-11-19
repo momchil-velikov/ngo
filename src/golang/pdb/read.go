@@ -35,7 +35,10 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 		return nil, BadVersion
 	}
 
-	pkg := &ast.Package{}
+	pkg := &ast.Package{
+		Deps:  make(map[string]*ast.Import),
+		Decls: make(map[string]ast.Symbol),
+	}
 
 	// Package name
 	pkg.Name, err = dec.ReadString()
@@ -44,7 +47,6 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	// Dependencies
-	pkg.Deps = make(map[string]*ast.Import)
 	n, err = dec.ReadNum()
 	if err != nil {
 		return nil, err
@@ -81,7 +83,6 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	// Declarations.
-	pkg.Decls = make(map[string]ast.Symbol)
 	ok, err := readDecl(dec, pkg)
 	for err == nil && ok {
 		ok, err = readDecl(dec, pkg)
@@ -99,7 +100,7 @@ func readFile(dec *Decoder) (*ast.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	file := &ast.File{Name: name}
+	file := &ast.File{Name: name, Decls: make(map[string]ast.Symbol)}
 	for {
 		n, err := dec.ReadNum()
 		if err != nil {

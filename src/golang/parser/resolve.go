@@ -94,6 +94,7 @@ func declareTopLevel(
 		Imports: f.Imports,
 		Name:    f.Name,
 		SrcMap:  f.SrcMap,
+		Decls:   make(map[string]ast.Symbol),
 	}
 
 	// Declare imported package names.
@@ -908,7 +909,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 				ss = append(ss, st)
 			}
 		}
-		return &ast.Block{Up: scope, Body: ss}, nil
+		return &ast.Block{Up: scope, Body: ss, Decls: make(map[string]ast.Symbol)}, nil
 	case *ast.EmptyStmt:
 		return nil, nil
 	case *ast.Block:
@@ -1072,7 +1073,10 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// If the initial statement is a short variable declaration, put an
 		// extra block around the if.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{Body: make([]ast.Stmt, 2)}
+			blk := &ast.Block{
+				Body:  make([]ast.Stmt, 2),
+				Decls: make(map[string]ast.Symbol),
+			}
 			blk.Body[0] = s.Init
 			blk.Body[1] = s
 			s.Init = nil
@@ -1103,7 +1107,10 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// If the initial statement is a short variable declaration, put an
 		// extra block around the for.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{Body: make([]ast.Stmt, 2)}
+			blk := &ast.Block{
+				Body:  make([]ast.Stmt, 2),
+				Decls: make(map[string]ast.Symbol),
+			}
 			blk.Body[0] = s.Init
 			blk.Body[1] = s
 			s.Init = nil
@@ -1138,7 +1145,11 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// If the range-for declares new variables, put a block around the for
 		// and declare the variables in this block.
 		if s.Op == scanner.DEFINE {
-			blk := &ast.Block{Up: scope, Body: make([]ast.Stmt, 2)}
+			blk := &ast.Block{
+				Up:    scope,
+				Body:  make([]ast.Stmt, 2),
+				Decls: make(map[string]ast.Symbol),
+			}
 			for _, x := range s.LHS {
 				if id, ok := x.(*ast.QualifiedId); ok && len(id.Pkg) == 0 {
 					v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
@@ -1197,7 +1208,10 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// If the initial statement is a short variable declaration, put an
 		// extra block around the switch.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{Body: make([]ast.Stmt, 2)}
+			blk := &ast.Block{
+				Body:  make([]ast.Stmt, 2),
+				Decls: make(map[string]ast.Symbol),
+			}
 			blk.Body[0] = s.Init
 			blk.Body[1] = s
 			s.Init = nil
@@ -1233,7 +1247,10 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// If the initial statement is a short variable declaration, put an
 		// extra block around the type switch.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{Body: make([]ast.Stmt, 2)}
+			blk := &ast.Block{
+				Body:  make([]ast.Stmt, 2),
+				Decls: make(map[string]ast.Symbol),
+			}
 			blk.Body[0] = s.Init
 			blk.Body[1] = s
 			s.Init = nil
