@@ -502,6 +502,14 @@ func (e *Literal) Format(ctx *FormatContext, _ uint) {
 	}
 }
 
+func (v *Var) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString(v.Name) // FIXME: package name
+}
+
+func (c *Const) Format(ctx *FormatContext, _ uint) {
+	ctx.WriteString(c.Name) // FIXME: package name
+}
+
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 	e.X.Format(ctx, n)
 	if e.Type == nil {

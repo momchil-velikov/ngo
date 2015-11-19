@@ -273,7 +273,7 @@ func declareBlockVar(vr *ast.VarDecl, file *ast.File, scope ast.Scope) (ast.Stmt
 		if err := scope.Declare(v.Name, v); err != nil {
 			return nil, err
 		}
-		lhs = append(lhs, &ast.QualifiedId{Off: v.Off, Id: v.Name})
+		lhs = append(lhs, v)
 	}
 	return &ast.AssignStmt{Op: '=', LHS: lhs, RHS: rhs}, nil
 }
@@ -586,6 +586,18 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 	return nil, nil
 }
 
+// Converts a symbol declaration to an expression to fill the place of an
+// OperandName in the AST.
+func operandName(d ast.Symbol) ast.Expr {
+	if v, ok := d.(*ast.Var); ok {
+		return v
+	} else if c, ok := d.(*ast.Const); ok {
+		return c
+	} else {
+		return d.(*ast.FuncDecl)
+	}
+}
+
 // Resolves the identifiers in an Expression. Removes occurances of
 // ParensExpr.
 func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
@@ -798,15 +810,13 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 					return nil, errors.New("invalid operand " + x.Pkg + "." + x.Id)
 				} else if !isExported(x.Id) {
 					return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
+				} else {
+					return operandName(d), nil
 				}
 			} else if d, ok := d.(*ast.TypeDecl); ok {
 				return &ast.MethodExpr{Type: d, Id: x.Id}, nil
 			} else {
-				s := &ast.Selector{
-					X:  &ast.QualifiedId{Off: x.Off, Id: x.Pkg}, // FIXME: OperandName
-					Id: x.Id,
-				}
-				return s, nil
+				return &ast.Selector{X: operandName(d), Id: x.Id}, nil
 			}
 		} else {
 			// A single identifier must be simply a valid operand.
@@ -814,9 +824,10 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 				return nil, errors.New(x.Id + " not declared")
 			} else if _, ok := d.(*ast.TypeDecl); ok {
 				return nil, errors.New("invalid operand " + x.Id)
+			} else {
+				return operandName(d), nil
 			}
 		}
-		return x, nil // FIXME: OperandName
 	case *ast.MethodExpr:
 		panic("internal error: the parser does not generate MethodExpr")
 	default:
@@ -965,6 +976,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 				if err := scope.Declare(v.Name, v); err != nil {
 					return nil, err
 				}
+				s.X = v
 			}
 			if id, ok := s.Y.(*ast.QualifiedId); !ok || len(id.Pkg) > 0 {
 				return nil, errors.New("non-name on the left size of :=")
@@ -973,6 +985,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 				if err := scope.Declare(v.Name, v); err != nil {
 					return nil, err
 				}
+				s.Y = v
 			}
 		} else {
 			if s.X != nil {
@@ -1140,12 +1153,13 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 				Body:  make([]ast.Stmt, 2),
 				Decls: make(map[string]ast.Symbol),
 			}
-			for _, x := range s.LHS {
+			for i, x := range s.LHS {
 				if id, ok := x.(*ast.QualifiedId); ok && len(id.Pkg) == 0 {
 					v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
 					if err := blk.Declare(v.Name, v); err != nil {
 						return nil, err
 					}
+					s.LHS[i] = v
 				} else {
 					return nil, errors.New("non-name on the left side of :=")
 				}
@@ -1162,7 +1176,6 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 			} else {
 				s.Blk = b
 			}
-			// FIXME: resolve LHS (OperandName)
 			return blk, nil
 		} else {
 			// Resolve the LHS.
