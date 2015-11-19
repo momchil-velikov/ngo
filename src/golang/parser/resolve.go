@@ -852,19 +852,19 @@ func resolveBlock(blk *ast.Block, scope ast.Scope) (*ast.Block, error) {
 func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 	switch s := stmt.(type) {
 	case *ast.TypeDecl:
-		if err := resolveTypeDecl(s, scope); err != nil {
+		if err := declareType(s, scope.File(), scope); err != nil {
 			return nil, err
 		}
-		if err := declareType(s, scope.File(), scope); err != nil {
+		if err := resolveTypeDecl(s, scope); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	case *ast.TypeDeclGroup:
 		for _, d := range s.Types {
-			if err := resolveTypeDecl(d, scope); err != nil {
+			if err := declareType(d, scope.File(), scope); err != nil {
 				return nil, err
 			}
-			if err := declareType(d, scope.File(), scope); err != nil {
+			if err := resolveTypeDecl(d, scope); err != nil {
 				return nil, err
 			}
 		}
