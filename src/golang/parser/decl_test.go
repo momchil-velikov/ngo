@@ -445,7 +445,7 @@ func (id) name() {}
 }
 
 func TestParsePackage(t *testing.T) {
-	const TESTDIR = "_test/01/hedgp"
+	const TESTDIR = "_test/pkgname/hedgp"
 
 	// Test consistent package naming.
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})

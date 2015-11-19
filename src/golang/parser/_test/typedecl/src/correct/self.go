@@ -1,4 +1,4 @@
-package a
+package correct
 
 type A A
 
