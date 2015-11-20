@@ -543,7 +543,7 @@ func findField(str *ast.StructType, name string) *ast.Field {
 // Removes outermost ParensExpr from an expression.
 func removeParens(x ast.Expr) ast.Expr {
 	for y, ok := x.(*ast.ParensExpr); ok; y, ok = x.(*ast.ParensExpr) {
-		x = y
+		x = y.X
 	}
 	return x
 }
