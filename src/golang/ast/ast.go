@@ -219,7 +219,7 @@ type Var struct {
 	File *File
 	Name string
 	Type Type
-	Init Expr
+	Init *AssignStmt
 }
 
 type VarDecl struct {

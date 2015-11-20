@@ -70,7 +70,7 @@ func ResolvePackage(
 		case *ast.Const:
 			err = resolveConst(sym, sym.File)
 		case *ast.Var:
-			err = resolveVar(sym, sym.File)
+			err = resolvePkgVar(sym, sym.File)
 		case *ast.FuncDecl:
 			err = resolveFunc(&sym.Func, sym.File)
 		default:
@@ -244,41 +244,65 @@ func resolveConst(cst *ast.Const, scope ast.Scope) error {
 	return nil
 }
 
-// Declares a variable at package scope.
+// Declares a variable at package scope and creates the assignment statement
+// for the initialization.
 func declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
-	if len(vr.Init) > 0 && len(vr.Names) != len(vr.Init) {
-		return errors.New("number of names does not match the number of values")
+	var init *ast.AssignStmt
+	if len(vr.Init) > 0 {
+		init = &ast.AssignStmt{
+			Op:  '=',
+			LHS: make([]ast.Expr, len(vr.Names)),
+			RHS: vr.Init,
+		}
+		vr.Init = nil
+		vr.Names[0].Init = init
 	}
 	for i, v := range vr.Names {
 		v.File = file
-		if i < len(vr.Init) {
-			v.Init = vr.Init[i]
-		}
 		if err := file.Pkg.Declare(v.Name, v); err != nil {
 			return err
+		}
+		if init != nil {
+			init.LHS[i] = v
+		}
+	}
+	return nil
+}
+
+func resolvePkgVar(v *ast.Var, scope ast.Scope) error {
+	if typ, err := resolveType(v.Type, scope); err != nil {
+		return err
+	} else {
+		v.Type = typ
+	}
+	if v.Init == nil {
+		return nil
+	}
+	for i := range v.Init.RHS {
+		if x, err := resolveExpr(v.Init.RHS[i], scope); err != nil {
+			return err
+		} else {
+			v.Init.RHS[i] = x
 		}
 	}
 	return nil
 }
 
 func declareBlockVar(vr *ast.VarDecl, file *ast.File, scope ast.Scope) (ast.Stmt, error) {
-	if len(vr.Init) > 0 && len(vr.Names) != len(vr.Init) {
-		return nil, errors.New("number of names does not match the number of values")
-	}
 	rhs := vr.Init
 	vr.Init = nil
-	lhs := []ast.Expr{}
-	for _, v := range vr.Names {
+	lhs := make([]ast.Expr, len(vr.Names))
+	for i, v := range vr.Names {
 		v.File = file
 		if err := scope.Declare(v.Name, v); err != nil {
 			return nil, err
 		}
-		lhs = append(lhs, v)
+		lhs[i] = v
 	}
 	return &ast.AssignStmt{Op: '=', LHS: lhs, RHS: rhs}, nil
 }
 
-func resolveVarDecl(v *ast.VarDecl, scope ast.Scope) error {
+func resolveBlockVar(v *ast.VarDecl, scope ast.Scope) error {
 	if typ, err := resolveType(v.Type, scope); err != nil {
 		return err
 	} else {
@@ -290,20 +314,6 @@ func resolveVarDecl(v *ast.VarDecl, scope ast.Scope) error {
 		} else {
 			v.Init[i] = x
 		}
-	}
-	return nil
-}
-
-func resolveVar(v *ast.Var, scope ast.Scope) error {
-	if typ, err := resolveType(v.Type, scope); err != nil {
-		return err
-	} else {
-		v.Type = typ
-	}
-	if x, err := resolveExpr(v.Init, scope); err != nil {
-		return err
-	} else {
-		v.Init = x
 	}
 	return nil
 }
@@ -890,7 +900,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		}
 		return nil, nil
 	case *ast.VarDecl:
-		if err := resolveVarDecl(s, scope); err != nil {
+		if err := resolveBlockVar(s, scope); err != nil {
 			return nil, err
 		}
 		if st, err := declareBlockVar(s, scope.File(), scope); err != nil {
@@ -901,7 +911,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 	case *ast.VarDeclGroup:
 		ss := []ast.Stmt{}
 		for _, v := range s.Vars {
-			if err := resolveVarDecl(v, scope); err != nil {
+			if err := resolveBlockVar(v, scope); err != nil {
 				return nil, err
 			}
 			if st, err := declareBlockVar(v, scope.File(), scope); err != nil {
