@@ -656,8 +656,8 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 				continue
 			}
 			id, ok := e.Key.(*ast.QualifiedId)
-			if !ok || len(id.Pkg) > 0 {
-				return nil, errors.New("key is not a field name")
+			if !ok || len(id.Pkg) > 0 || id.Id == "_" {
+				return nil, errors.New("key is not a valid field name")
 			}
 			if findField(str, id.Id) == nil {
 				return nil, errors.New(id.Id + " field name not found")
