@@ -833,8 +833,8 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 				} else {
 					return operandName(d), nil
 				}
-			} else if d, ok := d.(*ast.TypeDecl); ok {
-				return &ast.MethodExpr{Type: d, Id: x.Id}, nil
+			} else if t, ok := d.(*ast.TypeDecl); ok {
+				return &ast.MethodExpr{Type: t, Id: x.Id}, nil
 			} else {
 				return &ast.Selector{X: operandName(d), Id: x.Id}, nil
 			}
