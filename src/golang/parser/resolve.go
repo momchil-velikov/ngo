@@ -710,7 +710,7 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 	case *ast.ParensExpr:
 		return resolveExpr(x.X, scope)
 	case *ast.Func:
-		if sig, err := resolveType(x.Sig, scope); err == nil {
+		if sig, err := resolveType(x.Sig, scope); err != nil {
 			return nil, err
 		} else {
 			x.Sig = sig.(*ast.FuncType)
