@@ -652,6 +652,9 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 			return x, nil
 		}
 		for _, e := range x.Elts {
+			if e.Key == nil {
+				continue
+			}
 			id, ok := e.Key.(*ast.QualifiedId)
 			if !ok || len(id.Pkg) > 0 {
 				return nil, errors.New("key is not a field name")
