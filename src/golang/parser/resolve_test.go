@@ -774,3 +774,73 @@ func TestResolveExprBinary(t *testing.T) {
 		t.Error("right operand must be `B`")
 	}
 }
+
+func TestResolveExprNotTypenameError(t *testing.T) {
+	srcs := []string{"comp.go", "conv.go", "func.go", "assert-1.go", "assert-2.go"}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/expr/src/err/not_typename", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "is not a typename") {
+			t.Error(src, ": expected 'not a typename' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
+
+func TestResolveExprNotDeclaredError(t *testing.T) {
+	srcs := []string{
+		"comp-1.go", "comp-2.go", "comp-3.go", "call-1.go", "call-2.go", "call-3.go",
+		"conv-1.go", "conv-2.go", "conv-3.go", "sel-1.go", "sel-2.go", "index-1.go",
+		"index-2.go", "slice-1.go", "slice-2.go", "slice-3.go", "slice-4.go", "unary.go",
+		"binary-1.go", "binary-2.go"}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/expr/src/err/not_declared", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "not declared") {
+			t.Error(src, ": expected 'not declared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
+
+func TestResolveExprInvOperand(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/err", []string{"inv-op.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolvePackage(up, nil)
+	if err == nil || !strings.Contains(err.Error(), "invalid operand") {
+		t.Error("expected 'invalid operand' error")
+		if err != nil {
+			t.Error("actual error:", err)
+		}
+	}
+}
+
+func TestResolveExprInvConversion(t *testing.T) {
+	srcs := []string{"inv-conv-1.go", "inv-conv-2.go", "inv-conv-3.go"}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/expr/src/err/inv_conv", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+
+		if err == nil || !strings.Contains(err.Error(), "invalid conversion") {
+			t.Error(src, ": expected 'invalid conversion argument' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
