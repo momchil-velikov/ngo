@@ -411,6 +411,23 @@ func checkDuplicateFieldNames(s *ast.StructType) error {
 	return nil
 }
 
+// Resolves identifiers in function parameter and return values list.
+func resolveParams(ps []ast.Param, scope ast.Scope) (err error) {
+	var carry ast.Type
+	n := len(ps)
+	for i := n - 1; i >= 0; i-- {
+		p := &ps[i]
+		if p.Type != nil {
+			carry, err = resolveType(p.Type, scope)
+			if err != nil {
+				return
+			}
+		}
+		p.Type = carry
+	}
+	return
+}
+
 func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
 	if t == nil {
 		return nil, nil
@@ -476,21 +493,11 @@ func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
 		}
 		return t, nil
 	case *ast.FuncType:
-		for i := range t.Params {
-			p := &t.Params[i]
-			if typ, err := resolveType(p.Type, scope); err != nil {
-				return nil, err
-			} else {
-				p.Type = typ
-			}
+		if err := resolveParams(t.Params, scope); err != nil {
+			return nil, err
 		}
-		for i := range t.Returns {
-			r := &t.Returns[i]
-			if typ, err := resolveType(r.Type, scope); err != nil {
-				return nil, err
-			} else {
-				r.Type = typ
-			}
+		if err := resolveParams(t.Returns, scope); err != nil {
+			return nil, err
 		}
 		return t, nil
 	case *ast.InterfaceType:
