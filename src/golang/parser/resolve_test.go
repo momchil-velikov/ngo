@@ -436,3 +436,341 @@ func TestResolveTypeDuplicateField(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestResolveExprLiteral(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"lit.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolvePackage(up, nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestResolveExprComposite(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"comp.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+
+	C := p.Find("C").(*ast.Var)
+	x := C.Init.RHS[0].(*ast.CompLiteral)
+	elt := x.Type.(*ast.SliceType).Elt.(*ast.TypeDecl)
+	if elt != ast.UniverseScope.Find("int") {
+		t.Error("`C`s initializer type must be `[]int`")
+	}
+	if x.Elts[0].Value.(*ast.Var) != A {
+		t.Error("first element in the slice literal must be `A`")
+	}
+	if x.Elts[1].Value.(*ast.Var) != B {
+		t.Error("first element in the slice literal must be `B`")
+	}
+
+	D := p.Find("D").(*ast.Var)
+	x = D.Init.RHS[0].(*ast.CompLiteral)
+	if x.Elts[0].Key.(*ast.Var) != A {
+		t.Error("key in the map literal must be `A`")
+	}
+	if x.Elts[0].Value.(*ast.Var) != B {
+		t.Error("value in the map literal must be `B`")
+	}
+
+	E := p.Find("E").(*ast.Var)
+	x = E.Init.RHS[0].(*ast.CompLiteral)
+	if id, ok := x.Elts[0].Key.(*ast.QualifiedId); !ok {
+		t.Error("field names in struct composite literal must not be resolved")
+	} else if id.Id != "A" {
+		t.Errorf("unexpected fied name `%s`, must be `A`\n", id.Id)
+	}
+	if x.Elts[0].Value.(*ast.Var) != A {
+		t.Error("initializer of fieeld `A` must be variable `A`")
+	}
+	if id, ok := x.Elts[1].Key.(*ast.QualifiedId); !ok {
+		t.Error("field names in struct composite literal must not be resolved")
+	} else if id.Id != "B" {
+		t.Errorf("unexpected fied name `%s`, must be `B`\n", id.Id)
+	}
+	if x.Elts[1].Value.(*ast.Var) != B {
+		t.Error("initializer of fieeld `B` must be variable `B`")
+	}
+}
+
+func TestResolveExprConversion(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"conv.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	T := p.Find("T").(*ast.TypeDecl)
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	x := B.Init.RHS[0].(*ast.Conversion)
+	if x.Type.(*ast.SliceType).Elt != T {
+		t.Error("type in the conversion must be a `[]T`")
+	}
+	if x.X != A {
+		t.Error("the converted value must be `A`")
+	}
+
+	C := p.Find("C").(*ast.Var)
+	D := p.Find("D").(*ast.Var)
+	x, ok := D.Init.RHS[0].(*ast.Conversion)
+	if !ok {
+		t.Error("initializer of `D` must be Conversion")
+	}
+	if x.Type != T {
+		t.Error("in initializer of `D` the conversion type must be `T`")
+	}
+	if x.X != C {
+		t.Error("in initializer of `D` the converted value must be `C`")
+	}
+}
+
+func TestResolveExprCall(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"call.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	A := p.Find("A").(*ast.Var)
+	if A.Init == nil {
+		t.Error("`A` must have an initializer statement")
+	}
+	x := A.Init.RHS[0].(*ast.Call)
+	if x.Func != F {
+		t.Error("in the initializer of `A` the called function must be `F`")
+	}
+	X := p.Find("X").(*ast.Var)
+	Y := p.Find("Y").(*ast.Var)
+	if x.Xs[0] != X {
+		t.Error("first argument to the call of `F` must be `X`")
+	}
+	if x.Xs[1] != Y {
+		t.Error("second argument to the call of `F` must be `Y`")
+	}
+}
+
+func TestResolveExprParens(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"parens.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	X := p.Find("X").(*ast.Var)
+	Y := p.Find("Y").(*ast.Var)
+	x := Y.Init.RHS[0]
+	if _, ok := x.(*ast.ParensExpr); ok {
+		t.Error("ParensExpr must be removed by the resolver")
+	}
+	if x != X {
+		t.Error("initializer or `Y` must be `X`")
+	}
+}
+
+func TestResolveExprFuncLiteral(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"func.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	I := p.Find("I").(*ast.TypeDecl)
+	R := p.Find("R").(*ast.TypeDecl)
+	F := p.Find("F").(*ast.Var)
+	fn := F.Init.RHS[0].(*ast.Func)
+	if fn.Sig.Params[0].Type != R || fn.Sig.Params[1].Type != R {
+		t.Error("parameters in the function literal must have type `R`")
+	}
+	if fn.Sig.Returns[0].Type != R {
+		t.Error("first return in the function literal must have type `R`")
+	}
+	if fn.Sig.Returns[1].Type != I {
+		t.Error("second return in the function literal must have type `I`")
+	}
+}
+
+func TestResolveTypeAssertion(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"assert.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	T := p.Find("T").(*ast.TypeDecl)
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	x := B.Init.RHS[0].(*ast.TypeAssertion)
+	if x.X != A {
+		t.Error("type assertion expression must be `A`")
+	}
+	if x.Type != T {
+		t.Error("type in type assertion expression must be `T`")
+	}
+}
+
+func TestResolveExprSelector(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"selector.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	x := B.Init.RHS[0].(*ast.Selector)
+	if x.X != A {
+		t.Error("expression in selector must be `A`")
+	}
+	if x.Id != "X" {
+		t.Error("identifier in selector must be `X`")
+	}
+
+	C := p.Find("C").(*ast.Var)
+	D := p.Find("D").(*ast.Var)
+	x = D.Init.RHS[0].(*ast.Selector)
+	y := x.X.(*ast.Selector)
+	if y.X != C {
+		t.Error("in initializer of `D` expression in the first selector must be `C`")
+	}
+	if y.Id != "A" {
+		t.Error("in initializer of `D` identifier in the first selector must be `A`")
+	}
+
+	S := p.Find("S").(*ast.TypeDecl)
+	E := p.Find("E").(*ast.Var)
+	z, ok := E.Init.RHS[0].(*ast.MethodExpr)
+	if !ok {
+		t.Error("initializer of `E` must be a MethodExpr")
+	}
+	ptr, ok := z.Type.(*ast.PtrType)
+	if !ok || ptr.Base != S {
+		t.Error("in initializer of `E`: the type in the method expression must be `*S`")
+	}
+	if z.Id != "Y" {
+		t.Error(
+			"in initializer of `E`: the identifier in the method expression must be `Y`",
+		)
+	}
+}
+
+func TestResolveExprIndex(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"index.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Const)
+	C := p.Find("C").(*ast.Var)
+	x := C.Init.RHS[0].(*ast.IndexExpr)
+	if x.X != A {
+		t.Error("indexed obejct must be `A`")
+	}
+	if x.I != B {
+		t.Error("index expression must be `A`")
+	}
+}
+
+func TestResolveExprSlice(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"slice.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	L := p.Find("L").(*ast.Var)
+	H := p.Find("H").(*ast.Var)
+	C := p.Find("C").(*ast.Var)
+	x := B.Init.RHS[0].(*ast.SliceExpr)
+	if x.X != A {
+		t.Error("sliced object must be `A`")
+	}
+	if x.Lo != L {
+		t.Error("slice expression low index must be `L`")
+	}
+	if x.Hi != H {
+		t.Error("slice expression high index must be `H`")
+	}
+	if x.Cap != C {
+		t.Error("slice expression capacity be `C`")
+	}
+}
+
+func TestResolveExprUnary(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"unary.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	x := B.Init.RHS[0].(*ast.UnaryExpr)
+	if x.X != A {
+		t.Error("unary expression operand must be `A`")
+	}
+}
+
+func TestResolveExprBinary(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/ok", []string{"binary.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	C := p.Find("C").(*ast.Var)
+	x := C.Init.RHS[0].(*ast.BinaryExpr)
+	if x.X != A {
+		t.Error("left operand must be `A`")
+	}
+	if x.Y != B {
+		t.Error("right operand must be `B`")
+	}
+}
