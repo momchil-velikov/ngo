@@ -16,7 +16,7 @@ func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
 	return t
 }
 
-func TestDeclareResolveTypeUniverse(t *testing.T) {
+func TestResolveTypeUniverse(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
 	if err != nil {
@@ -86,7 +86,7 @@ func TestDeclareResolveTypeUniverse(t *testing.T) {
 	}
 }
 
-func TestDuplicateTypeDeclAtPackageScope(t *testing.T) {
+func TestResolveTypeDuplicatelAtPackageScope(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/errors/dup_decl"
 	up, err := ParsePackage(TESTDIR, []string{"a.go"})
 	if err != nil {
@@ -113,7 +113,7 @@ func TestDuplicateTypeDeclAtPackageScope(t *testing.T) {
 	}
 }
 
-func TestDeclareResolveTypePackageScope(t *testing.T) {
+func TestResolveTypePackageScope(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
 	if err != nil {
@@ -160,7 +160,7 @@ func TestDeclareResolveTypePackageScope(t *testing.T) {
 	}
 }
 
-func TestDeclareResolveTypeBlockScope(t *testing.T) {
+func TestResolveTypeBlockScope(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
 	if err != nil {
@@ -240,7 +240,7 @@ func TestDeclareResolveTypeBlockScope(t *testing.T) {
 	}
 }
 
-func TestTypeSelfReference(t *testing.T) {
+func TestResolveTypeSelfReference(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct/"
 	up, err := ParsePackage(TESTDIR, []string{"self.go"})
 	if err != nil {
@@ -297,7 +297,7 @@ func TestTypeSelfReference(t *testing.T) {
 	}
 }
 
-func TestDeclareResolveConstructedType(t *testing.T) {
+func TestResolveConstructedType(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
 	if err != nil {
