@@ -325,17 +325,22 @@ func resolvePkgVar(d *ast.VarDecl, scope ast.Scope) error {
 }
 
 func declareBlockVar(vr *ast.VarDecl, file *ast.File, scope ast.Scope) (ast.Stmt, error) {
-	rhs := vr.Init
-	vr.Init = nil
-	lhs := make([]ast.Expr, len(vr.Names))
-	for i, v := range vr.Names {
+	var init *ast.AssignStmt
+	if len(vr.Init) > 0 {
+		init = &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(vr.Names)), RHS: vr.Init}
+		vr.Init = nil
+		for i, v := range vr.Names {
+			init.LHS[i] = v
+			v.Init = init
+		}
+	}
+	for _, v := range vr.Names {
 		v.File = file
 		if err := scope.Declare(v.Name, v); err != nil {
 			return nil, err
 		}
-		lhs[i] = v
 	}
-	return &ast.AssignStmt{Op: '=', LHS: lhs, RHS: rhs}, nil
+	return init, nil
 }
 
 func resolveBlockVar(v *ast.VarDecl, scope ast.Scope) error {
