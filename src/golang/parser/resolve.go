@@ -335,6 +335,9 @@ func declareBlockVar(vr *ast.VarDecl, file *ast.File, scope ast.Scope) (ast.Stmt
 		}
 	}
 	for _, v := range vr.Names {
+		if v.Name == "_" {
+			continue
+		}
 		v.File = file
 		if err := scope.Declare(v.Name, v); err != nil {
 			return nil, err
