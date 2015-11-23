@@ -186,31 +186,31 @@ func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
 		var err error
 		switch d := d.(type) {
 		case *ast.TypeDecl:
-			err = resolveTypeDecl(d, f.Pkg)
+			err = resolveTypeDecl(d, f)
 		case *ast.TypeDeclGroup:
 			for _, d := range d.Types {
-				if err = resolveTypeDecl(d, f.Pkg); err != nil {
+				if err = resolveTypeDecl(d, f); err != nil {
 					break
 				}
 			}
 		case *ast.ConstDecl:
-			err = resolveConstDecl(d, f.Pkg)
+			err = resolveConstDecl(d, f)
 		case *ast.ConstDeclGroup:
 			for _, d := range d.Consts {
-				if err = resolveConstDecl(d, f.Pkg); err != nil {
+				if err = resolveConstDecl(d, f); err != nil {
 					break
 				}
 			}
 		case *ast.VarDecl:
-			err = resolvePkgVar(d, f.Pkg)
+			err = resolvePkgVar(d, f)
 		case *ast.VarDeclGroup:
 			for _, d := range d.Vars {
-				if err = resolvePkgVar(d, f.Pkg); err != nil {
+				if err = resolvePkgVar(d, f); err != nil {
 					break
 				}
 			}
 		case *ast.FuncDecl:
-			err = resolveFunc(&d.Func, f.Pkg)
+			err = resolveFunc(&d.Func, f)
 		default:
 			panic("not reached")
 		}

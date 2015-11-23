@@ -844,3 +844,46 @@ func TestResolveExprInvConversion(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveScope(t *testing.T) {
+	up, err := ParsePackage("_test/scope/src/ok", []string{"scope.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Very scope chain.
+	if p.Parent() != ast.UniverseScope {
+		t.Error("package scope must point to the universal scope")
+	}
+	file := p.Files[0]
+	if file.Parent() != p {
+		t.Error("file scope must point to package scope")
+	}
+	F := p.Find("F").(*ast.FuncDecl)
+	fblk := F.Func.Blk
+	if fblk.Parent() != file {
+		t.Error("function block scope must point to file scope")
+	}
+	blk := fblk.Body[0].(*ast.Block)
+	if blk.Parent() != fblk {
+		t.Error("nested block scope must point to enclosing block scope")
+	}
+	blkA, blkB := blk.Body[0].(*ast.Block), blk.Body[1].(*ast.Block)
+	if blkA.Parent() != blk || blkA.Parent() != blkB.Parent() {
+		t.Error("nested block scope must point to enclosing block scope")
+	}
+	A := blkA.Find("A")
+	_, _, f := A.DeclaredAt()
+	if f != file {
+		t.Error("incorrect source file for variable `A`")
+	}
+	B := blkB.Find("B")
+	_, _, f = B.DeclaredAt()
+	if f != file {
+		t.Error("incorrect source file for variable `B`")
+	}
+}
