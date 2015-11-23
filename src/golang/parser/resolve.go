@@ -54,28 +54,28 @@ func ResolvePackage(
 
 	// Insert package and file scope declarations into the symbol table.
 	for _, f := range p.Files {
-		if file, err := declareTopLevel(f, pkg, loc); err != nil {
+		file, err := declareTopLevel(f, pkg, loc)
+		if err != nil {
 			return nil, err
-		} else {
-			pkg.Files = append(pkg.Files, file)
+		}
+		pkg.Files = append(pkg.Files, file)
+	}
+
+	// Resolve right-hand sides of package-level variable initialization
+	// statements.
+	for _, st := range pkg.Init {
+		for i := range st.RHS {
+			x, err := resolveExpr(st.RHS[i], pkg)
+			if err != nil {
+				return nil, err
+			}
+			st.RHS[i] = x
 		}
 	}
 
 	// Declare lower level names and resolve all.
-	for _, sym := range pkg.Decls {
-		var err error
-		switch sym := sym.(type) {
-		case *ast.TypeDecl:
-			err = resolveTypeDecl(sym, sym.File)
-		case *ast.Const:
-			err = resolveConst(sym, sym.File)
-		case *ast.Var:
-			err = resolvePkgVar(sym, sym.File)
-		case *ast.FuncDecl:
-			err = resolveFunc(&sym.Func, sym.File)
-		default:
-			panic("not reached")
-		}
+	for i, f := range p.Files {
+		err := resolveTopLevel(pkg.Files[i], f.Decls)
 		if err != nil {
 			return nil, err
 		}
@@ -181,6 +181,46 @@ func declareTopLevel(
 	return file, nil
 }
 
+func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
+	for _, d := range ds {
+		var err error
+		switch d := d.(type) {
+		case *ast.TypeDecl:
+			err = resolveTypeDecl(d, f.Pkg)
+		case *ast.TypeDeclGroup:
+			for _, d := range d.Types {
+				if err = resolveTypeDecl(d, f.Pkg); err != nil {
+					break
+				}
+			}
+		case *ast.ConstDecl:
+			err = resolveConstDecl(d, f.Pkg)
+		case *ast.ConstDeclGroup:
+			for _, d := range d.Consts {
+				if err = resolveConstDecl(d, f.Pkg); err != nil {
+					break
+				}
+			}
+		case *ast.VarDecl:
+			err = resolvePkgVar(d, f.Pkg)
+		case *ast.VarDeclGroup:
+			for _, d := range d.Vars {
+				if err = resolvePkgVar(d, f.Pkg); err != nil {
+					break
+				}
+			}
+		case *ast.FuncDecl:
+			err = resolveFunc(&d.Func, f.Pkg)
+		default:
+			panic("not reached")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func declareType(t *ast.TypeDecl, file *ast.File, scope ast.Scope) error {
 	t.File = file
 	return scope.Declare(t.Name, t)
@@ -247,43 +287,39 @@ func resolveConst(cst *ast.Const, scope ast.Scope) error {
 // Declares a variable at package scope and creates the assignment statement
 // for the initialization.
 func declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
-	var init *ast.AssignStmt
 	if len(vr.Init) > 0 {
-		init = &ast.AssignStmt{
-			Op:  '=',
-			LHS: make([]ast.Expr, len(vr.Names)),
-			RHS: vr.Init,
-		}
+		// Create an assignment statement, which is executed, according to
+		// dependency order, upon package initialization, to set initial
+		// values of the package-level variables. Make every variable refer to
+		// its initialization statement.
+		lhs := make([]ast.Expr, len(vr.Names))
+		init := &ast.AssignStmt{Op: '=', LHS: lhs, RHS: vr.Init}
 		vr.Init = nil
-		vr.Names[0].Init = init
+		for i, v := range vr.Names {
+			lhs[i] = v
+			v.Init = init
+		}
+		file.Pkg.Init = append(file.Pkg.Init, init)
 	}
-	for i, v := range vr.Names {
+	for _, v := range vr.Names {
+		if v.Name == "_" {
+			continue
+		}
 		v.File = file
 		if err := file.Pkg.Declare(v.Name, v); err != nil {
 			return err
-		}
-		if init != nil {
-			init.LHS[i] = v
 		}
 	}
 	return nil
 }
 
-func resolvePkgVar(v *ast.Var, scope ast.Scope) error {
-	if typ, err := resolveType(v.Type, scope); err != nil {
+func resolvePkgVar(d *ast.VarDecl, scope ast.Scope) error {
+	typ, err := resolveType(d.Type, scope)
+	if err != nil {
 		return err
-	} else {
+	}
+	for _, v := range d.Names {
 		v.Type = typ
-	}
-	if v.Init == nil {
-		return nil
-	}
-	for i := range v.Init.RHS {
-		if x, err := resolveExpr(v.Init.RHS[i], scope); err != nil {
-			return err
-		} else {
-			v.Init.RHS[i] = x
-		}
 	}
 	return nil
 }

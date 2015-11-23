@@ -121,8 +121,9 @@ type Package struct {
 	Name  string             // Last component of the path name or "main"
 	Sig   [20]byte           // SHA-1 signature of something unrelated here
 	Files []*File            // Source files of the package
-	Decls map[string]Symbol  // Package level declarations
+	Decls map[string]Symbol  // Package-level declarations
 	Deps  map[string]*Import // Map of package dependencies
+	Init  []*AssignStmt      // Init statements for package-level variables
 }
 
 // Imported package
