@@ -887,3 +887,165 @@ func TestResolveScope(t *testing.T) {
 		t.Error("incorrect source file for variable `B`")
 	}
 }
+
+func checkVarDeclared(t *testing.T, s ast.Scope, ns []string) (map[string]*ast.Var, bool) {
+	m := make(map[string]*ast.Var)
+	for _, n := range ns {
+		d := s.Find(n)
+		if d == nil {
+			t.Errorf("variable `%s` not declared\n", n)
+			return nil, false
+		}
+		v, ok := d.(*ast.Var)
+		if !ok {
+			t.Errorf("`%s` is not a variable\n", n)
+		}
+		m[n] = v
+	}
+	return m, true
+}
+
+func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
+	// Check A and B have no initializer
+	if v["A"].Init != nil {
+		t.Error("`A` must be zero initialized")
+	}
+	if v["B"].Init != nil {
+		t.Error("`B` must be zero initialized")
+	}
+
+	// Check initializer C and D have the same non-nil initializer.
+	x := v["C"].Init
+	if x == nil {
+		t.Fatal("`C` must have an initialization statement")
+	}
+	if x != v["D"].Init {
+		t.Error("`C` and `D` must have the same initialization statement")
+	}
+	// Check initialization statement is an assignment
+	if x.Op != '=' || len(x.LHS) != 2 || len(x.RHS) != 2 {
+		t.Error("unexpected initialization statement for `C, D`")
+	}
+	// Check C and D are initialized with A and B, respectively
+	if x.LHS[0] != v["C"] || x.LHS[1] != v["D"] {
+		t.Error("LHS of the initialization assignment must be `C, D`")
+	}
+	if x.RHS[0] != v["A"] || x.RHS[1] != v["B"] {
+		t.Error("RHS of the initialization assignment must be `A, B`")
+	}
+
+	// Check initializer E and F have the same non-nil initializer.
+	x = v["E"].Init
+	if x == nil {
+		t.Fatal("`E` must have an initialization statement")
+	}
+	if x != v["F"].Init {
+		t.Error("`E` and `F` must have the same initialization statement")
+	}
+	// Check initialization statement is an assignment
+	x = v["E"].Init
+	if x.Op != '=' || len(x.LHS) != 2 || len(x.RHS) != 1 {
+		t.Error("unexpected initialization statement for `E, F`")
+	}
+	// Check E and F are initialized with a call to Fn.
+	if x.LHS[0] != v["E"] || x.LHS[1] != v["F"] {
+		t.Error("LHS of the initialization assignment must be E, F`")
+	}
+	call, ok := x.RHS[0].(*ast.Call)
+	if !ok || call.Func != Fn {
+		t.Error("RHS of the initialization assignment must be a call to `Fn`")
+	}
+	// Check `G` has initialization statement.
+	x = v["G"].Init
+	if x == nil {
+		t.Fatal("`G` must have an initialization statement")
+	}
+	// Check initialization statement is a call to Fn.
+	call, ok = x.RHS[0].(*ast.Call)
+	if !ok || call.Func != Fn {
+		t.Error("RHS of the initialization assignment must be a call to `Fn`")
+	}
+}
+
+func TestResolveVarPkgDecl(t *testing.T) {
+	// Test package-level variable declarations
+	up, err := ParsePackage("_test/vardecl/src/ok", []string{"decl.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check declarations are present and refer to variables.
+	fn := p.Find("Fn").(*ast.FuncDecl)
+	if v, ok := checkVarDeclared(t, p, []string{"A", "B", "C", "D", "E", "F", "G"}); ok {
+		testVarDecl(t, fn, v)
+	}
+	// Check there is no declaration of the blank identifier (_).
+	if p.Find("_") != nil {
+		t.Error("`_` must not be declared")
+	}
+
+	// Test block-level varuiable declarations.
+	up, err = ParsePackage("_test/vardecl/src/ok", []string{"blk-decl.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err = ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := p.Find("G").(*ast.FuncDecl).Func.Blk
+	Fn := p.Find("Fn").(*ast.FuncDecl)
+	// Check declarations are present and refer to variables.
+	if v, ok := checkVarDeclared(t, s, []string{"A", "B", "C", "D", "E", "F", "G"}); ok {
+		testVarDecl(t, Fn, v)
+	}
+	// Check there is no declaration of the blank identifier (_).
+	if s.Find("_") != nil {
+		t.Error("`_` must not be declared")
+	}
+}
+
+func TestResolveVarDupDeclError(t *testing.T) {
+	srcs := [][]string{
+		// {"dup-1.go"},
+		// {"dup-2.go"},
+		// {"dup-3.go"},
+		{"blk-dup-1.go"},
+		// {"blk-dup-2.go"},
+		// {"blk-dup-3.go"},
+	}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/vardecl/src/err", src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "redeclared") {
+			t.Error(src, ": expected 'redeclared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
+
+func TestResolveVarPkgNotDeclError(t *testing.T) {
+	srcs := []string{"not-decl-1.go", "not-decl-2.go", "not-decl-3.go"}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/vardecl/src/err", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "not declared") {
+			t.Error(src, ": expected 'not declared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
