@@ -762,7 +762,7 @@ func (p *parser) parseConstDecl() ast.Decl {
 		p.next()
 		grp := &ast.ConstDeclGroup{}
 		for p.token != scanner.EOF && p.token != ')' {
-			grp.Consts = append(grp.Consts, p.parseConstSpec())
+			grp.Consts = append(grp.Consts, p.parseConstSpec(true))
 			if p.token != ')' {
 				p.sync2(';', ')')
 			}
@@ -770,25 +770,32 @@ func (p *parser) parseConstDecl() ast.Decl {
 		p.match(')')
 		return grp
 	} else {
-		return p.parseConstSpec()
+		return p.parseConstSpec(false)
 	}
 }
 
 // ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .
-func (p *parser) parseConstSpec() *ast.ConstDecl {
+func (p *parser) parseConstSpec(grp bool) *ast.ConstDecl {
 	var (
 		t  ast.Type
-		es []ast.Expr
+		xs []ast.Expr
 	)
 	ids := p.parseConstIdList()
 	if isTypeLookahead(p.token) {
 		t = p.parseType()
 	}
-	if p.token == '=' {
-		p.next()
-		es = p.parseExprList(nil)
+	if t == nil && grp {
+		// Allow initialization expressions to be missing if the ConstSpec is
+		// a part of a group declaration and there is no explicit type given.
+		if p.token == '=' {
+			p.next()
+			xs = p.parseExprList(nil)
+		}
+	} else {
+		p.match('=')
+		xs = p.parseExprList(nil)
 	}
-	return &ast.ConstDecl{Names: ids, Type: t, Values: es}
+	return &ast.ConstDecl{Names: ids, Type: t, Values: xs}
 }
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .

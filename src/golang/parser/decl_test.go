@@ -161,7 +161,7 @@ func TestConstDecl(tst *testing.T) {
 const a = 1
 const a, b = 2
 const a float32 = 4; const a, b float64 = 2, 5
-const c
+const c = "aaa"
 const (
     a = 1
     a, b = 2
@@ -176,7 +176,7 @@ const a = 1
 const a, b = 2
 const a float32 = 4
 const a, b float64 = 2, 5
-const c
+const c = "aaa"
 const (
     a = 1
     a, b = 2
@@ -206,6 +206,7 @@ const a =
 const a,  = 2
 const a float32 = 4; const , b float64 = 2 5
 const c
+const d int
 const (
     u = 
     v,  = 2
@@ -219,7 +220,8 @@ const a = <error>
 const a = 2
 const a float32 = 4
 const , b float64 = 2
-const c
+const c = <error>
+const d int = <error>
 const (
     u = v, <error>
     u float32 = 4
