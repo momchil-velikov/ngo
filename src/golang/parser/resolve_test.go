@@ -1011,12 +1011,12 @@ func TestResolveVarPkgDecl(t *testing.T) {
 
 func TestResolveVarDupDeclError(t *testing.T) {
 	srcs := [][]string{
-		// {"dup-1.go"},
-		// {"dup-2.go"},
-		// {"dup-3.go"},
+		{"dup-1.go"},
+		{"dup-2.go"},
+		{"dup-3.go"},
 		{"blk-dup-1.go"},
-		// {"blk-dup-2.go"},
-		// {"blk-dup-3.go"},
+		{"blk-dup-2.go"},
+		{"blk-dup-3.go"},
 	}
 	for _, src := range srcs {
 		up, err := ParsePackage("_test/vardecl/src/err", src)
@@ -1034,7 +1034,10 @@ func TestResolveVarDupDeclError(t *testing.T) {
 }
 
 func TestResolveVarPkgNotDeclError(t *testing.T) {
-	srcs := []string{"not-decl-1.go", "not-decl-2.go", "not-decl-3.go"}
+	srcs := []string{
+		"not-decl-1.go", "not-decl-2.go", "not-decl-3.go",
+		"blk-not-decl-1.go", "blk-not-decl-2.go", "blk-not-decl-3.go",
+	}
 	for _, src := range srcs {
 		up, err := ParsePackage("_test/vardecl/src/err", []string{src})
 		if err != nil {
