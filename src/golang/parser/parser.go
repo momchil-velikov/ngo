@@ -1607,22 +1607,20 @@ func isTypeSwitchGuardExpr(x ast.Expr) (ast.Expr, bool) {
 // Checks if a SimpleStmt is a TypeSwitchGuard. If true, returns the statement
 // constituent parts.
 func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
-	if a, ok := x.(*ast.AssignStmt); ok {
-		if len(a.LHS) == 1 && len(a.RHS) == 1 {
-			lhs, rhs := a.LHS[0], a.RHS[0]
-			if y, ok := isTypeSwitchGuardExpr(rhs); ok {
-				id := ""
-				if z, ok := lhs.(*ast.QualifiedId); !ok || len(z.Pkg) > 0 {
-					id = ""
-					p.error("invalid identifier in type switch")
-				} else {
-					id = z.Id
-				}
-				if a.Op != scanner.DEFINE {
-					p.error("type switch guard must use := instead of =")
-				}
-				return id, y, true
+	if a, ok := x.(*ast.AssignStmt); ok && len(a.LHS) == 1 && len(a.RHS) == 1 {
+		lhs, rhs := a.LHS[0], a.RHS[0]
+		if y, ok := isTypeSwitchGuardExpr(rhs); ok {
+			var id string
+			if z, ok := lhs.(*ast.QualifiedId); !ok || len(z.Pkg) > 0 || z.Id == "_" {
+				id = ""
+				p.error("invalid identifier in type switch")
+			} else {
+				id = z.Id
 			}
+			if a.Op != scanner.DEFINE {
+				p.error("type switch guard must use := instead of =")
+			}
+			return id, y, true
 		}
 	}
 	return "", nil, false

@@ -406,11 +406,11 @@ func resolveFunc(fn *ast.Func, scope ast.Scope) error {
 
 func lookupIdent(id *ast.QualifiedId, scope ast.Scope) (ast.Symbol, error) {
 	if len(id.Pkg) > 0 {
-		if d := scope.Lookup(id.Pkg); d == nil {
+		if i := scope.Lookup(id.Pkg); i == nil {
 			return nil, errors.New("package name " + id.Pkg + " not declared")
-		} else if imp, ok := d.(*ast.ImportDecl); !ok {
+		} else if i, ok := i.(*ast.ImportDecl); !ok {
 			return nil, errors.New(id.Pkg + " does not refer to package name")
-		} else if d := imp.Pkg.Lookup(id.Id); d == nil {
+		} else if d := i.Pkg.Lookup(id.Id); d == nil {
 			return nil, errors.New(id.Pkg + "." + id.Id + " not declared")
 		} else if !isExported(id.Id) {
 			return nil, errors.New(id.Pkg + "." + id.Id + " is not exported")
@@ -478,6 +478,9 @@ func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
 	}
 	switch t := t.(type) {
 	case *ast.QualifiedId:
+		if t.Id == "_" {
+			return nil, errors.New("`_` is not a valid type name")
+		}
 		if d, err := lookupIdent(t, scope); err != nil {
 			return nil, err
 		} else if d, ok := d.(*ast.TypeDecl); !ok {
@@ -614,6 +617,9 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 	x = removeParens(x)
 	switch x := x.(type) {
 	case *ast.QualifiedId:
+		if x.Id == "_" {
+			return nil, errors.New("`_` is not a valid operand or a typename")
+		}
 		if len(x.Pkg) > 0 {
 			if d := scope.Lookup(x.Pkg); d == nil {
 				return nil, errors.New(x.Pkg + " not declared")
@@ -659,7 +665,47 @@ func operandName(d ast.Symbol) ast.Expr {
 	}
 }
 
-// Resolves the identifiers in an Expression. Removes occurances of
+// Declares in SCOPE a sequence of identifiers, which are on the left-hand
+// side of the ":=" token and only the identifiers, not already declared in
+// SCOPE.  Checks there is at least one such identifier.
+func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
+	new := false
+	for _, x := range xs {
+		if x == nil {
+			continue
+		}
+		id, ok := x.(*ast.QualifiedId)
+		if !ok || len(id.Pkg) > 0 {
+			return errors.New("non-name on the left sife of :=")
+		}
+		if scope.Find(id.Id) == nil {
+			v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
+			if err := scope.Declare(v.Name, v); err != nil {
+				return err
+			}
+			new = true
+		}
+	}
+	if !new {
+		return errors.New("no new variables on the left side of :=")
+	}
+	return nil
+}
+
+// Resolves an expression on the left-hand size of an assignment statement or
+// a short variable declaration.  Replaces occurences blank QualifiedId with
+// `ast.Blank`.
+func resolveLHS(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
+	if x == nil {
+		return nil, nil
+	}
+	if id, ok := x.(*ast.QualifiedId); ok && len(id.Pkg) == 0 && id.Id == "_" {
+		return ast.Blank, nil
+	}
+	return resolveExpr(x, scope)
+}
+
+// Resolves the identifiers in an Expression. Removes occurences of
 // ParensExpr.
 func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 	if x == nil {
@@ -854,6 +900,9 @@ func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
 		}
 		return x, nil
 	case *ast.QualifiedId:
+		if x.Id == "_" {
+			return nil, errors.New("`_` is not a valid operand")
+		}
 		if len(x.Pkg) > 0 {
 			// Depending on what the constituent names (hereafter referred to
 			// by PKG and ID) of the QualifiedId resolve to, there are a few
@@ -915,6 +964,9 @@ func resolveBlock(blk *ast.Block, scope ast.Scope) (*ast.Block, error) {
 }
 
 func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
+	if stmt == nil {
+		return nil, nil
+	}
 	switch s := stmt.(type) {
 	case *ast.TypeDecl:
 		if err := declareType(s, scope.File(), scope); err != nil {
@@ -1033,38 +1085,19 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 			s.Rcv = x
 		}
 		if s.Op == scanner.DEFINE {
-			if id, ok := s.X.(*ast.QualifiedId); !ok || len(id.Pkg) > 0 {
-				return nil, errors.New("non-name on the left size of :=")
-			} else {
-				v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-				if err := scope.Declare(v.Name, v); err != nil {
-					return nil, err
-				}
-				s.X = v
-			}
-			if id, ok := s.Y.(*ast.QualifiedId); !ok || len(id.Pkg) > 0 {
-				return nil, errors.New("non-name on the left size of :=")
-			} else {
-				v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-				if err := scope.Declare(v.Name, v); err != nil {
-					return nil, err
-				}
-				s.Y = v
+			if err := declareLHS(scope, s.X, s.Y); err != nil {
+				return nil, err
 			}
 		} else {
-			if s.X != nil {
-				if x, err := resolveExpr(s.X, scope); err != nil {
-					return nil, err
-				} else {
-					s.X = x
-				}
+			if x, err := resolveLHS(s.X, scope); err != nil {
+				return nil, err
+			} else {
+				s.X = x
 			}
-			if s.Y != nil {
-				if y, err := resolveExpr(s.Y, scope); err != nil {
-					return nil, err
-				} else {
-					s.Y = y
-				}
+			if y, err := resolveLHS(s.Y, scope); err != nil {
+				return nil, err
+			} else {
+				s.Y = y
 			}
 		}
 		return s, nil
@@ -1083,9 +1116,6 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		}
 		return s, nil
 	case *ast.AssignStmt:
-		if len(s.LHS) != len(s.RHS) {
-			return nil, errors.New("assignment count mismatch")
-		}
 		// Resolve right-hand side(s).
 		for i := range s.RHS {
 			if x, err := resolveExpr(s.RHS[i], scope); err != nil {
@@ -1094,33 +1124,14 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 				s.RHS[i] = x
 			}
 		}
-		// For short variable declarations, declare only the identifiers, not
-		// already declared in the current scope. Check there is at least one
-		// such identifier.
 		if s.Op == scanner.DEFINE {
-			newvar := false
-			for i := range s.LHS {
-				if id, ok := s.LHS[i].(*ast.QualifiedId); ok && len(id.Pkg) == 0 {
-					if d := scope.Find(id.Id); d == nil {
-						v := &ast.Var{
-							Off:  id.Off,
-							File: scope.File(),
-							Name: id.Id,
-						}
-						if err := scope.Declare(v.Name, v); err != nil {
-							return nil, err
-						}
-						newvar = true
-					}
-				}
-			}
-			if !newvar {
-				return nil, errors.New("no new variables on the left side of :=")
+			if err := declareLHS(scope, s.LHS...); err != nil {
+				return nil, err
 			}
 		}
 		// Resolve left-hand side(s).
 		for i := range s.LHS {
-			if x, err := resolveExpr(s.LHS[i], scope); err != nil {
+			if x, err := resolveLHS(s.LHS[i], scope); err != nil {
 				return nil, err
 			} else {
 				s.LHS[i] = x
@@ -1141,18 +1152,18 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// extra block around the if.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
 			blk := &ast.Block{
-				Body:  make([]ast.Stmt, 2),
+				Body:  []ast.Stmt{s.Init, s},
 				Decls: make(map[string]ast.Symbol),
 			}
-			blk.Body[0] = s.Init
-			blk.Body[1] = s
 			s.Init = nil
-			if b, err := resolveBlock(blk, scope); err != nil {
+			return resolveBlock(blk, scope)
+		} else {
+			// No new variable declarations.
+			if st, err := resolveStmt(s.Init, scope); err != nil {
 				return nil, err
 			} else {
-				return b, nil
+				s.Init = st
 			}
-		} else {
 			if x, err := resolveExpr(s.Cond, scope); err != nil {
 				return nil, err
 			} else {
@@ -1175,18 +1186,18 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// extra block around the for.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
 			blk := &ast.Block{
-				Body:  make([]ast.Stmt, 2),
+				Body:  []ast.Stmt{s.Init, s},
 				Decls: make(map[string]ast.Symbol),
 			}
-			blk.Body[0] = s.Init
-			blk.Body[1] = s
 			s.Init = nil
-			if b, err := resolveBlock(blk, scope); err != nil {
+			return resolveBlock(blk, scope)
+		} else {
+			// No new variable declarations.
+			if st, err := resolveStmt(s.Init, scope); err != nil {
 				return nil, err
 			} else {
-				return b, nil
+				s.Init = st
 			}
-		} else {
 			if x, err := resolveExpr(s.Cond, scope); err != nil {
 				return nil, err
 			} else {
@@ -1209,60 +1220,45 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 			return s, nil
 		}
 	case *ast.ForRangeStmt:
+		// Resolve the range expression in the current scope.
+		if x, err := resolveExpr(s.Range, scope); err != nil {
+			return nil, err
+		} else {
+			s.Range = x
+		}
 		// If the range-for declares new variables, put a block around the for
-		// and declare the variables in this block.
+		// and declare the variables in this block. Resolution continues then
+		// from within the new scope.
+		var blk *ast.Block
 		if s.Op == scanner.DEFINE {
-			blk := &ast.Block{
+			blk = &ast.Block{
 				Up:    scope,
-				Body:  make([]ast.Stmt, 2),
 				Decls: make(map[string]ast.Symbol),
 			}
-			for i, x := range s.LHS {
-				if id, ok := x.(*ast.QualifiedId); ok && len(id.Pkg) == 0 {
-					v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-					if err := blk.Declare(v.Name, v); err != nil {
-						return nil, err
-					}
-					s.LHS[i] = v
-				} else {
-					return nil, errors.New("non-name on the left side of :=")
-				}
+			scope = blk
+			if err := declareLHS(scope, s.LHS...); err != nil {
+				return nil, err
 			}
-			// Resolve the range expression in the current scope.
-			if x, err := resolveExpr(s.Range, scope); err != nil {
+		}
+		// Resolve the LHS.
+		for i := range s.LHS {
+			if x, err := resolveLHS(s.LHS[i], scope); err != nil {
 				return nil, err
 			} else {
-				s.Range = x
+				s.LHS[i] = x
 			}
-			// Resolve the loop body in the scope of the new block.
-			if b, err := resolveBlock(s.Blk, blk); err != nil {
-				return nil, err
-			} else {
-				s.Blk = b
-			}
-			return blk, nil
+		}
+		// Resolve the loop body.
+		if b, err := resolveBlock(s.Blk, scope); err != nil {
+			return nil, err
 		} else {
-			// Resolve the LHS.
-			for i := range s.LHS {
-				if x, err := resolveExpr(s.LHS[i], scope); err != nil {
-					return nil, err
-				} else {
-					s.LHS[i] = x
-				}
-			}
-			// Resolve the range expression.
-			if x, err := resolveExpr(s.Range, scope); err != nil {
-				return nil, err
-			} else {
-				s.Range = x
-			}
-			// Resolve the loop body.
-			if blk, err := resolveBlock(s.Blk, scope); err != nil {
-				return nil, err
-			} else {
-				s.Blk = blk
-			}
+			s.Blk = b
+		}
+		if blk == nil {
 			return s, nil
+		} else {
+			blk.Body = []ast.Stmt{s}
+			return blk, nil
 		}
 	case *ast.DeferStmt:
 		if x, err := resolveExpr(s.X, scope); err != nil {
@@ -1276,18 +1272,18 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// extra block around the switch.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
 			blk := &ast.Block{
-				Body:  make([]ast.Stmt, 2),
+				Body:  []ast.Stmt{s.Init, s},
 				Decls: make(map[string]ast.Symbol),
 			}
-			blk.Body[0] = s.Init
-			blk.Body[1] = s
 			s.Init = nil
-			if b, err := resolveBlock(blk, scope); err != nil {
+			return resolveBlock(blk, scope)
+		} else {
+			// No new variable declarations.
+			if st, err := resolveStmt(s.Init, scope); err != nil {
 				return nil, err
 			} else {
-				return b, nil
+				s.Init = st
 			}
-		} else {
 			if x, err := resolveExpr(s.X, scope); err != nil {
 				return nil, err
 			} else {
@@ -1315,18 +1311,18 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		// extra block around the type switch.
 		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
 			blk := &ast.Block{
-				Body:  make([]ast.Stmt, 2),
+				Body:  []ast.Stmt{s.Init, s},
 				Decls: make(map[string]ast.Symbol),
 			}
-			blk.Body[0] = s.Init
-			blk.Body[1] = s
 			s.Init = nil
-			if b, err := resolveBlock(blk, scope); err != nil {
+			return resolveBlock(blk, scope)
+		} else {
+			// No new variable declarations.
+			if st, err := resolveStmt(s.Init, scope); err != nil {
 				return nil, err
 			} else {
-				return b, nil
+				s.Init = st
 			}
-		} else {
 			if x, err := resolveExpr(s.X, scope); err != nil {
 				return nil, err
 			} else {
@@ -1341,16 +1337,10 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 						c.Types[i] = t
 					}
 				}
-				// Declare the variable of the TypeSwitchGuard in each
-				// clause. If the clause contains only one type, the variable
-				// gets this type, otherwise it gets the type of the
-				// PrimaryExpr.
+				// Declare the variable from the type switch guard in every
+				// block.
 				if len(s.Id) > 0 {
-					var t ast.Type
-					if len(c.Types) == 1 {
-						t = c.Types[0]
-					}
-					v := &ast.Var{Off: s.Off, File: scope.File(), Name: s.Id, Type: t}
+					v := &ast.Var{Off: s.Off, File: scope.File(), Name: s.Id}
 					if err := c.Blk.Declare(v.Name, v); err != nil {
 						return nil, err
 					}

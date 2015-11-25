@@ -72,3 +72,5 @@ func init() {
 		UniverseScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
 	}
 }
+
+var Blank = &Var{Name: "_"}
