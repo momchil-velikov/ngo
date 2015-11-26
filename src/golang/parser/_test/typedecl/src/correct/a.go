@@ -54,3 +54,5 @@ type IfB interface {
 	IfA
 	G(x) y
 }
+
+type _ int

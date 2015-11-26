@@ -158,6 +158,11 @@ func TestResolveTypePackageScope(t *testing.T) {
 			)
 		}
 	}
+
+	// Test that blank identifier is not declared.
+	if p.Find("_") != nil {
+		t.Error("type with name `_` must not be declared")
+	}
 }
 
 func TestResolveTypeBlockScope(t *testing.T) {
@@ -985,7 +990,7 @@ func TestResolveVarPkgDecl(t *testing.T) {
 	}
 	// Check there is no declaration of the blank identifier (_).
 	if p.Find("_") != nil {
-		t.Error("`_` must not be declared")
+		t.Error("variable with name `_` must not be declared")
 	}
 
 	// Test block-level varuiable declarations.
@@ -1005,7 +1010,7 @@ func TestResolveVarPkgDecl(t *testing.T) {
 	}
 	// Check there is no declaration of the blank identifier (_).
 	if s.Find("_") != nil {
-		t.Error("`_` must not be declared")
+		t.Error("variable with name `_` must not be declared")
 	}
 }
 
@@ -1167,11 +1172,17 @@ func TestResolveConstDecl(t *testing.T) {
 	if c, ok := checkConstDeclared(t, p, []string{"A", "B", "C", "D", "E", "F"}); ok {
 		testConstDecl(t, c)
 	}
+	if p.Find("_") != nil {
+		t.Error("const with name `_` must not be declared")
+	}
 
 	fn := p.Find("Fn").(*ast.FuncDecl)
 	s := fn.Func.Blk
 	if c, ok := checkConstDeclared(t, s, []string{"A", "B", "C", "D", "E", "F"}); ok {
 		testConstDecl(t, c)
+	}
+	if s.Find("_") != nil {
+		t.Error("const with name `_` must not be declared")
 	}
 }
 
@@ -1277,9 +1288,9 @@ func TestResolveConstDeclGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// if c, ok := checkConstDeclared(t, p, []string{"A", "B", "C", "D", "E", "F"}); ok {
-	// 	testConstDeclGroup(t, c)
-	// }
+	if c, ok := checkConstDeclared(t, p, []string{"A", "B", "C", "D", "E", "F"}); ok {
+		testConstDeclGroup(t, c)
+	}
 
 	fn := p.Find("Fn").(*ast.FuncDecl)
 	s := fn.Func.Blk

@@ -15,3 +15,5 @@ type sss ss
 type kk k
 
 type rrr rr
+
+type _ int

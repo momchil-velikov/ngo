@@ -212,6 +212,9 @@ func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
 }
 
 func declareType(t *ast.TypeDecl, file *ast.File, scope ast.Scope) error {
+	if t.Name == "_" {
+		return nil
+	}
 	t.File = file
 	return scope.Declare(t.Name, t)
 }
@@ -227,6 +230,9 @@ func resolveTypeDecl(t *ast.TypeDecl, scope ast.Scope) error {
 
 func declareConst(dcl *ast.ConstDecl, file *ast.File, scope ast.Scope) error {
 	for _, c := range dcl.Names {
+		if c.Name == "_" {
+			continue
+		}
 		c.File = file
 		if err := scope.Declare(c.Name, c); err != nil {
 			return err
@@ -392,6 +398,9 @@ func resolveBlockVar(v *ast.VarDecl, scope ast.Scope) error {
 }
 
 func declareFunc(fn *ast.FuncDecl, file *ast.File, scope ast.Scope) error {
+	if fn.Name == "_" {
+		return nil
+	}
 	if fn.Func.Recv != nil {
 		return nil
 	}
@@ -418,6 +427,9 @@ func resolveFunc(fn *ast.Func, scope ast.Scope) error {
 			p := &fn.Sig.Params[i]
 			if len(p.Name) == 0 {
 				return errors.New("missing formal parameter name")
+			}
+			if p.Name == "_" {
+				continue
 			}
 			v := &ast.Var{Off: p.Off, File: scope.File(), Name: p.Name, Type: p.Type}
 			if err := fn.Blk.Declare(v.Name, v); err != nil {
@@ -707,13 +719,14 @@ func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
 		if !ok || len(id.Pkg) > 0 {
 			return errors.New("non-name on the left sife of :=")
 		}
-		if scope.Find(id.Id) == nil {
-			v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-			if err := scope.Declare(v.Name, v); err != nil {
-				return err
-			}
-			new = true
+		if id.Id == "_" || scope.Find(id.Id) != nil {
+			continue
 		}
+		v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
+		if err := scope.Declare(v.Name, v); err != nil {
+			return err
+		}
+		new = true
 	}
 	if !new {
 		return errors.New("no new variables on the left side of :=")
