@@ -661,15 +661,15 @@ func (p *parser) parseParameters() ([]ast.Param, bool) {
 					parm.Type = &ast.QualifiedId{Off: parm.Off, Id: parm.Name}
 				}
 				ps = append(ps, ns...)
-				ns = ns[:0]
 				// The type is attached only to the last parameter in a
 				// sequence like `x, y, z T` until after `T` is resolved. This
 				// way we avoid duplicate resolution due to sharing of the
 				// type.
 				ps[len(ps)-1].Type = parm.Type
-				if variadic {
+				if variadic || (len(ns) > 1 && v) {
 					p.error("only the last parameter can be variadic")
 				}
+				ns = ns[:0]
 				variadic = variadic || v
 			}
 		}
