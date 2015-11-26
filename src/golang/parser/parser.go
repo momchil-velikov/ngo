@@ -265,6 +265,9 @@ func (p *parser) parseFile() *ast.UnresolvedFile {
 func (p *parser) parsePackageClause() string {
 	p.match(scanner.PACKAGE)
 	pkg, _ := p.matchString(scanner.ID)
+	if pkg == "_" {
+		p.error("`_` is invalid package name")
+	}
 	return pkg
 }
 

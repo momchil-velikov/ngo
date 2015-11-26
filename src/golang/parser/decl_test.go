@@ -44,6 +44,18 @@ package`
 	}
 }
 
+func TestPackageError3(tst *testing.T) {
+	src := `
+package _`
+	_, e := Parse("package-blank-errror.go", src)
+
+	if e == nil {
+		tst.Error("Unexpected lack of error")
+	} else {
+		tst.Log(e)
+	}
+}
+
 func TestImportSingle(tst *testing.T) {
 	src := `
 package foo
