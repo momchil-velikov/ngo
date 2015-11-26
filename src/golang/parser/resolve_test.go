@@ -1052,3 +1052,297 @@ func TestResolveVarPkgNotDeclError(t *testing.T) {
 		}
 	}
 }
+
+func checkConstDeclared(
+	t *testing.T, s ast.Scope, ns []string) (map[string]*ast.Const, bool) {
+
+	m := make(map[string]*ast.Const)
+	for _, n := range ns {
+		d := s.Find(n)
+		if d == nil {
+			t.Errorf("constant `%s` not declared\n", n)
+			return nil, false
+		}
+		c, ok := d.(*ast.Const)
+		if !ok {
+			t.Errorf("`%s` is not a constant\n", n)
+		}
+		m[n] = c
+	}
+	return m, true
+}
+
+func testConstDecl(t *testing.T, c map[string]*ast.Const) {
+	x := c["A"].Init
+	if x == nil {
+		t.Error("`A` missing initializer expression")
+	}
+	if _, ok := x.(*ast.Literal); !ok {
+		t.Error("`A` initializer not a literal")
+	}
+	if c["A"].Type != nil {
+		t.Error("`A` must not have a type yet")
+	}
+
+	x = c["B"].Init
+	if x == nil {
+		t.Error("`B` missing initializer expression")
+	}
+	if x != c["A"] {
+		t.Error("`B` initializer is not `A`")
+	}
+	typ := c["B"].Type
+	if typ == nil {
+		t.Error("`B` must have a type")
+	}
+	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinInt {
+		t.Error("`B` must have type `int`")
+	}
+
+	x = c["C"].Init
+	if x == nil {
+		t.Error("`C` missing initializer expression")
+	}
+	if x != c["A"] {
+		t.Error("`C` initializer is not `A`")
+	}
+	typ = c["C"].Type
+	if typ != nil {
+		t.Error("`C` must not have a type yet")
+	}
+
+	x = c["D"].Init
+	if x == nil {
+		t.Error("`D` missing initializer expression")
+	}
+	if x != c["B"] {
+		t.Error("`D` initializer is not `B`")
+	}
+	typ = c["D"].Type
+	if typ != nil {
+		t.Error("`D` must not have a type yet")
+	}
+
+	x = c["E"].Init
+	if x == nil {
+		t.Error("`E` missing initializer expression")
+	}
+	if _, ok := x.(*ast.Literal); !ok {
+		t.Error("`E` initializer not a literal")
+	}
+	typ = c["E"].Type
+	if typ == nil {
+		t.Error("`E` must have a type")
+	}
+	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinString {
+		t.Error("`E` must have type `string`")
+	}
+
+	x = c["F"].Init
+	if x == nil {
+		t.Error("`F` missing initializer expression")
+	}
+	if _, ok := x.(*ast.Literal); !ok {
+		t.Error("`F` initializer not a literal")
+	}
+	typ = c["F"].Type
+	if typ == nil {
+		t.Error("`F` must have a type")
+	}
+	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinString {
+		t.Error("`F` must have type `string`")
+	}
+}
+
+func TestResolveConstDecl(t *testing.T) {
+	up, err := ParsePackage("_test/constdecl/src/ok", []string{"decl.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c, ok := checkConstDeclared(t, p, []string{"A", "B", "C", "D", "E", "F"}); ok {
+		testConstDecl(t, c)
+	}
+
+	fn := p.Find("Fn").(*ast.FuncDecl)
+	s := fn.Func.Blk
+	if c, ok := checkConstDeclared(t, s, []string{"A", "B", "C", "D", "E", "F"}); ok {
+		testConstDecl(t, c)
+	}
+}
+
+func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
+	x := c["A"].Init
+	if x == nil {
+		t.Error("`A` missing initializer expression")
+	}
+	if _, ok := x.(*ast.Literal); !ok {
+		t.Error("`A` initializer not a literal")
+	}
+	if c["A"].Type != nil {
+		t.Error("`A` must not have a type yet")
+	}
+	if c["A"].Iota != 0 {
+		t.Error("`A` must have iota 0")
+	}
+
+	x = c["B"].Init
+	if x == nil {
+		t.Error("`B` missing initializer expression")
+	}
+	if x != c["A"].Init {
+		t.Error("`B` must have the same initializer as `A`")
+	}
+	typ := c["B"].Type
+	if typ != nil {
+		t.Error("`B` must not have a type")
+	}
+	if c["B"].Iota != 1 {
+		t.Error("`B` must have iota 1")
+	}
+
+	x = c["C"].Init
+	if x == nil {
+		t.Error("`C` missing initializer expression")
+	}
+	if x != c["A"] {
+		t.Error("`C` initializer is not `A`")
+	}
+	typ = c["C"].Type
+	if typ == nil {
+		t.Error("`C` must have a type")
+	}
+	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinInt {
+		t.Error("`C` must have type `int`")
+	}
+	if c["C"].Iota != 2 {
+		t.Error("`C` must have iota 2")
+	}
+
+	x = c["D"].Init
+	if x == nil {
+		t.Error("`D` missing initializer expression")
+	}
+	if x != c["B"] {
+		t.Error("`D` initializer is not `B`")
+	}
+	typ = c["D"].Type
+	if typ != c["C"].Type {
+		t.Error("`D` must have the same type as `C`")
+	}
+	if c["D"].Iota != c["C"].Iota {
+		t.Error("`D` must have iota the same iota as `C`")
+	}
+
+	x = c["E"].Init
+	if x == nil {
+		t.Error("`E` missing initializer expression")
+	}
+	if x != c["C"].Init {
+		t.Error("`E` must have the same initializer as `C`")
+	}
+	if c["E"].Type != c["C"].Type {
+		t.Error("`E` must have the same type as `C`")
+	}
+	if c["E"].Iota != 3 {
+		t.Error("`E` must have iota 3")
+	}
+
+	x = c["F"].Init
+	if x == nil {
+		t.Error("`E` missing initializer expression")
+	}
+	if x != c["D"].Init {
+		t.Error("`F` must have the same initializer as `D`")
+	}
+	if c["F"].Type != c["D"].Type {
+		t.Error("`F` must have the same type as `D`")
+	}
+	if c["F"].Iota != c["E"].Iota {
+		t.Error("`F` must have iota the same iota as `E`")
+	}
+}
+
+func TestResolveConstDeclGroup(t *testing.T) {
+	up, err := ParsePackage("_test/constdecl/src/ok", []string{"decl-group.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// if c, ok := checkConstDeclared(t, p, []string{"A", "B", "C", "D", "E", "F"}); ok {
+	// 	testConstDeclGroup(t, c)
+	// }
+
+	fn := p.Find("Fn").(*ast.FuncDecl)
+	s := fn.Func.Blk
+	if c, ok := checkConstDeclared(t, s, []string{"A", "B", "C", "D", "E", "F"}); ok {
+		testConstDeclGroup(t, c)
+	}
+}
+
+func TestResolveConstDupDeclError(t *testing.T) {
+	srcs := []string{
+		"dup-decl-1.go", "dup-decl-2.go", "dup-decl-3.go", "dup-decl-4.go",
+		"dup-decl-5.go", "dup-decl-6.go", "dup-decl-7.go",
+	}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "redeclared") {
+			t.Error(src, ": expected 'redeclared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
+
+func TestResolveConstNotDeclError(t *testing.T) {
+	srcs := []string{
+		"not-decl-1.go", "not-decl-2.go", "not-decl-3.go", "not-decl-4.go",
+		"not-decl-5.go", "not-decl-6.go", "not-decl-7.go", "not-decl-8.go",
+	}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "not declared") {
+			t.Error(src, ": expected 'not declared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
+
+func TestResolveConstCountMismatch(t *testing.T) {
+	srcs := []string{
+		"not-eq-1.go", "not-eq-2.go", "not-eq-3.go", "not-eq-4.go", "not-eq-5.go",
+	}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "must be equal") {
+			t.Error(src, ": expected 'must be equal' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
