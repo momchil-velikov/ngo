@@ -408,6 +408,20 @@ func declareFunc(fn *ast.FuncDecl, file *ast.File, scope ast.Scope) error {
 	return scope.Declare(fn.Name, fn)
 }
 
+func declareParams(ps []ast.Param, scope ast.Scope) error {
+	for i := range ps {
+		p := &ps[i]
+		if p.Name == "_" {
+			continue
+		}
+		v := &ast.Var{Off: p.Off, File: scope.File(), Name: p.Name, Type: p.Type}
+		if err := scope.Declare(v.Name, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func resolveFunc(fn *ast.Func, scope ast.Scope) error {
 	if r := fn.Recv; r != nil {
 		if typ, err := resolveType(r.Type, scope); err != nil {
@@ -421,20 +435,15 @@ func resolveFunc(fn *ast.Func, scope ast.Scope) error {
 	} else {
 		fn.Sig = typ.(*ast.FuncType)
 	}
-	// Declare parameter names in the scope of the function block.
 	if fn.Blk != nil {
-		for i := range fn.Sig.Params {
-			p := &fn.Sig.Params[i]
-			if len(p.Name) == 0 {
-				return errors.New("missing formal parameter name")
-			}
-			if p.Name == "_" {
-				continue
-			}
-			v := &ast.Var{Off: p.Off, File: scope.File(), Name: p.Name, Type: p.Type}
-			if err := fn.Blk.Declare(v.Name, v); err != nil {
-				return err
-			}
+		// Declare parameter and return names in the scope of the function
+		// block.
+		fn.Blk.Up = scope
+		if err := declareParams(fn.Sig.Params, fn.Blk); err != nil {
+			return err
+		}
+		if err := declareParams(fn.Sig.Returns, fn.Blk); err != nil {
+			return err
 		}
 		if blk, err := resolveBlock(fn.Blk, scope); err != nil {
 			return err

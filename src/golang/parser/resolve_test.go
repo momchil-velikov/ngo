@@ -1398,3 +1398,67 @@ func TestResolveConstCountMismatch(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveFuncDecl(t *testing.T) {
+	up, err := ParsePackage("_test/funcdecl/src/ok", []string{"decl.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	if F == nil {
+		t.Fatal("`F` not declared")
+	}
+
+	// Check parameters are declared.
+	v, ok := checkVarDeclared(t, F.Func.Blk, []string{"a", "b", "c", "d", "e", "f", "g"})
+	if !ok {
+		return
+	}
+
+	A := p.Find("A").(*ast.TypeDecl)
+	B := p.Find("B").(*ast.TypeDecl)
+	C := p.Find("C").(*ast.TypeDecl)
+
+	func(t *testing.T, ts []*ast.TypeDecl, vs []*ast.Var) {
+		for i := range ts {
+			if ts[i] != vs[i].Type {
+				t.Errorf("type of `%s` must be `%s`\n", vs[i].Name, ts[i].Name)
+			}
+		}
+	}(t,
+		[]*ast.TypeDecl{A, B, C, C, A, B, B},
+		[]*ast.Var{v["a"], v["b"], v["c"], v["d"], v["e"], v["f"], v["g"]},
+	)
+
+	// Check blank function name is not declared.
+	if p.Find("_") != nil {
+		t.Error("function name `_` must not be declared")
+	}
+
+	// Check blank parameter or return value is not declared.
+	if F.Func.Blk.Find("_") != nil {
+		t.Error("blank parameter or return value must not be declared")
+	}
+}
+
+func TestResolveFuncDeclDupParam(t *testing.T) {
+	srcs := []string{"dup-1.go", "dup-2.go", "dup-3.go", "dup-4.go"}
+	for _, src := range srcs {
+		up, err := ParsePackage("_test/funcdecl/src/err", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "redeclared") {
+			t.Error(src, ": expected 'redeclared' error")
+			if err != nil {
+				t.Error(src, ": actual error:", err)
+			}
+		}
+	}
+}
