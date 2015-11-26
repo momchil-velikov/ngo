@@ -151,15 +151,9 @@ func declareTopLevel(
 				}
 			}
 		case *ast.ConstDecl:
-			err = declareConst(d, file, pkg, ast.InvalidIota)
+			err = declareConst(d, file, pkg)
 		case *ast.ConstDeclGroup:
-			iota := 0
-			for _, d := range d.Consts {
-				if err := declareConst(d, file, pkg, iota); err != nil {
-					return nil, err
-				}
-				iota++
-			}
+			err = declareConstGroup(d, file, pkg)
 		case *ast.VarDecl:
 			err = declarePkgVar(d, file)
 		case *ast.VarDeclGroup:
@@ -194,13 +188,9 @@ func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
 				}
 			}
 		case *ast.ConstDecl:
-			err = resolveConstDecl(d, f)
+			err = resolveConst(d, f)
 		case *ast.ConstDeclGroup:
-			for _, d := range d.Consts {
-				if err = resolveConstDecl(d, f); err != nil {
-					break
-				}
-			}
+			err = resolveConstGroup(d, f, false)
 		case *ast.VarDecl:
 			err = resolvePkgVar(d, f)
 		case *ast.VarDeclGroup:
@@ -235,18 +225,9 @@ func resolveTypeDecl(t *ast.TypeDecl, scope ast.Scope) error {
 	}
 }
 
-func declareConst(cst *ast.ConstDecl, file *ast.File, scope ast.Scope, iota int) error {
-	if len(cst.Values) > 0 {
-		if len(cst.Names) != len(cst.Values) {
-			return errors.New("number of names does not match the number of values")
-		}
-	}
-	for i, c := range cst.Names {
+func declareConst(dcl *ast.ConstDecl, file *ast.File, scope ast.Scope) error {
+	for _, c := range dcl.Names {
 		c.File = file
-		if i < len(cst.Values) {
-			c.Init = cst.Values[i]
-		}
-		c.Iota = iota
 		if err := scope.Declare(c.Name, c); err != nil {
 			return err
 		}
@@ -254,32 +235,80 @@ func declareConst(cst *ast.ConstDecl, file *ast.File, scope ast.Scope, iota int)
 	return nil
 }
 
-func resolveConstDecl(cst *ast.ConstDecl, scope ast.Scope) error {
-	if typ, err := resolveType(cst.Type, scope); err != nil {
+func resolveConstSpec(dcl *ast.ConstDecl, scope ast.Scope) error {
+	typ, err := resolveType(dcl.Type, scope)
+	if err != nil {
 		return err
-	} else {
-		cst.Type = typ
 	}
-	for i := range cst.Values {
-		if x, err := resolveExpr(cst.Values[i], scope); err != nil {
+	dcl.Type = typ
+	for i := range dcl.Values {
+		x, err := resolveExpr(dcl.Values[i], scope)
+		if err != nil {
 			return err
-		} else {
-			cst.Values[i] = x
+		}
+		dcl.Values[i] = x
+	}
+	return nil
+}
+
+func resolveConst(dcl *ast.ConstDecl, scope ast.Scope) error {
+	if err := resolveConstSpec(dcl, scope); err != nil {
+		return err
+	}
+	if len(dcl.Values) != len(dcl.Names) {
+		return errors.New("number of idents must be equal to the number of expressions")
+	}
+	for i, c := range dcl.Names {
+		c.Type = dcl.Type
+		c.Init = dcl.Values[i]
+	}
+	return nil
+}
+
+func declareConstGroup(group *ast.ConstDeclGroup, file *ast.File, scope ast.Scope) error {
+	for _, d := range group.Consts {
+		if err := declareConst(d, file, scope); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func resolveConst(cst *ast.Const, scope ast.Scope) error {
-	if typ, err := resolveType(cst.Type, scope); err != nil {
-		return err
-	} else {
-		cst.Type = typ
-	}
-	if x, err := resolveExpr(cst.Init, scope); err != nil {
-		return err
-	} else {
-		cst.Init = x
+func resolveConstGroup(group *ast.ConstDeclGroup, scope ast.Scope, blk bool) error {
+	var (
+		iota = 0
+		typ  ast.Type
+		init []ast.Expr
+	)
+	for _, d := range group.Consts {
+		if err := resolveConstSpec(d, scope); err != nil {
+			return err
+		}
+		if blk {
+			// In blocks, declare the constant names, so the they are
+			// available to following ConstSpec's in the group.
+			if err := declareConst(d, scope.File(), scope); err != nil {
+				return err
+			}
+		}
+		if len(d.Values) == 0 {
+			// Repeat the type and the initialization expression from the
+			// preceding ConstSpec
+			d.Type = typ
+			d.Values = init
+		}
+		if len(d.Values) != len(d.Names) {
+			return errors.New(
+				"number of idents must be equal to the number of expressions")
+		}
+		for i, c := range d.Names {
+			c.Iota = iota
+			c.Type = d.Type
+			c.Init = d.Values[i]
+		}
+		iota++
+		typ = d.Type
+		init = d.Values
 	}
 	return nil
 }
@@ -987,24 +1016,15 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 		}
 		return nil, nil
 	case *ast.ConstDecl:
-		if err := resolveConstDecl(s, scope); err != nil {
+		if err := resolveConst(s, scope); err != nil {
 			return nil, err
 		}
-		if err := declareConst(s, scope.File(), scope, ast.InvalidIota); err != nil {
+		if err := declareConst(s, scope.File(), scope); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	case *ast.ConstDeclGroup:
-		iota := 0
-		for _, d := range s.Consts {
-			if err := resolveConstDecl(d, scope); err != nil {
-				return nil, err
-			}
-			if err := declareConst(d, scope.File(), scope, iota); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
+		return nil, resolveConstGroup(s, scope, true)
 	case *ast.VarDecl:
 		if err := resolveBlockVar(s, scope); err != nil {
 			return nil, err

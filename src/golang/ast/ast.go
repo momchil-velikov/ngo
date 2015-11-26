@@ -2,8 +2,6 @@ package ast
 
 import "golang/scanner"
 
-const InvalidIota = 0x7fffffff
-
 type Node interface {
 	Format(*FormatContext, uint)
 }
