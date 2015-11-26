@@ -56,3 +56,5 @@ type IfB interface {
 }
 
 type _ int
+
+func Gn(a u, b v) (c w, d x)

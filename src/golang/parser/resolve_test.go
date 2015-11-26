@@ -386,6 +386,22 @@ func TestResolveConstructedType(t *testing.T) {
 	}
 }
 
+func TestResolveFuncTypeError(t *testing.T) {
+	for _, src := range []string{"func-1.go", "func-2.go"} {
+		up, err := ParsePackage("_test/typedecl/src/errors", []string{src})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ResolvePackage(up, nil)
+		if err == nil || !strings.Contains(err.Error(), "all be present") {
+			t.Error("expecting `all be present or all be absent` error")
+			if err != nil {
+				t.Error(err)
+			}
+		}
+	}
+}
+
 func TestResolveTypeTypenameNotFound(t *testing.T) {
 	for _, src := range []string{
 		"typename.go", "array.go", "slice.go", "ptr.go", "map-1.go", "map-2.go",

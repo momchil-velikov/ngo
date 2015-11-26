@@ -499,6 +499,7 @@ func checkDuplicateFieldNames(s *ast.StructType) error {
 // Resolves identifiers in function parameter and return values list.
 func resolveParams(ps []ast.Param, scope ast.Scope) (err error) {
 	var carry ast.Type
+	count := 0
 	n := len(ps)
 	for i := n - 1; i >= 0; i-- {
 		p := &ps[i]
@@ -509,6 +510,12 @@ func resolveParams(ps []ast.Param, scope ast.Scope) (err error) {
 			}
 		}
 		p.Type = carry
+		if len(p.Name) > 0 {
+			count++
+		}
+	}
+	if count != n && count > 0 {
+		err = errors.New("param/return names must either all be present or all be absent")
 	}
 	return
 }
