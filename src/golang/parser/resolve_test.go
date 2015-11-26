@@ -408,14 +408,20 @@ func TestResolveTypeNotATypename(t *testing.T) {
 	for _, src := range []string{
 		"typename.go", "array.go", "slice.go", "ptr.go", "map-1.go", "map-2.go",
 		"chan.go", "struct.go", "func-1.go", "func-2.go", "iface-1.go", "iface-2.go",
+		"blank.go",
 	} {
 		up, err := ParsePackage("_test/typedecl/src/errors/not_typename", []string{src})
 		if err != nil {
 			t.Error(err)
 		}
 		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "X is not a typename") {
+		if err == nil ||
+			!(strings.Contains(err.Error(), "X is not a typename") ||
+				strings.Contains(err.Error(), "is not a valid type name")) {
 			t.Error("expecting `X is not a typename` error")
+			if err != nil {
+				t.Error(err)
+			}
 		}
 	}
 }
@@ -781,14 +787,19 @@ func TestResolveExprBinary(t *testing.T) {
 }
 
 func TestResolveExprNotTypenameError(t *testing.T) {
-	srcs := []string{"comp.go", "conv.go", "func.go", "assert-1.go", "assert-2.go"}
+	srcs := []string{
+		"comp.go", "conv.go", "func.go", "assert-1.go", "assert-2.go",
+		"blank-1.go", "blank-2.go",
+	}
 	for _, src := range srcs {
 		up, err := ParsePackage("_test/expr/src/err/not_typename", []string{src})
 		if err != nil {
 			t.Fatal(err)
 		}
 		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "is not a typename") {
+		if err == nil ||
+			!(strings.Contains(err.Error(), "is not a typename") ||
+				strings.Contains(err.Error(), "is not a valid")) {
 			t.Error(src, ": expected 'not a typename' error")
 			if err != nil {
 				t.Error(src, ": actual error:", err)
@@ -814,6 +825,20 @@ func TestResolveExprNotDeclaredError(t *testing.T) {
 			if err != nil {
 				t.Error(src, ": actual error:", err)
 			}
+		}
+	}
+}
+
+func TestResolveExprBlank(t *testing.T) {
+	up, err := ParsePackage("_test/expr/src/err", []string{"blank.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolvePackage(up, nil)
+	if err == nil || !strings.Contains(err.Error(), "`_` is not a valid operand") {
+		t.Error("expected 'not declared' error")
+		if err != nil {
+			t.Error("actual error:", err)
 		}
 	}
 }
