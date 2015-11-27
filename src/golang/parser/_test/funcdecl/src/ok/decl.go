@@ -11,3 +11,6 @@ func F(a A, b B, c C, _ int, d ...C) (e A, f, g B, _ float32) {
 }
 
 func _() {}
+
+func G1(int, int)    {}
+func G2() (int, int) {}

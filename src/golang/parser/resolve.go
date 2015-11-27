@@ -411,7 +411,7 @@ func declareFunc(fn *ast.FuncDecl, file *ast.File, scope ast.Scope) error {
 func declareParams(ps []ast.Param, scope ast.Scope) error {
 	for i := range ps {
 		p := &ps[i]
-		if p.Name == "_" {
+		if p.Name == "_" || len(p.Name) == 0 {
 			continue
 		}
 		v := &ast.Var{Off: p.Off, File: scope.File(), Name: p.Name, Type: p.Type}
