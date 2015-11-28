@@ -1673,7 +1673,11 @@ func (p *parser) parseSwitchStmt() ast.Stmt {
 
 	x = p.parseExpr()
 	if p.token == '{' {
-		return p.parseExprSwitchStmt(off, init, x)
+		if y, ok := isTypeSwitchGuardExpr(x); ok {
+			return p.parseTypeSwitchStmt(off, init, "", y)
+		} else {
+			return p.parseExprSwitchStmt(off, init, x)
+		}
 	}
 
 	stmt := p.parseSimpleStmt(x)

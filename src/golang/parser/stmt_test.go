@@ -716,6 +716,7 @@ case func(int) float64:	printFunction(i)
 case bool, string:	printString("type is bool or string")
 default:	printString("don't know the type")
 }
+switch x, y := F(); x.(type) {case []int:}
 }
 `
 	exp := `package main
@@ -737,6 +738,9 @@ func foo() {
         printString("type is bool or string")
     default:
         printString("don't know the type")
+    }
+    switch x, y := F(); x.(type) {
+    case []int:
     }
 }
 `
