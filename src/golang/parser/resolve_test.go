@@ -1462,3 +1462,732 @@ func TestResolveFuncDeclDupParam(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveStmtEmpty(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"empty.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	if len(F.Func.Blk.Body) != 0 {
+		t.Error("empty statement must be discarded entirely")
+	}
+}
+
+func TestResolveStmtGo(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"go.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	F := p.Find("F").(*ast.FuncDecl)
+	G := p.Find("G").(*ast.FuncDecl)
+	g := G.Func.Blk.Body[0].(*ast.GoStmt)
+	if x, ok := g.X.(*ast.Call); !ok || x.Func != F {
+		t.Error("the go statememt must be a call to `F`")
+	}
+}
+
+func TestResolveStmtReturn(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"return.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	F := p.Find("F").(*ast.FuncDecl)
+	r := F.Func.Blk.Body[0].(*ast.ReturnStmt)
+	if len(r.Xs) != 0 {
+		t.Error("the return stmt in `F` must be without expressions")
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	r = G.Func.Blk.Body[0].(*ast.ReturnStmt)
+	if len(r.Xs) != 2 {
+		t.Error("the return stmt in `G` must return 2 expressions")
+	}
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	if r.Xs[0] != A {
+		t.Error("the first return expression must be `A`")
+	}
+	if r.Xs[1] != B {
+		t.Error("the second return expression must be `B`")
+	}
+}
+
+func TestResolveStmtSend(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"send.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	s := F.Func.Blk.Body[0].(*ast.SendStmt)
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	if s.Ch != A {
+		t.Error("the channel in the send stmt must be `A`")
+	}
+	if s.X != B {
+		t.Error("the value in the send stmt must be `B`")
+	}
+}
+
+func TestResolveStmtIncDec(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"incdec.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	F := p.Find("F").(*ast.FuncDecl)
+	i := F.Func.Blk.Body[0].(*ast.IncStmt)
+	if i.X != A {
+		t.Error("the incremented location must be `A`")
+	}
+	d := F.Func.Blk.Body[1].(*ast.DecStmt)
+	if d.X != B {
+		t.Error("the decremented location must be `B`")
+	}
+}
+
+func TestResolveStmtAssign(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"assign.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	F := p.Find("F").(*ast.FuncDecl)
+
+	s := F.Func.Blk.Body[0].(*ast.AssignStmt)
+	if s.LHS[0] != A {
+		t.Error("st#0: LHS#0 must resolve to `A`")
+	}
+
+	s = F.Func.Blk.Body[1].(*ast.AssignStmt)
+	if s.LHS[0] != A {
+		t.Error("st#1: LHS#0 must resolve to `A`")
+	}
+	if s.LHS[1] != B {
+		t.Error("st#1: LHS#1 must resolve to `B`")
+	}
+	if s.RHS[0] != B {
+		t.Error("st#1: RHS#0 must resolve to `B`")
+	}
+	if s.RHS[1] != A {
+		t.Error("st#1: RHS#1 must resolve to `A`")
+	}
+}
+
+func TestResolveStmtShortVarDecl(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"short-var-decl.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	A := p.Find("A").(*ast.Var)
+	B := p.Find("B").(*ast.Var)
+	F := p.Find("F").(*ast.FuncDecl)
+
+	a := F.Func.Blk.Find("A").(*ast.Var)
+	if a == nil {
+		t.Error("declaration of local `A` not found")
+	}
+	b := F.Func.Blk.Find("B").(*ast.Var)
+	if b == nil {
+		t.Error("declaration of local `B` not found")
+	}
+	c := F.Func.Blk.Find("C").(*ast.Var)
+	if b == nil {
+		t.Error("declaration of local `C` not found")
+	}
+
+	if len(F.Func.Blk.Body) != 3 {
+		t.Error("body of `F` must consist of 3 assignments")
+	}
+
+	s := F.Func.Blk.Body[0].(*ast.AssignStmt)
+	if s.LHS[0] != a {
+		t.Error("st#0: LHS #0 must resolve to local `A`")
+	}
+	if s.RHS[0] != A {
+		t.Error("st#0: RHS #0 must resolve to global `A`")
+	}
+
+	s = F.Func.Blk.Body[1].(*ast.AssignStmt)
+	if s.LHS[0] != a {
+		t.Error("st#1: LHS #0 must resolve to local `A`")
+	}
+	if s.LHS[1] != b {
+		t.Error("st#1: LHS #1 must resolve to local `B`")
+	}
+	if s.RHS[0] != B {
+		t.Error("st#1: RHS #0 must resolve to global `B`")
+	}
+	if s.RHS[1] != a {
+		t.Error("st#1: RHS #1 must resolve to local `A`")
+	}
+
+	s = F.Func.Blk.Body[2].(*ast.AssignStmt)
+	if F.Func.Blk.Find("_") != nil {
+		t.Error("blank identifier must not be declared")
+	}
+	if s.LHS[0] != c {
+		t.Error("st#2: LHS #0 must resolve to local `C`")
+	}
+	if s.LHS[1] != ast.Blank {
+		t.Error("st#2: LHS #1 must resolve to singleton `ast.Blank`")
+	}
+}
+
+func TestResolveStmtExpr(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"expr.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestResolveStmtIf(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"if.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// If #1
+	s := G.Func.Blk.Body[1].(*ast.IfStmt)
+	c := s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#1: condition operands must refer to function local `x` and `y`")
+	}
+
+	// If #2
+	s = G.Func.Blk.Body[2].(*ast.IfStmt)
+	i := s.Init.(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
+	}
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#2: condition operands must refer to function local `x` and `y`")
+	}
+
+	// If #3
+	b, ok := G.Func.Blk.Body[3].(*ast.Block)
+	if !ok {
+		t.Error("st#3: must be the implicit block around the `if`")
+	}
+	u := b.Find("u").(*ast.Var)
+	v := b.Find("v").(*ast.Var)
+	if u == nil || v == nil {
+		t.Error("st#3: missing declarations of `u` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != u || i.LHS[1] != v {
+		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != u || c.Y != v {
+		t.Error("st#3: condition operands must refer to block local `u` and `v`")
+	}
+
+	// If #4
+	b = G.Func.Blk.Body[4].(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	v = b.Find("v").(*ast.Var)
+	if x == nil || v == nil {
+		t.Error("st#4: missing declarations of `x` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != v {
+		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != v {
+		t.Error("st#4: condition operands must refer to block local `x` and `v`")
+	}
+
+	// If #5
+	b = G.Func.Blk.Body[5].(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	y = b.Find("y").(*ast.Var)
+	if x == nil || y == nil {
+		t.Error("st#5: missing declarations of `x` and `y`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#5: LHS of the init stmt must refer to block local `x` and `y`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#5: condition operands must refer to block local `x` and `y`")
+	}
+	s = s.Else.(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#5: second condition operands must refer to block local `x` and `y`")
+	}
+
+	// If #6
+	b = G.Func.Blk.Body[6].(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	y = b.Find("y").(*ast.Var)
+	if x == nil || y == nil {
+		t.Error("st#6: missing declarations of `x` and `y`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#6: LHS of the init stmt must refer to block local `x` and `y`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#6: condition operands must refer to block local `x` and `y`")
+	}
+	s = s.Else.(*ast.IfStmt)
+	i = s.Init.(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#6: LHS of the init stmt must refer to block local `x` and `y`")
+	}
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#6: second condition operands must refer to block local `x` and `y`")
+	}
+
+	// If #7
+	b = G.Func.Blk.Body[7].(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	y = b.Find("y").(*ast.Var)
+	if x == nil || y == nil {
+		t.Error("st#7/1: missing declarations of `x` and `y`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#7/1: LHS of the init stmt must refer to block local `x` and `y`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#7/1: condition operands must refer to block local `x` and `y`")
+	}
+	b = s.Else.(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	y = b.Find("y").(*ast.Var)
+	if x == nil || y == nil {
+		t.Error("st#7/2: missing declarations of `x` and `y`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#7/2: LHS of the init stmt must refer to block local `x` and `y`")
+	}
+	s = b.Body[1].(*ast.IfStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#7/2: second condition operands must refer to block local `x` and `y`")
+	}
+	b = s.Else.(*ast.Block)
+}
+
+func TestResolveStmtFor(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"for.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// For #1
+	s := G.Func.Blk.Body[1].(*ast.ForStmt)
+	c := s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#1: condition operands must refer to function local `x` and `y`")
+	}
+
+	// For #2
+	s = G.Func.Blk.Body[2].(*ast.ForStmt)
+	i := s.Init.(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
+	}
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#2: condition operands must refer to function local `x` and `y`")
+	}
+
+	// For #3
+	b, ok := G.Func.Blk.Body[3].(*ast.Block)
+	if !ok {
+		t.Error("st#3: must be the implicit block around the `for`")
+	}
+	u := b.Find("u").(*ast.Var)
+	v := b.Find("v").(*ast.Var)
+	if u == nil || v == nil {
+		t.Error("st#3: missing declarations of `u` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != u || i.LHS[1] != v {
+		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
+	}
+	s = b.Body[1].(*ast.ForStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != u || c.Y != v {
+		t.Error("st#3: condition operands must refer to block local `u` and `v`")
+	}
+
+	// For #4
+	b = G.Func.Blk.Body[4].(*ast.Block)
+	x = b.Find("x").(*ast.Var)
+	v = b.Find("v").(*ast.Var)
+	if x == nil || v == nil {
+		t.Error("st#4: missing declarations of `x` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != v {
+		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
+	}
+	s = b.Body[1].(*ast.ForStmt)
+	c = s.Cond.(*ast.BinaryExpr)
+	if c.X != x || c.Y != v {
+		t.Error("st#4: condition operands must refer to block local `x` and `v`")
+	}
+}
+
+func TestResolveStmtForRange(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"for-range.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// Range For #1
+	s := G.Func.Blk.Body[1].(*ast.ForRangeStmt)
+	if s.LHS[0] != x || s.LHS[1] != y {
+		t.Error("st#1: LHS in range-for must refer to function local `x` and `y`")
+	}
+
+	// Range For #2
+	b, ok := G.Func.Blk.Body[2].(*ast.Block)
+	if !ok {
+		t.Error("st#2: must be the implicit block around the `for`")
+	}
+	u := b.Find("u").(*ast.Var)
+	v := b.Find("v").(*ast.Var)
+	if u == nil || v == nil {
+		t.Error("st#2: missing declarations of `u` and `v`")
+	}
+	s = b.Body[0].(*ast.ForRangeStmt)
+	if s.LHS[0] != u || s.LHS[1] != v {
+		t.Error("st#2: LHS in range-for must refer to block local `u` and `v`")
+	}
+
+	// Range For #3
+	b, ok = G.Func.Blk.Body[3].(*ast.Block)
+	if !ok {
+		t.Error("st#3: must be the implicit block around the `for`")
+	}
+	x = b.Find("x").(*ast.Var)
+	v = b.Find("v").(*ast.Var)
+	if x == nil || v == nil {
+		t.Error("st#3: missing declarations of `x` and `v`")
+	}
+	s = b.Body[0].(*ast.ForRangeStmt)
+	if s.LHS[0] != x || s.LHS[1] != v {
+		t.Error("st#2: LHS in range-for must refer to block local `x` and `v`")
+	}
+}
+
+func TestResolveStmtDefer(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"defer.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	G := p.Find("G").(*ast.FuncDecl)
+	s := G.Func.Blk.Body[0].(*ast.DeferStmt)
+	x := s.X.(*ast.Call)
+	if x.Func != F {
+		t.Error("the expression in defer stmt must be a call to `F`")
+	}
+}
+
+func TestResolveStmtExprSwitch(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"expr-switch.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// Expr switch #1
+	s := G.Func.Blk.Body[1].(*ast.ExprSwitchStmt)
+	c := s.Cases[0].Xs[0].(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#1: expr in case clause must refer to function local `x` and `y`")
+	}
+
+	// Expr switch #2
+	s = G.Func.Blk.Body[2].(*ast.ExprSwitchStmt)
+	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
+	if c.X != x || c.Y != y {
+		t.Error("st#2: expr in case clause must refer to function local `x` and `y`")
+	}
+
+	// Expr switch #3
+	b, ok := G.Func.Blk.Body[3].(*ast.Block)
+	if !ok {
+		t.Error("st#3: must be the implicit block around the `switch`")
+	}
+	u := b.Find("u").(*ast.Var)
+	v := b.Find("v").(*ast.Var)
+	if u == nil || v == nil {
+		t.Error("st#3: missing declarations of `u` and `v`")
+	}
+	i := b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != u || i.LHS[1] != v {
+		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
+	}
+	s = b.Body[1].(*ast.ExprSwitchStmt)
+	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
+	if c.X != u || c.Y != v {
+		t.Error("st#2: expr in case clause must refer to block local `u` and `v`")
+	}
+
+	// // Expr switch #4
+	b, ok = G.Func.Blk.Body[4].(*ast.Block)
+	if !ok {
+		t.Error("st#4: must be the implicit block around the `switch`")
+	}
+	x = b.Find("x").(*ast.Var)
+	v = b.Find("v").(*ast.Var)
+	if x == nil || v == nil {
+		t.Error("st#4: missing declarations of `x` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != v {
+		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
+	}
+	s = b.Body[1].(*ast.ExprSwitchStmt)
+	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
+	if c.X != x || c.Y != v {
+		t.Error("st#4: expr in case clause must refer to block local `x` and `v`")
+	}
+}
+
+func TestResolveStmtTypeSwitch(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"type-switch.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// Type switch #1
+	s := G.Func.Blk.Body[1].(*ast.TypeSwitchStmt)
+	if s.X != x {
+		t.Error("st#1: expression in type switch refer to function local `x`")
+	}
+	typ := s.Cases[0].Types[0].(*ast.TypeDecl)
+	if typ.Type != ast.BuiltinInt {
+		t.Error("st#1: type in case clause must resolve to builtin `int`")
+	}
+	a := s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
+	if a.X != x || a.Y != y {
+		t.Error("st#2: expr in case clause must refer to function local `x` and `y`")
+	}
+
+	// Type switch #2
+	s = G.Func.Blk.Body[2].(*ast.TypeSwitchStmt)
+	i := s.Init.(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != y {
+		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
+	}
+	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
+	if a.X != x || a.Y != y {
+		t.Error("st#2: expr in case body must refer to function local `x` and `y`")
+	}
+
+	// Type switch #3
+	b, ok := G.Func.Blk.Body[3].(*ast.Block)
+	if !ok {
+		t.Error("st#3: must be the implicit block around the `switch`")
+	}
+	u := b.Find("u").(*ast.Var)
+	v := b.Find("v").(*ast.Var)
+	if u == nil || v == nil {
+		t.Error("st#3: missing declarations of `u` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != u || i.LHS[1] != v {
+		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
+	}
+	s = b.Body[1].(*ast.TypeSwitchStmt)
+	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
+	if a.X != u || a.Y != v {
+		t.Error("st#3: expr in case body must refer to block local `u` and `v`")
+	}
+
+	// Type switch #4
+	b, ok = G.Func.Blk.Body[4].(*ast.Block)
+	if !ok {
+		t.Error("st#4: must be the implicit block around the `switch`")
+	}
+	x = b.Find("x").(*ast.Var)
+	v = b.Find("v").(*ast.Var)
+	if x == nil || v == nil {
+		t.Error("st#4: missing declarations of `x` and `v`")
+	}
+	i = b.Body[0].(*ast.AssignStmt)
+	if i.LHS[0] != x || i.LHS[1] != v {
+		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
+	}
+	s = b.Body[1].(*ast.TypeSwitchStmt)
+	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
+	if a.X != x || a.Y != v {
+		t.Error("st#4: expr in case body must refer to block local `x` and `v`")
+	}
+
+	// Type switch #5
+	b = G.Func.Blk.Body[5].(*ast.Block)
+	s = b.Body[1].(*ast.TypeSwitchStmt)
+	if G.Func.Blk.Find(s.Id) != nil || b.Find(s.Id) != nil {
+		t.Error("st#5: name from type switch guard must be declare only in case blocks")
+	}
+	bb := s.Cases[0].Blk
+	if bb.Find(s.Id) == nil {
+		t.Error("st#5: name from type switch guard not declared in case block")
+	}
+	bb = s.Cases[1].Blk
+	if bb.Find(s.Id) == nil {
+		t.Error("#st#5: name from type switch guard not declared in case block")
+	}
+	bb = s.Cases[2].Blk
+	if bb.Find(s.Id) != nil {
+		t.Error(
+			"#st#5: name from type switch should not be declared in the default block")
+	}
+}
+
+func TestResolveStmtSelect(t *testing.T) {
+	up, err := ParsePackage("_test/stmt/src/ok", []string{"select.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ResolvePackage(up, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	G := p.Find("G").(*ast.FuncDecl)
+	x := G.Func.Blk.Find("x").(*ast.Var)
+	y := G.Func.Blk.Find("y").(*ast.Var)
+
+	// Select case #0
+	s := G.Func.Blk.Body[1].(*ast.SelectStmt)
+	snd := s.Comms[0].Comm.(*ast.SendStmt)
+	if snd.Ch != x || snd.X != y {
+		t.Error("comm#0: send stmt must refer to function local `x` and `y`")
+	}
+
+	// Select case #1
+	rcv := s.Comms[1].Comm.(*ast.RecvStmt)
+	if rcv.X != y {
+		t.Error("comm#1: recv stmt must receive into function local `y`")
+	}
+	if rcv.Rcv.(*ast.UnaryExpr).X != x {
+		t.Error("comm#1: recv stmt must receive from function local `x`")
+	}
+
+	// Select case #2
+	b := s.Comms[2].Blk
+	xx := b.Find("x").(*ast.Var)
+	if xx == nil {
+		t.Error("new `x` must be declared in comm clause block")
+	}
+	rcv = s.Comms[2].Comm.(*ast.RecvStmt)
+	if rcv.X != xx {
+		t.Error("comm#2: recv stmt must receive into block local `x`")
+	}
+	if rcv.Y != ast.Blank {
+		t.Error("comm#2: recv stmt must receive into singletone 'ast.Blank'")
+	}
+	if rcv.Rcv.(*ast.UnaryExpr).X != x {
+		t.Error("comm#2: recv stmt must receive from function local `x`")
+	}
+	if b.Body[0].(*ast.ExprStmt).X != xx {
+		t.Error("comm#2: expr in case block must refer to block local `x`")
+	}
+}

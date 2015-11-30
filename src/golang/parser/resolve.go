@@ -1079,11 +1079,7 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 	case *ast.EmptyStmt:
 		return nil, nil
 	case *ast.Block:
-		if blk, err := resolveBlock(s, scope); err != nil {
-			return nil, err
-		} else {
-			return blk, nil
-		}
+		return resolveBlock(s, scope)
 	case *ast.LabeledStmt:
 		// FIXME: label at file scope
 		if st, err := resolveStmt(s.Stmt, scope); err != nil {
