@@ -1137,17 +1137,16 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 			if err := declareLHS(scope, s.X, s.Y); err != nil {
 				return nil, err
 			}
+		}
+		if x, err := resolveLHS(s.X, scope); err != nil {
+			return nil, err
 		} else {
-			if x, err := resolveLHS(s.X, scope); err != nil {
-				return nil, err
-			} else {
-				s.X = x
-			}
-			if y, err := resolveLHS(s.Y, scope); err != nil {
-				return nil, err
-			} else {
-				s.Y = y
-			}
+			s.X = x
+		}
+		if y, err := resolveLHS(s.Y, scope); err != nil {
+			return nil, err
+		} else {
+			s.Y = y
 		}
 		return s, nil
 	case *ast.IncStmt:
