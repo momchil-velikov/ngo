@@ -9,6 +9,7 @@ func G() int {
 	case y = <-x:
 	case x, _ := <-x:
 		x
+	case z := <-x:
 	default:
 	}
 }

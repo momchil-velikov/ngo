@@ -1528,6 +1528,16 @@ func TestResolveStmtShortVarDecl(t *testing.T) {
 	}
 }
 
+func TestResolveShortVarDeclError(t *testing.T) {
+	expectError(t, "_test/stmt/src/err", []string{"lhs-dup.go"}, "duplicate ident")
+	expectError(t, "_test/stmt/src/err", []string{"recv-dup.go"}, "duplicate ident")
+	expectError(t, "_test/stmt/src/err", []string{"lhs-no-new-vars.go"}, "no new var")
+	expectError(t, "_test/stmt/src/err", []string{"lhs-non-name.go"},
+		"non-name on the left")
+	expectError(t, "_test/stmt/src/err", []string{"lhs-non-name-for.go"},
+		"non-name on the left")
+}
+
 func TestResolveStmtExpr(t *testing.T) {
 	up, err := ParsePackage("_test/stmt/src/ok", []string{"expr.go"})
 	if err != nil {
@@ -2048,4 +2058,31 @@ func TestResolveStmtSelect(t *testing.T) {
 	if b.Body[0].(*ast.ExprStmt).X != xx {
 		t.Error("comm#2: expr in case block must refer to block local `x`")
 	}
+}
+
+func TestResolveStmtErrorNotDecl(t *testing.T) {
+	for _, src := range []string{
+		"not-decl-1.go", "not-decl-2.go", "not-decl-3.go", "not-decl-4.go",
+		"not-decl-5.go", "not-decl-6.go", "not-decl-7.go", "not-decl-8.go",
+		"not-decl-9.go", "not-decl-10.go", "not-decl-11.go", "not-decl-12.go",
+		"not-decl-13.go", "not-decl-14.go", "not-decl-15.go", "not-decl-16.go",
+		"not-decl-17.go", "not-decl-18.go", "not-decl-19.go", "not-decl-20.go",
+		"not-decl-21.go", "not-decl-22.go", "not-decl-23.go", "not-decl-24.go",
+		"not-decl-25.go", "not-decl-26.go", "not-decl-27.go", "not-decl-28.go",
+		"not-decl-29.go", "not-decl-30.go", "not-decl-31.go", "not-decl-32.go",
+		"not-decl-33.go", "not-decl-34.go",
+	} {
+		expectError(t, "_test/stmt/src/err", []string{src}, "not declared")
+	}
+}
+
+func TestResolveStmtErrorDupDecl(t *testing.T) {
+	for _, src := range []string{"dup-decl-1.go", "dup-decl-2.go", "dup-decl-3.go"} {
+		expectError(t, "_test/stmt/src/err", []string{src}, "redeclared")
+	}
+}
+
+func TestResolveStmtForPostError(t *testing.T) {
+	expectError(t, "_test/stmt/src/err", []string{"for-post.go"},
+		"cannot declare in for post")
 }
