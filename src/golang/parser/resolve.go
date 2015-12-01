@@ -726,26 +726,47 @@ func operandName(d ast.Symbol) ast.Expr {
 // side of the ":=" token and only the identifiers, not already declared in
 // SCOPE.  Checks there is at least one such identifier.
 func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
+	// Check that the left-hand side contains only identifiers and at least
+	// one is not declared in current scope.
 	new := false
-	for _, x := range xs {
-		if x == nil {
+	for i := range xs {
+		x, ok := xs[i].(*ast.QualifiedId)
+		if !ok || len(x.Pkg) > 0 {
+			return errors.New("non-name on the left side of :=")
+		}
+		if x.Id == "_" || scope.Find(x.Id) != nil {
 			continue
-		}
-		id, ok := x.(*ast.QualifiedId)
-		if !ok || len(id.Pkg) > 0 {
-			return errors.New("non-name on the left sife of :=")
-		}
-		if id.Id == "_" || scope.Find(id.Id) != nil {
-			continue
-		}
-		v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-		if err := scope.Declare(v.Name, v); err != nil {
-			return err
 		}
 		new = true
 	}
 	if !new {
 		return errors.New("no new variables on the left side of :=")
+	}
+	// Check that there are no duplicate identifiers.
+	for i := range xs {
+		x := xs[i].(*ast.QualifiedId)
+		if x.Id == "_" {
+			continue
+		}
+		ys := xs[i+1:]
+		for j := range ys {
+			y := ys[j].(*ast.QualifiedId)
+			if y.Id == "_" {
+				continue
+			}
+			if x.Id == y.Id {
+				return errors.New("duplicate ident on the left side of :=")
+			}
+		}
+	}
+	// Do the declaration.
+	for _, x := range xs {
+		id := x.(*ast.QualifiedId)
+		if id.Id == "_" || scope.Find(id.Id) != nil {
+			continue
+		}
+		v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
+		scope.Declare(v.Name, v) // cannot fail here
 	}
 	return nil
 }
@@ -1130,7 +1151,13 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 			s.Rcv = x
 		}
 		if s.Op == scanner.DEFINE {
-			if err := declareLHS(scope, s.X, s.Y); err != nil {
+			var err error
+			if s.Y == nil {
+				err = declareLHS(scope, s.X)
+			} else {
+				err = declareLHS(scope, s.X, s.Y)
+			}
+			if err != nil {
 				return nil, err
 			}
 		}
