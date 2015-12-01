@@ -1409,12 +1409,11 @@ func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
 					}
 				}
 				// Declare the variable from the type switch guard in every
-				// block, except the default.
+				// block, except the default. Block has no declaraitons
+				// whatsoever at this point, so the below declare cannot fail.
 				if len(s.Id) > 0 && len(c.Types) > 0 {
 					v := &ast.Var{Off: s.Off, File: scope.File(), Name: s.Id}
-					if err := c.Blk.Declare(v.Name, v); err != nil {
-						return nil, err
-					}
+					c.Blk.Declare(v.Name, v)
 				}
 				if b, err := resolveBlock(c.Blk, scope); err != nil {
 					return nil, err
