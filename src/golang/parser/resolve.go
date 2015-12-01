@@ -536,7 +536,7 @@ func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
 	switch t := t.(type) {
 	case *ast.QualifiedId:
 		if t.Id == "_" {
-			return nil, errors.New("`_` is not a valid type name")
+			return nil, errors.New("`_` is not a typename")
 		}
 		if d, err := lookupIdent(t, scope); err != nil {
 			return nil, err

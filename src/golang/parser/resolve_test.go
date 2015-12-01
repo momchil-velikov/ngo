@@ -16,6 +16,22 @@ func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
 	return t
 }
 
+func expectError(t *testing.T, pkg string, srcs []string, msg string) {
+	up, err := ParsePackage(pkg, srcs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolvePackage(up, nil)
+	if err == nil || !strings.Contains(err.Error(), msg) {
+		t.Errorf("%s:%v: expected `%s` error", pkg, srcs, msg)
+		if err == nil {
+			t.Log("actual: no error")
+		} else {
+			t.Logf("actual: %s", err.Error())
+		}
+	}
+}
+
 func TestResolveTypeUniverse(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
 	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
@@ -87,30 +103,9 @@ func TestResolveTypeUniverse(t *testing.T) {
 }
 
 func TestResolveTypeDuplicatelAtPackageScope(t *testing.T) {
-	const TESTDIR = "_test/typedecl/src/errors/dup_decl"
-	up, err := ParsePackage(TESTDIR, []string{"a.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err == nil || !strings.Contains(err.Error(), "redeclared") {
-		if err != nil {
-			t.Log(err)
-		}
-		t.Error("expected duplicated declaration error")
-	}
-
-	up, err = ParsePackage(TESTDIR, []string{"b.go", "c.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err == nil || !strings.Contains(err.Error(), "redeclared") {
-		if err != nil {
-			t.Log(err)
-		}
-		t.Error("expected duplicated declaration error")
-	}
+	expectError(t, "_test/typedecl/src/errors/dup_decl", []string{"a.go"}, "redeclared")
+	expectError(
+		t, "_test/typedecl/src/errors/dup_decl", []string{"b.go", "c.go"}, "redeclared")
 }
 
 func TestResolveTypePackageScope(t *testing.T) {
@@ -153,7 +148,7 @@ func TestResolveTypePackageScope(t *testing.T) {
 		}
 		if td != p.Find(cs.ref).(*ast.TypeDecl) {
 			t.Errorf(
-				"declaration of `%s` does nor refer to the declaration of `%s`\n",
+				"declaration of `%s` does not refer to the declaration of `%s`\n",
 				cs.decl, cs.ref,
 			)
 		}
@@ -388,17 +383,7 @@ func TestResolveConstructedType(t *testing.T) {
 
 func TestResolveFuncTypeError(t *testing.T) {
 	for _, src := range []string{"func-1.go", "func-2.go"} {
-		up, err := ParsePackage("_test/typedecl/src/errors", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "all be present") {
-			t.Error("expecting `all be present or all be absent` error")
-			if err != nil {
-				t.Error(err)
-			}
-		}
+		expectError(t, "_test/typedecl/src/errors", []string{src}, "all be present")
 	}
 }
 
@@ -407,16 +392,8 @@ func TestResolveTypeTypenameNotFound(t *testing.T) {
 		"typename.go", "array.go", "slice.go", "ptr.go", "map-1.go", "map-2.go",
 		"chan.go", "struct.go", "func-1.go", "func-2.go", "iface-1.go", "iface-2.go",
 	} {
-		up, err := ParsePackage(
-			"_test/typedecl/src/errors/typename_not_found", []string{src},
-		)
-		if err != nil {
-			t.Error(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "X not declared") {
-			t.Error("expecting `X not declared` error")
-		}
+		expectError(t, "_test/typedecl/src/errors/typename_not_found", []string{src},
+			"X not declared")
 	}
 }
 
@@ -426,34 +403,17 @@ func TestResolveTypeNotATypename(t *testing.T) {
 		"chan.go", "struct.go", "func-1.go", "func-2.go", "iface-1.go", "iface-2.go",
 		"blank.go",
 	} {
-		up, err := ParsePackage("_test/typedecl/src/errors/not_typename", []string{src})
-		if err != nil {
-			t.Error(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil ||
-			!(strings.Contains(err.Error(), "X is not a typename") ||
-				strings.Contains(err.Error(), "is not a valid type name")) {
-			t.Error("expecting `X is not a typename` error")
-			if err != nil {
-				t.Error(err)
-			}
-		}
+		expectError(t, "_test/typedecl/src/errors/not_typename", []string{src},
+			"is not a typename")
 	}
 }
 
 func TestResolveTypeDuplicateField(t *testing.T) {
 	for _, src := range []string{"dup-1.go", "dup-2.go", "dup-3.go"} {
-		up, err := ParsePackage("_test/typedecl/src/errors/dup_field", []string{src})
-		if err != nil {
-			t.Error(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "X is duplicated") {
-			t.Error("expecting `X is duplicated typename` error")
-		}
+		expectError(t, "_test/typedecl/src/errors/dup_field", []string{src},
+			"X is duplicated")
 	}
-
+	// Check blank ident does nor cause a duplicated field error
 	up, err := ParsePackage("_test/typedecl/src/correct/", []string{"c.go"})
 	if err != nil {
 		t.Fatal(err)
@@ -804,23 +764,20 @@ func TestResolveExprBinary(t *testing.T) {
 
 func TestResolveExprNotTypenameError(t *testing.T) {
 	srcs := []string{
-		"comp.go", "conv.go", "func.go", "assert-1.go", "assert-2.go",
+		"comp.go",
+		"conv.go",
+		"func.go", "assert-1.go", "assert-2.go",
+	}
+	for _, src := range srcs {
+		expectError(t, "_test/expr/src/err/not_typename", []string{src},
+			"is not a typename")
+	}
+	srcs = []string{
 		"blank-1.go", "blank-2.go",
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/expr/src/err/not_typename", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil ||
-			!(strings.Contains(err.Error(), "is not a typename") ||
-				strings.Contains(err.Error(), "is not a valid")) {
-			t.Error(src, ": expected 'not a typename' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/expr/src/err/not_typename", []string{src},
+			"is not a valid operand or a typename")
 	}
 }
 
@@ -831,63 +788,24 @@ func TestResolveExprNotDeclaredError(t *testing.T) {
 		"index-2.go", "slice-1.go", "slice-2.go", "slice-3.go", "slice-4.go", "unary.go",
 		"binary-1.go", "binary-2.go"}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/expr/src/err/not_declared", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "not declared") {
-			t.Error(src, ": expected 'not declared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/expr/src/err/not_declared", []string{src}, "not declared")
 	}
 }
 
 func TestResolveExprBlank(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/err", []string{"blank.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err == nil || !strings.Contains(err.Error(), "`_` is not a valid operand") {
-		t.Error("expected 'not declared' error")
-		if err != nil {
-			t.Error("actual error:", err)
-		}
-	}
+	expectError(t, "_test/expr/src/err", []string{"blank.go"},
+		"`_` is not a valid operand")
 }
 
 func TestResolveExprInvOperand(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/err", []string{"inv-op.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err == nil || !strings.Contains(err.Error(), "invalid operand") {
-		t.Error("expected 'invalid operand' error")
-		if err != nil {
-			t.Error("actual error:", err)
-		}
-	}
+	expectError(t, "_test/expr/src/err", []string{"inv-op.go"}, "invalid operand")
 }
 
 func TestResolveExprInvConversion(t *testing.T) {
 	srcs := []string{"inv-conv-1.go", "inv-conv-2.go", "inv-conv-3.go"}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/expr/src/err/inv_conv", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-
-		if err == nil || !strings.Contains(err.Error(), "invalid conversion") {
-			t.Error(src, ": expected 'invalid conversion argument' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/expr/src/err/inv_conv", []string{src},
+			"invalid conversion argument")
 	}
 }
 
@@ -1065,17 +983,7 @@ func TestResolveVarDupDeclError(t *testing.T) {
 		{"blk-dup-3.go"},
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/vardecl/src/err", src)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "redeclared") {
-			t.Error(src, ": expected 'redeclared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/vardecl/src/err", src, "redeclared")
 	}
 }
 
@@ -1085,17 +993,7 @@ func TestResolveVarPkgNotDeclError(t *testing.T) {
 		"blk-not-decl-1.go", "blk-not-decl-2.go", "blk-not-decl-3.go",
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/vardecl/src/err", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "not declared") {
-			t.Error(src, ": expected 'not declared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/vardecl/src/err", []string{src}, "not declared")
 	}
 }
 
@@ -1346,17 +1244,7 @@ func TestResolveConstDupDeclError(t *testing.T) {
 		"dup-decl-5.go", "dup-decl-6.go", "dup-decl-7.go",
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "redeclared") {
-			t.Error(src, ": expected 'redeclared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/constdecl/src/err", []string{src}, "redeclared")
 	}
 }
 
@@ -1366,17 +1254,7 @@ func TestResolveConstNotDeclError(t *testing.T) {
 		"not-decl-5.go", "not-decl-6.go", "not-decl-7.go", "not-decl-8.go",
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "not declared") {
-			t.Error(src, ": expected 'not declared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/constdecl/src/err", []string{src}, "not declared")
 	}
 }
 
@@ -1385,17 +1263,7 @@ func TestResolveConstCountMismatch(t *testing.T) {
 		"not-eq-1.go", "not-eq-2.go", "not-eq-3.go", "not-eq-4.go", "not-eq-5.go",
 	}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/constdecl/src/err", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "must be equal") {
-			t.Error(src, ": expected 'must be equal' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/constdecl/src/err", []string{src}, "must be equal")
 	}
 }
 
@@ -1449,17 +1317,7 @@ func TestResolveFuncDecl(t *testing.T) {
 func TestResolveFuncDeclDupParam(t *testing.T) {
 	srcs := []string{"dup-1.go", "dup-2.go", "dup-3.go", "dup-4.go"}
 	for _, src := range srcs {
-		up, err := ParsePackage("_test/funcdecl/src/err", []string{src})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ResolvePackage(up, nil)
-		if err == nil || !strings.Contains(err.Error(), "redeclared") {
-			t.Error(src, ": expected 'redeclared' error")
-			if err != nil {
-				t.Error(src, ": actual error:", err)
-			}
-		}
+		expectError(t, "_test/funcdecl/src/err", []string{src}, "redeclared")
 	}
 }
 
