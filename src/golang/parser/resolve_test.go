@@ -2256,3 +2256,112 @@ func TestResolveImportError(t *testing.T) {
 	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err4.go"}, loc, "redeclared")
 	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err5.go"}, loc, "redeclared")
 }
+
+func TestResolveTypeMultiPackage(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkgA, err := compilePackage("_test/pkg/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+	A := pkgA.Find("A").(*ast.TypeDecl)
+
+	pkg, err := compilePackage("_test/pkg/src/d", []string{"d1.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	D := pkg.Find("D")
+	if D == nil {
+		t.Error("name `D` not found")
+	}
+	typD, ok := D.(*ast.TypeDecl)
+	if !ok {
+		t.Error("`D` is not a typename")
+	}
+
+	if typD.Type != A {
+		t.Error("typename `D` does not refer to `a.A`")
+	}
+
+	// Test unknown package name
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err1.go"}, loc, "not declared")
+
+	// Test package part of a QualifiedId does not refer to imported package
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err2.go"}, loc,
+		"does not refer to package name")
+
+	// Test name not declared in imported package.
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err3.go"}, loc, "not declared")
+
+	// Test name declared, but not exported.
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err4.go"}, loc, "not exported")
+
+	// After loading the PDB, the above error becomes `not declared`, as the
+	// identifier is not present at all in the PDB.
+	pkgA, err = reloadPackage(pkgA, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err4.go"}, loc, "not declared")
+
+	// Test imported indentifier is not a typename.
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err5.go"}, loc, "not a typename")
+}
+
+func TestResolveExprMultiPackage(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkgA, err := compilePackage("_test/pkg/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+	A := pkgA.Find("A").(*ast.TypeDecl)
+	B := pkgA.Find("B").(*ast.Var)
+
+	pkg, err := compilePackage("_test/pkg/src/e", []string{"e1.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := pkg.Find("F").(*ast.FuncDecl)
+	s := F.Func.Blk.Body[0].(*ast.ReturnStmt)
+	if s.Xs[0] != B {
+		t.Error("the return expression is not `a.B`")
+	}
+
+	// Test package part of a QualifiedId does not refer to imported package
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err1.go"}, loc, "aa not declared")
+
+	// // Test name not declared in imported package.
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err2.go"}, loc, "notB not declared")
+
+	// Test name declared, but not exported.
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err3.go"}, loc, "not exported")
+
+	// Test name cannot be an operand.
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err4.go"}, loc, "invalid operand")
+
+	// Test a Call changed to Conversion.
+	G := pkg.Find("G").(*ast.FuncDecl)
+	s = G.Func.Blk.Body[0].(*ast.ReturnStmt)
+	x, ok := s.Xs[0].(*ast.Conversion)
+	if !ok {
+		t.Error("the return expression is not a Conversion")
+	}
+	if x.Type != A {
+		t.Error("the conversion type is not `a.A`")
+	}
+
+	// Test package part of a QualifiedId does not refer to imported package
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err1.go"}, loc,
+		"aa not declared")
+
+	// Test name not declared in imported package.
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err2.go"}, loc,
+		"notB not declared")
+
+	// Test name declared, but not exported.
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err3.go"}, loc, "not exported")
+}
