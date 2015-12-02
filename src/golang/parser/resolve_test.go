@@ -1,7 +1,12 @@
 package parser
 
 import (
+	"bufio"
+	"errors"
 	"golang/ast"
+	"golang/pdb"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,12 +21,14 @@ func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
 	return t
 }
 
-func expectError(t *testing.T, pkg string, srcs []string, msg string) {
+func expectErrorWithLoc(
+	t *testing.T, pkg string, srcs []string, loc ast.PackageLocator, msg string) {
+
 	up, err := ParsePackage(pkg, srcs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ResolvePackage(up, nil)
+	_, err = ResolvePackage(up, loc)
 	if err == nil || !strings.Contains(err.Error(), msg) {
 		t.Errorf("%s:%v: expected `%s` error", pkg, srcs, msg)
 		if err == nil {
@@ -30,6 +37,10 @@ func expectError(t *testing.T, pkg string, srcs []string, msg string) {
 			t.Logf("actual: %s", err.Error())
 		}
 	}
+}
+
+func expectError(t *testing.T, pkg string, srcs []string, msg string) {
+	expectErrorWithLoc(t, pkg, srcs, nil, msg)
 }
 
 func TestResolveTypeUniverse(t *testing.T) {
@@ -2085,4 +2096,163 @@ func TestResolveStmtErrorDupDecl(t *testing.T) {
 func TestResolveStmtForPostError(t *testing.T) {
 	expectError(t, "_test/stmt/src/err", []string{"for-post.go"},
 		"cannot declare in for post")
+}
+
+type MockPackageLocator struct {
+	pkgs map[string]*ast.Package
+}
+
+func (loc *MockPackageLocator) FindPackage(path string) (*ast.Package, error) {
+	pkg, ok := loc.pkgs[path]
+	if !ok {
+		return nil, errors.New("import `" + path + "` not found")
+	}
+	return pkg, nil
+}
+
+func compilePackage(
+	dir string, srcs []string, loc ast.PackageLocator) (*ast.Package, error) {
+
+	up, err := ParsePackage(dir, srcs)
+	if err != nil {
+		return nil, err
+	}
+	pkg, err := ResolvePackage(up, loc)
+	if err != nil {
+		return nil, err
+	}
+	return pkg, nil
+}
+
+func reloadPackage(pkg *ast.Package, loc ast.PackageLocator) (*ast.Package, error) {
+	f, err := ioutil.TempFile("", "resolve-test-pkg")
+	if err != nil {
+		return nil, err
+	}
+	os.Remove(f.Name())
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	if err = pdb.Write(w, pkg); err != nil {
+		return nil, err
+	}
+	if err = w.Flush(); err != nil {
+		return nil, err
+	}
+	if _, err = f.Seek(0, os.SEEK_SET); err != nil {
+		return nil, err
+	}
+	return pdb.Read(bufio.NewReader(f), loc)
+}
+
+func TestResolveImport(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkg, err := compilePackage("_test/pkg/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgA, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+
+	A := pkgA.Find("A")
+	if A == nil {
+		t.Fatal("name `A` not found in package")
+	}
+	_, ok := A.(*ast.TypeDecl)
+	if !ok {
+		t.Fatal("`A` is not a typename")
+	}
+
+	// Test regular import
+	pkg, err = compilePackage("_test/pkg/src/b", []string{"b1.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a, ok := pkg.Files[0].Find("a").(*ast.ImportDecl)
+	if !ok {
+		t.Fatalf("import `%s` not found in source `%s`\n", a.Name, pkg.Files[0].Name)
+	}
+	if a.Pkg != pkgA {
+		t.Fatal("import refers to unexpected package")
+	}
+
+	// Test import alias
+	pkg, err = compilePackage("_test/pkg/src/b", []string{"b2.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	x, ok := pkg.Files[0].Find("x").(*ast.ImportDecl)
+	if !ok {
+		t.Fatalf("import name `%s` not found in source `%s`\n", x.Name, pkg.Files[0].Name)
+	}
+
+	// Test blank import
+	pkg, err = compilePackage("_test/pkg/src/b", []string{"b3.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	y := pkg.Files[0].Find("a")
+	if y != nil {
+		t.Fatalf("import name `a` should not be found in file `%s`\n", pkg.Files[0].Name)
+	}
+
+	// Test "transparent "import
+	pkg, err = compilePackage("_test/pkg/src/b", []string{"b4.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	y = pkg.Files[0].Find("a")
+	if y != nil {
+		t.Fatalf("import name `a` should not be found in source `%s`\n", pkg.Files[0].Name)
+	}
+
+	AA, ok := pkg.Files[0].Find("A").(*ast.TypeDecl)
+	if !ok {
+		t.Fatalf("type name `A` not found in the scope of file `%s`\n", pkg.Files[0].Name)
+	}
+	if A != AA {
+		t.Error("name `A` in packages `a` and `b` refer to different declarations")
+	}
+}
+
+func TestResolveImportError(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkg, err := compilePackage("_test/pkg/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgA, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test import name not found
+	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err1.go"}, loc, "not found")
+
+	loc.pkgs["a"] = pkgA
+	pkg, err = compilePackage("_test/pkg/src/b", []string{"b1.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgB, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["b"] = pkgB
+
+	// Test duplicated import names
+	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err2.go"}, loc, "redeclared")
+
+	// Test "transparent" import conflicts
+	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err3.go"}, loc, "redeclared")
+
+	// Test conflict between import name and a "transparent" import
+	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err4.go"}, loc, "redeclared")
+	expectErrorWithLoc(t, "_test/pkg/src/c", []string{"err5.go"}, loc, "redeclared")
 }
