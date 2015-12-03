@@ -1752,6 +1752,20 @@ func (p *parser) parseTypeList() (ts []ast.Type) {
 	return
 }
 
+// Checks if X is a (possibly parenthesized) receive expression.
+func isReceiveExpr(x ast.Expr) bool {
+	for {
+		switch y := x.(type) {
+		case *ast.ParensExpr:
+			x = y.X
+		case *ast.UnaryExpr:
+			return y.Op == scanner.RECV
+		default:
+			return false
+		}
+	}
+}
+
 // SendStmt = Channel "<-" Expression .
 // RecvStmt   = [ ExpressionList "=" | IdentifierList ":=" ] RecvExpr .
 // RecvExpr   = Expression .
@@ -1785,7 +1799,7 @@ func (p *parser) parseSendOrRecv() ast.Stmt {
 			rcv = x
 			x = nil
 		}
-		if u, ok := rcv.(*ast.UnaryExpr); !ok || u.Op != scanner.RECV {
+		if !isReceiveExpr(rcv) {
 			p.error("receive statement must contain a receive expression")
 		}
 		return &ast.RecvStmt{Op: op, X: x, Y: y, Rcv: rcv}

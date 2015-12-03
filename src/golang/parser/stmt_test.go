@@ -775,6 +775,7 @@ func foo() {
     case u, v:= <- ch5:
       quuux()
     case <- ch6:
+    case (<-ch):
   }
 }
 `
@@ -796,6 +797,7 @@ func foo() {
     case u, v := <-ch5:
         quuux()
     case <-ch6:
+    case (<-ch):
     }
 }
 `
