@@ -938,4 +938,7 @@ func TestWritePackage3(t *testing.T) {
 	if dpkg.Decls["Xyz"] == nil {
 		t.Error("unexpected declaration name")
 	}
+	if dpkg.Files[0].Pkg != dpkg || dpkg.Files[1].Pkg != dpkg {
+		t.Error("files do not point oot their package")
+	}
 }

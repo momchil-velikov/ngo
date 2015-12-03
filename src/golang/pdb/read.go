@@ -80,6 +80,7 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 			return nil, err
 		}
 		pkg.Files[i].No = i + 1
+		pkg.Files[i].Pkg = pkg
 	}
 
 	// Declarations.
