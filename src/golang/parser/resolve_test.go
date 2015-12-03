@@ -2117,11 +2117,7 @@ func compilePackage(
 	if err != nil {
 		return nil, err
 	}
-	pkg, err := ResolvePackage(up, loc)
-	if err != nil {
-		return nil, err
-	}
-	return pkg, nil
+	return ResolvePackage(up, loc)
 }
 
 func reloadPackage(pkg *ast.Package, loc ast.PackageLocator) (*ast.Package, error) {
@@ -2364,4 +2360,26 @@ func TestResolveExprMultiPackage(t *testing.T) {
 
 	// Test name declared, but not exported.
 	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err3.go"}, loc, "not exported")
+}
+
+func TestResolveReload(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkg, err := compilePackage("_test/pkg/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgA, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+
+	pkg, err = compilePackage("_test/pkg/src/f", []string{"f.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err = reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
