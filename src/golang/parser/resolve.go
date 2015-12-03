@@ -63,7 +63,6 @@ func declareTopLevel(
 	file := &ast.File{
 		Off:     f.Off,
 		Pkg:     pkg,
-		PkgName: f.PkgName,
 		Imports: f.Imports,
 		Name:    f.Name,
 		SrcMap:  f.SrcMap,

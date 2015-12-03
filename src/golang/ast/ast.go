@@ -142,7 +142,6 @@ type File struct {
 	Off     int               // Position of the "package" keyword
 	No      int               // Sequence number
 	Pkg     *Package          // Owner package
-	PkgName string            // Package name
 	Imports []*ImportDecl     // Import declarations
 	Name    string            // File name
 	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
