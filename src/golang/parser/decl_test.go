@@ -461,8 +461,14 @@ func (id) name() {}
 func TestParsePackage(t *testing.T) {
 	const TESTDIR = "_test/pkgname/hedgp"
 
+	// Test error if no source files.
+	up, err := ParsePackage(TESTDIR, nil)
+	if err == nil || !strings.Contains(err.Error(), "no source files") {
+		t.Error("should return `no soutce files`` error")
+	}
+
 	// Test consistent package naming.
-	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
+	up, err = ParsePackage(TESTDIR, []string{"a.go", "b.go"})
 	if err != nil {
 		t.Error(err)
 	}

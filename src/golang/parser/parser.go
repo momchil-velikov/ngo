@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"golang/ast"
 	"golang/constexpr"
@@ -45,6 +46,10 @@ func (p *parser) setBrackets(n int) int {
 
 // Parse all the source files of a package
 func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
+	// We need at least one source file
+	if len(names) == 0 {
+		return nil, errors.New("no source files in " + dir)
+	}
 	// Parse sources
 	var files []*ast.UnresolvedFile
 	for _, name := range names {
