@@ -2327,6 +2327,28 @@ func TestResolveExprMultiPackage(t *testing.T) {
 		t.Error("the return expression is not `a.B`")
 	}
 
+	// Test a Call changed to Conversion.
+	G := pkg.Find("G").(*ast.FuncDecl)
+	s = G.Func.Blk.Body[0].(*ast.ReturnStmt)
+	x, ok := s.Xs[0].(*ast.Conversion)
+	if !ok {
+		t.Error("the return expression is not a Conversion")
+	}
+	if x.Type != A {
+		t.Error("the conversion type is not `a.A`")
+	}
+
+	// Test QualifiedId resolved to MethodExpr
+	H := pkg.Find("H").(*ast.FuncDecl)
+	ss := H.Func.Blk.Body[0].(*ast.ExprStmt)
+	y, ok := ss.X.(*ast.MethodExpr)
+	if !ok {
+		t.Error("the return expression is not a Conversion")
+	}
+	if y.Type != A {
+		t.Error("the type in the method expression is not `a.A`")
+	}
+
 	// Test package part of a QualifiedId does not refer to imported package
 	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err1.go"}, loc, "aa not declared")
 
@@ -2339,17 +2361,6 @@ func TestResolveExprMultiPackage(t *testing.T) {
 	// Test name cannot be an operand.
 	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"err4.go"}, loc, "invalid operand")
 
-	// Test a Call changed to Conversion.
-	G := pkg.Find("G").(*ast.FuncDecl)
-	s = G.Func.Blk.Body[0].(*ast.ReturnStmt)
-	x, ok := s.Xs[0].(*ast.Conversion)
-	if !ok {
-		t.Error("the return expression is not a Conversion")
-	}
-	if x.Type != A {
-		t.Error("the conversion type is not `a.A`")
-	}
-
 	// Test package part of a QualifiedId does not refer to imported package
 	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err1.go"}, loc,
 		"aa not declared")
@@ -2359,7 +2370,8 @@ func TestResolveExprMultiPackage(t *testing.T) {
 		"notB not declared")
 
 	// Test name declared, but not exported.
-	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err3.go"}, loc, "not exported")
+	expectErrorWithLoc(t, "_test/pkg/src/e", []string{"conv-err3.go"}, loc,
+		"not exported")
 }
 
 func TestResolveReload(t *testing.T) {
