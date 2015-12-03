@@ -65,19 +65,12 @@ func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
 		files = append(files, f)
 	}
 
-	// Check that all the source files declare the same package name as the
-	// name of the package directory or, alternatively, that all the source
-	// files declare the package name "main".
-	pkgname := filepath.Base(dir)
-	if len(files) > 0 {
-		if files[0].PkgName == "main" {
-			pkgname = "main"
-		}
-		for _, f := range files {
-			if f.PkgName != pkgname {
-				ln, col := f.SrcMap.Position(f.Off)
-				return nil, parseError{f.Name, ln, col, "inconsistent package name"}
-			}
+	// Check that all the source files declare the same package name.
+	pkgname := files[0].PkgName
+	for _, f := range files {
+		if f.PkgName != pkgname {
+			ln, col := f.SrcMap.Position(f.Off)
+			return nil, parseError{f.Name, ln, col, "inconsistent package name"}
 		}
 	}
 	pkg := &ast.UnresolvedPackage{

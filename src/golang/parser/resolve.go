@@ -5,7 +5,6 @@ import (
 	"golang/ast"
 	"golang/constexpr"
 	"golang/scanner"
-	"path/filepath"
 	"unicode"
 	"unicode/utf8"
 )
@@ -13,32 +12,6 @@ import (
 func isExported(name string) bool {
 	r, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsLetter(r) && unicode.IsUpper(r)
-}
-
-func isValidPackageName(name string) bool {
-	ch, n := utf8.DecodeRuneInString(name)
-	if !isLetter(ch) {
-		return false
-	}
-	name = name[n:]
-	ch, n = utf8.DecodeRuneInString(name)
-	for n > 0 {
-		if !isLetter(ch) && !isDigit(ch) {
-			return false
-		}
-		ch, n = utf8.DecodeRuneInString(name)
-	}
-	return true
-}
-
-func isLetter(ch rune) bool {
-	return 'a' <= ch && ch <= 'z' ||
-		'A' <= ch && ch <= 'Z' ||
-		ch == '_' || ch >= 0x80 && unicode.IsLetter(ch)
-}
-
-func isDigit(ch rune) bool {
-	return '0' <= ch && ch <= '9' || ch >= 0x80 && unicode.IsDigit(ch)
 }
 
 func ResolvePackage(
@@ -127,10 +100,7 @@ func declareTopLevel(
 		} else {
 			// Declare the package name in the file block.
 			if len(i.Name) == 0 {
-				i.Name = filepath.Base(path)
-			}
-			if !isValidPackageName(i.Name) {
-				return nil, errors.New(i.Name + " is not a valid package name") // FIXME
+				i.Name = i.Pkg.Name
 			}
 			if err := file.Declare(i.Name, i); err != nil {
 				return nil, err
