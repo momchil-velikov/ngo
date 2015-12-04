@@ -852,7 +852,7 @@ func (p *parser) parseFuncDecl() ast.Decl {
 	if p.token == '{' {
 		blk = p.parseBlock()
 	}
-	return &ast.FuncDecl{
+	fn := &ast.FuncDecl{
 		Off:  off,
 		Name: name,
 		Func: ast.Func{
@@ -862,6 +862,8 @@ func (p *parser) parseFuncDecl() ast.Decl {
 			Blk:  blk,
 		},
 	}
+	fn.Func.Decl = fn
+	return fn
 }
 
 // Receiver     = "(" [ identifier ] [ "*" ] BaseTypeName ")" .
