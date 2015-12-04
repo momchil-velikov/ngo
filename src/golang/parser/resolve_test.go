@@ -552,7 +552,7 @@ func TestResolveExprCall(t *testing.T) {
 		t.Error("`A` must have an initializer statement")
 	}
 	x := A.Init.RHS[0].(*ast.Call)
-	if x.Func != F {
+	if x.Func != &F.Func {
 		t.Error("in the initializer of `A` the called function must be `F`")
 	}
 	X := p.Find("X").(*ast.Var)
@@ -927,7 +927,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 		t.Error("LHS of the initialization assignment must be E, F`")
 	}
 	call, ok := x.RHS[0].(*ast.Call)
-	if !ok || call.Func != Fn {
+	if !ok || call.Func != &Fn.Func {
 		t.Error("RHS of the initialization assignment must be a call to `Fn`")
 	}
 	// Check `G` has initialization statement.
@@ -937,7 +937,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 	}
 	// Check initialization statement is a call to Fn.
 	call, ok = x.RHS[0].(*ast.Call)
-	if !ok || call.Func != Fn {
+	if !ok || call.Func != &Fn.Func {
 		t.Error("RHS of the initialization assignment must be a call to `Fn`")
 	}
 }
@@ -1360,7 +1360,7 @@ func TestResolveStmtGo(t *testing.T) {
 	F := p.Find("F").(*ast.FuncDecl)
 	G := p.Find("G").(*ast.FuncDecl)
 	g := G.Func.Blk.Body[0].(*ast.GoStmt)
-	if x, ok := g.X.(*ast.Call); !ok || x.Func != F {
+	if x, ok := g.X.(*ast.Call); !ok || x.Func != &F.Func {
 		t.Error("the go statememt must be a call to `F`")
 	}
 }
@@ -1846,7 +1846,7 @@ func TestResolveStmtDefer(t *testing.T) {
 	G := p.Find("G").(*ast.FuncDecl)
 	s := G.Func.Blk.Body[0].(*ast.DeferStmt)
 	x := s.X.(*ast.Call)
-	if x.Func != F {
+	if x.Func != &F.Func {
 		t.Error("the expression in defer stmt must be a call to `F`")
 	}
 }

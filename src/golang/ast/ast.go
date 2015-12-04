@@ -60,7 +60,6 @@ func (BinaryExpr) expr()    {}
 func (QualifiedId) expr()   {}
 func (Var) expr()           {}
 func (Const) expr()         {}
-func (FuncDecl) expr()      {}
 
 type Stmt interface {
 	Node

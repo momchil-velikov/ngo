@@ -682,12 +682,15 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 // Converts a symbol declaration to an expression to fill the place of an
 // OperandName in the AST.
 func operandName(d ast.Symbol) ast.Expr {
-	if v, ok := d.(*ast.Var); ok {
-		return v
-	} else if c, ok := d.(*ast.Const); ok {
-		return c
-	} else {
-		return d.(*ast.FuncDecl)
+	switch op := d.(type) {
+	case *ast.Var:
+		return op
+	case *ast.Const:
+		return op
+	case *ast.FuncDecl:
+		return &op.Func
+	default:
+		panic("not reached")
 	}
 }
 
