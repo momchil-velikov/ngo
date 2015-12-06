@@ -14,6 +14,21 @@ func isExported(name string) bool {
 	return unicode.IsLetter(r) && unicode.IsUpper(r)
 }
 
+type resolver struct {
+	scope ast.Scope
+}
+
+func (r *resolver) enterScope(scope ast.Scope) {
+	if r.scope != scope.Parent() {
+		panic("internal error: invalid scope nesting")
+	}
+	r.scope = scope
+}
+
+func (r *resolver) exitScope() {
+	r.scope = r.scope.Parent()
+}
+
 func ResolvePackage(
 	p *ast.UnresolvedPackage, loc ast.PackageLocator) (*ast.Package, error) {
 
@@ -25,9 +40,12 @@ func ResolvePackage(
 		Deps:  make(map[string]*ast.Import),
 	}
 
+	r := resolver{scope: ast.UniverseScope}
+	r.enterScope(pkg)
+
 	// Insert package and file scope declarations into the symbol table.
 	for _, f := range p.Files {
-		file, err := declareTopLevel(f, pkg, loc)
+		file, err := r.declareTopLevel(f, pkg, loc)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +56,7 @@ func ResolvePackage(
 	// statements.
 	for _, st := range pkg.Init {
 		for i := range st.RHS {
-			x, err := resolveExpr(st.RHS[i], pkg)
+			x, err := r.resolveExpr(st.RHS[i])
 			if err != nil {
 				return nil, err
 			}
@@ -48,7 +66,9 @@ func ResolvePackage(
 
 	// Declare lower level names and resolve all.
 	for i, f := range p.Files {
-		err := resolveTopLevel(pkg.Files[i], f.Decls)
+		r.enterScope(pkg.Files[i])
+		err := r.resolveTopLevel(f.Decls)
+		r.exitScope()
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +77,7 @@ func ResolvePackage(
 	return pkg, nil
 }
 
-func declareTopLevel(
+func (r *resolver) declareTopLevel(
 	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
 
 	file := &ast.File{
@@ -112,27 +132,31 @@ func declareTopLevel(
 		var err error
 		switch d := d.(type) {
 		case *ast.TypeDecl:
-			err = declareType(d, file, pkg)
+			err = r.declareTypeName(d, file)
 		case *ast.TypeDeclGroup:
 			for _, d := range d.Types {
-				if err := declareType(d, file, pkg); err != nil {
+				if err := r.declareTypeName(d, file); err != nil {
 					return nil, err
 				}
 			}
 		case *ast.ConstDecl:
-			err = declareConst(d, file, pkg)
+			err = r.declareConst(d, file)
 		case *ast.ConstDeclGroup:
-			err = declareConstGroup(d, file, pkg)
+			for _, c := range d.Consts {
+				if err := r.declareConst(c, file); err != nil {
+					return nil, err
+				}
+			}
 		case *ast.VarDecl:
-			err = declarePkgVar(d, file)
+			err = r.declarePkgVar(d, file)
 		case *ast.VarDeclGroup:
 			for _, d := range d.Vars {
-				if err := declarePkgVar(d, file); err != nil {
+				if err := r.declarePkgVar(d, file); err != nil {
 					return nil, err
 				}
 			}
 		case *ast.FuncDecl:
-			err = declareFunc(d, file, pkg)
+			err = r.declareFunc(d, file)
 		default:
 			panic("not reached")
 		}
@@ -144,32 +168,32 @@ func declareTopLevel(
 	return file, nil
 }
 
-func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
+func (r *resolver) resolveTopLevel(ds []ast.Decl) error {
 	for _, d := range ds {
 		var err error
 		switch d := d.(type) {
 		case *ast.TypeDecl:
-			err = resolveTypeDecl(d, f)
+			err = r.resolveTypeDecl(d)
 		case *ast.TypeDeclGroup:
 			for _, d := range d.Types {
-				if err = resolveTypeDecl(d, f); err != nil {
+				if err = r.resolveTypeDecl(d); err != nil {
 					break
 				}
 			}
 		case *ast.ConstDecl:
-			err = resolveConst(d, f)
+			err = r.resolveConst(d)
 		case *ast.ConstDeclGroup:
-			err = resolveConstGroup(d, f, false)
+			err = r.resolveConstGroup(d, false)
 		case *ast.VarDecl:
-			err = resolvePkgVar(d, f)
+			err = r.resolvePkgVar(d)
 		case *ast.VarDeclGroup:
 			for _, d := range d.Vars {
-				if err = resolvePkgVar(d, f); err != nil {
+				if err = r.resolvePkgVar(d); err != nil {
 					break
 				}
 			}
 		case *ast.FuncDecl:
-			err = resolveFunc(&d.Func, f)
+			err = r.resolveFunc(&d.Func)
 		default:
 			panic("not reached")
 		}
@@ -180,44 +204,44 @@ func resolveTopLevel(f *ast.File, ds []ast.Decl) error {
 	return nil
 }
 
-func declareType(t *ast.TypeDecl, file *ast.File, scope ast.Scope) error {
+func (r *resolver) declareTypeName(t *ast.TypeDecl, file *ast.File) error {
 	if t.Name == "_" {
 		return nil
 	}
 	t.File = file
-	return scope.Declare(t.Name, t)
+	return r.scope.Declare(t.Name, t)
 }
 
-func resolveTypeDecl(t *ast.TypeDecl, scope ast.Scope) error {
-	if typ, err := resolveType(t.Type, scope); err != nil {
+func (r *resolver) resolveTypeDecl(t *ast.TypeDecl) error {
+	typ, err := r.resolveType(t.Type)
+	if err != nil {
 		return err
-	} else {
-		t.Type = typ
-		return nil
 	}
+	t.Type = typ
+	return nil
 }
 
-func declareConst(dcl *ast.ConstDecl, file *ast.File, scope ast.Scope) error {
+func (r *resolver) declareConst(dcl *ast.ConstDecl, file *ast.File) error {
 	for _, c := range dcl.Names {
 		if c.Name == "_" {
 			continue
 		}
 		c.File = file
-		if err := scope.Declare(c.Name, c); err != nil {
+		if err := r.scope.Declare(c.Name, c); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func resolveConstSpec(dcl *ast.ConstDecl, scope ast.Scope) error {
-	typ, err := resolveType(dcl.Type, scope)
+func (r *resolver) resolveConstSpec(dcl *ast.ConstDecl) error {
+	typ, err := r.resolveType(dcl.Type)
 	if err != nil {
 		return err
 	}
 	dcl.Type = typ
 	for i := range dcl.Values {
-		x, err := resolveExpr(dcl.Values[i], scope)
+		x, err := r.resolveExpr(dcl.Values[i])
 		if err != nil {
 			return err
 		}
@@ -226,8 +250,8 @@ func resolveConstSpec(dcl *ast.ConstDecl, scope ast.Scope) error {
 	return nil
 }
 
-func resolveConst(dcl *ast.ConstDecl, scope ast.Scope) error {
-	if err := resolveConstSpec(dcl, scope); err != nil {
+func (r *resolver) resolveConst(dcl *ast.ConstDecl) error {
+	if err := r.resolveConstSpec(dcl); err != nil {
 		return err
 	}
 	if len(dcl.Values) != len(dcl.Names) {
@@ -240,29 +264,20 @@ func resolveConst(dcl *ast.ConstDecl, scope ast.Scope) error {
 	return nil
 }
 
-func declareConstGroup(group *ast.ConstDeclGroup, file *ast.File, scope ast.Scope) error {
-	for _, d := range group.Consts {
-		if err := declareConst(d, file, scope); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func resolveConstGroup(group *ast.ConstDeclGroup, scope ast.Scope, blk bool) error {
+func (r *resolver) resolveConstGroup(group *ast.ConstDeclGroup, blk bool) error {
 	var (
 		iota = 0
 		typ  ast.Type
 		init []ast.Expr
 	)
 	for _, d := range group.Consts {
-		if err := resolveConstSpec(d, scope); err != nil {
+		if err := r.resolveConstSpec(d); err != nil {
 			return err
 		}
 		if blk {
 			// In blocks, declare the constant names, so the they are
 			// available to following ConstSpec's in the group.
-			if err := declareConst(d, scope.File(), scope); err != nil {
+			if err := r.declareConst(d, r.scope.File()); err != nil {
 				return err
 			}
 		}
@@ -290,7 +305,7 @@ func resolveConstGroup(group *ast.ConstDeclGroup, scope ast.Scope, blk bool) err
 
 // Declares a variable at package scope and creates the assignment statement
 // for the initialization.
-func declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
+func (r *resolver) declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 	if len(vr.Init) > 0 {
 		// Create an assignment statement, which is executed, according to
 		// dependency order, upon package initialization, to set initial
@@ -317,8 +332,8 @@ func declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 	return nil
 }
 
-func resolvePkgVar(d *ast.VarDecl, scope ast.Scope) error {
-	typ, err := resolveType(d.Type, scope)
+func (r *resolver) resolvePkgVar(d *ast.VarDecl) error {
+	typ, err := r.resolveType(d.Type)
 	if err != nil {
 		return err
 	}
@@ -328,45 +343,7 @@ func resolvePkgVar(d *ast.VarDecl, scope ast.Scope) error {
 	return nil
 }
 
-func declareBlockVar(vr *ast.VarDecl, file *ast.File, scope ast.Scope) (ast.Stmt, error) {
-	var init *ast.AssignStmt
-	if len(vr.Init) > 0 {
-		init = &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(vr.Names)), RHS: vr.Init}
-		vr.Init = nil
-		for i, v := range vr.Names {
-			init.LHS[i] = v
-			v.Init = init
-		}
-	}
-	for _, v := range vr.Names {
-		if v.Name == "_" {
-			continue
-		}
-		v.File = file
-		if err := scope.Declare(v.Name, v); err != nil {
-			return nil, err
-		}
-	}
-	return init, nil
-}
-
-func resolveBlockVar(v *ast.VarDecl, scope ast.Scope) error {
-	if typ, err := resolveType(v.Type, scope); err != nil {
-		return err
-	} else {
-		v.Type = typ
-	}
-	for i := range v.Init {
-		if x, err := resolveExpr(v.Init[i], scope); err != nil {
-			return err
-		} else {
-			v.Init[i] = x
-		}
-	}
-	return nil
-}
-
-func declareFunc(fn *ast.FuncDecl, file *ast.File, scope ast.Scope) error {
+func (r *resolver) declareFunc(fn *ast.FuncDecl, file *ast.File) error {
 	if fn.Name == "_" {
 		return nil
 	}
@@ -374,58 +351,60 @@ func declareFunc(fn *ast.FuncDecl, file *ast.File, scope ast.Scope) error {
 		return nil
 	}
 	fn.File = file
-	return scope.Declare(fn.Name, fn)
+	return r.scope.Declare(fn.Name, fn)
 }
 
-func declareParams(ps []ast.Param, scope ast.Scope) error {
+func (r *resolver) declareParams(ps []ast.Param) error {
 	for i := range ps {
 		p := &ps[i]
 		if p.Name == "_" || len(p.Name) == 0 {
 			continue
 		}
-		v := &ast.Var{Off: p.Off, File: scope.File(), Name: p.Name, Type: p.Type}
-		if err := scope.Declare(v.Name, v); err != nil {
+		v := &ast.Var{Off: p.Off, File: r.scope.File(), Name: p.Name, Type: p.Type}
+		if err := r.scope.Declare(v.Name, v); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func resolveFunc(fn *ast.Func, scope ast.Scope) error {
-	if r := fn.Recv; r != nil {
-		if typ, err := resolveType(r.Type, scope); err != nil {
+func (r *resolver) resolveFunc(fn *ast.Func) error {
+	if rcv := fn.Recv; rcv != nil {
+		typ, err := r.resolveType(rcv.Type)
+		if err != nil {
 			return err
-		} else {
-			r.Type = typ
 		}
+		rcv.Type = typ
 	}
-	if typ, err := resolveType(fn.Sig, scope); err != nil {
+	typ, err := r.resolveType(fn.Sig)
+	if err != nil {
 		return err
-	} else {
-		fn.Sig = typ.(*ast.FuncType)
 	}
-	if fn.Blk != nil {
-		// Declare parameter and return names in the scope of the function
-		// block.
-		fn.Blk.Up = scope
-		if err := declareParams(fn.Sig.Params, fn.Blk); err != nil {
-			return err
-		}
-		if err := declareParams(fn.Sig.Returns, fn.Blk); err != nil {
-			return err
-		}
-		if blk, err := resolveBlock(fn.Blk, scope); err != nil {
-			return err
-		} else {
-			fn.Blk = blk
-		}
+	fn.Sig = typ.(*ast.FuncType)
+	if fn.Blk == nil {
+		return nil
 	}
+	// Declare parameter and return names in the scope of the function block.
+	fn.Blk.Up = r.scope
+	r.enterScope(fn.Blk)
+	if err := r.declareParams(fn.Sig.Params); err != nil {
+		return err
+	}
+	if err := r.declareParams(fn.Sig.Returns); err != nil {
+		return err
+	}
+	r.exitScope()
+	blk, err := r.resolveBlock(fn.Blk)
+	if err != nil {
+		return err
+	}
+	fn.Blk = blk
 	return nil
 }
 
-func lookupIdent(id *ast.QualifiedId, scope ast.Scope) (ast.Symbol, error) {
+func (r *resolver) lookupIdent(id *ast.QualifiedId) (ast.Symbol, error) {
 	if len(id.Pkg) > 0 {
-		if i := scope.Lookup(id.Pkg); i == nil {
+		if i := r.scope.Lookup(id.Pkg); i == nil {
 			return nil, errors.New("package name " + id.Pkg + " not declared")
 		} else if i, ok := i.(*ast.ImportDecl); !ok {
 			return nil, errors.New(id.Pkg + " does not refer to package name")
@@ -437,7 +416,7 @@ func lookupIdent(id *ast.QualifiedId, scope ast.Scope) (ast.Symbol, error) {
 			return d, nil
 		}
 	} else {
-		if d := scope.Lookup(id.Id); d == nil {
+		if d := r.scope.Lookup(id.Id); d == nil {
 			return nil, errors.New(id.Id + " not declared")
 		} else {
 			return d, nil
@@ -475,14 +454,14 @@ func checkDuplicateFieldNames(s *ast.StructType) error {
 }
 
 // Resolves identifiers in function parameter and return values list.
-func resolveParams(ps []ast.Param, scope ast.Scope) (err error) {
+func (r *resolver) resolveParams(ps []ast.Param) (err error) {
 	var carry ast.Type
 	count := 0
 	n := len(ps)
 	for i := n - 1; i >= 0; i-- {
 		p := &ps[i]
 		if p.Type != nil {
-			carry, err = resolveType(p.Type, scope)
+			carry, err = r.resolveType(p.Type)
 			if err != nil {
 				return
 			}
@@ -498,108 +477,133 @@ func resolveParams(ps []ast.Param, scope ast.Scope) (err error) {
 	return
 }
 
-func resolveType(t ast.Type, scope ast.Scope) (ast.Type, error) {
+func (r *resolver) resolveType(t ast.Type) (ast.Type, error) {
 	if t == nil {
 		return nil, nil
 	}
-	switch t := t.(type) {
-	case *ast.QualifiedId:
-		if t.Id == "_" {
-			return nil, errors.New("`_` is not a typename")
-		}
-		if d, err := lookupIdent(t, scope); err != nil {
-			return nil, err
-		} else if d, ok := d.(*ast.TypeDecl); !ok {
-			return nil, errors.New(t.Id + " is not a typename")
-		} else {
-			return d, nil
-		}
-	case *ast.ArrayType:
-		if elt, err := resolveType(t.Elt, scope); err != nil {
-			return nil, err
-		} else {
-			t.Elt = elt
-			return t, nil
-		}
-	case *ast.SliceType:
-		if elt, err := resolveType(t.Elt, scope); err != nil {
-			return nil, err
-		} else {
-			t.Elt = elt
-			return t, nil
-		}
-	case *ast.PtrType:
-		if b, err := resolveType(t.Base, scope); err != nil {
-			return nil, err
-		} else {
-			t.Base = b
-			return t, nil
-		}
-	case *ast.MapType:
-		if key, err := resolveType(t.Key, scope); err != nil {
-			return nil, err
-		} else if elt, err := resolveType(t.Elt, scope); err != nil {
-			return nil, err
-		} else {
-			t.Key = key
-			t.Elt = elt
-			return t, nil
-		}
-	case *ast.ChanType:
-		if elt, err := resolveType(t.Elt, scope); err != nil {
-			return nil, err
-		} else {
-			t.Elt = elt
-			return t, nil
-		}
-	case *ast.StructType:
-		for i := range t.Fields {
-			fd := &t.Fields[i]
-			if typ, err := resolveType(fd.Type, scope); err != nil {
-				return nil, err
-			} else {
-				fd.Type = typ
-			}
-		}
-		if err := checkDuplicateFieldNames(t); err != nil {
-			return nil, err
-		}
-		return t, nil
-	case *ast.FuncType:
-		if err := resolveParams(t.Params, scope); err != nil {
-			return nil, err
-		}
-		if err := resolveParams(t.Returns, scope); err != nil {
-			return nil, err
-		}
-		return t, nil
-	case *ast.InterfaceType:
-		for i := range t.Methods {
-			m := &t.Methods[i]
-			if typ, err := resolveType(m.Type, scope); err != nil {
-				return nil, err
-			} else {
-				m.Type = typ
-			}
-		}
-		return t, nil
-	default:
-		panic("not reached")
+	return t.TraverseType(r)
+}
+
+func (r *resolver) VisitError(*ast.Error) (*ast.Error, error) {
+	panic("not reached")
+}
+
+func (r *resolver) VisitTypeName(t *ast.QualifiedId) (ast.Type, error) {
+	if t.Id == "_" {
+		return nil, errors.New("`_` is not a typename")
 	}
+	d, err := r.lookupIdent(t)
+	if err != nil {
+		return nil, err
+	}
+	td, ok := d.(*ast.TypeDecl)
+	if !ok {
+		return nil, errors.New(t.Id + " is not a typename")
+	}
+	return td, nil
+}
+
+func (*resolver) VisitTypeDeclType(*ast.TypeDecl) (ast.Type, error) {
+	panic("not reached")
+}
+
+func (*resolver) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
+	panic("not reached")
+}
+
+func (r *resolver) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
+	elt, err := r.resolveType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (r *resolver) VisitSliceType(t *ast.SliceType) (ast.Type, error) {
+	elt, err := r.resolveType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (r *resolver) VisitPtrType(t *ast.PtrType) (ast.Type, error) {
+	b, err := r.resolveType(t.Base)
+	if err != nil {
+		return nil, err
+	}
+	t.Base = b
+	return t, nil
+}
+
+func (r *resolver) VisitMapType(t *ast.MapType) (ast.Type, error) {
+	key, err := r.resolveType(t.Key)
+	if err != nil {
+		return nil, err
+	}
+	t.Key = key
+	elt, err := r.resolveType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (r *resolver) VisitChanType(t *ast.ChanType) (ast.Type, error) {
+	elt, err := r.resolveType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (r *resolver) VisitStructType(t *ast.StructType) (ast.Type, error) {
+	for i := range t.Fields {
+		fd := &t.Fields[i]
+		typ, err := r.resolveType(fd.Type)
+		if err != nil {
+			return nil, err
+		}
+		fd.Type = typ
+	}
+	return t, checkDuplicateFieldNames(t)
+}
+
+func (r *resolver) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
+	if err := r.resolveParams(t.Params); err != nil {
+		return nil, err
+	}
+	return t, r.resolveParams(t.Returns)
+}
+
+func (r *resolver) VisitInterfaceType(t *ast.InterfaceType) (ast.Type, error) {
+	for i := range t.Methods {
+		m := &t.Methods[i]
+		typ, err := r.resolveType(m.Type)
+		if err != nil {
+			return nil, err
+		}
+		m.Type = typ
+	}
+	return t, nil
 }
 
 // Checks if the given type refers (possibly via several typenames) to a
-// struct type and returns it. Otherwise, returns nil.
-func asStructType(typ ast.Type) *ast.StructType {
-L:
-	switch t := typ.(type) {
-	case *ast.StructType:
-		return t
-	case *ast.TypeDecl:
-		typ = t.Type
-		goto L
-	default:
-		return nil
+// struct type.
+func isStructType(typ ast.Type) bool {
+	for {
+		switch t := typ.(type) {
+		case *ast.TypeDecl:
+			typ = t.Type
+		case *ast.StructType:
+			return true
+		default:
+			return false
+		}
 	}
 }
 
@@ -639,7 +643,7 @@ func removeParens(x ast.Expr) ast.Expr {
 }
 
 // Checks if the expression X is in the form `ID` or `*ID`, where ID is a TypeName.
-func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
+func (r *resolver) isType(x ast.Expr) (ast.Type, error) {
 	x = removeParens(x)
 	switch x := x.(type) {
 	case *ast.QualifiedId:
@@ -647,7 +651,7 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 			return nil, errors.New("`_` is not a valid operand or a typename")
 		}
 		if len(x.Pkg) > 0 {
-			if d := scope.Lookup(x.Pkg); d == nil {
+			if d := r.scope.Lookup(x.Pkg); d == nil {
 				return nil, errors.New(x.Pkg + " not declared")
 			} else if imp, ok := d.(*ast.ImportDecl); !ok {
 				return nil, nil
@@ -659,7 +663,7 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 				return d, nil
 			}
 		} else {
-			if d := scope.Lookup(x.Id); d == nil {
+			if d := r.scope.Lookup(x.Id); d == nil {
 				return nil, errors.New(x.Id + " not declared")
 			} else if d, ok := d.(*ast.TypeDecl); ok {
 				return d, nil
@@ -667,7 +671,7 @@ func isType(x ast.Expr, scope ast.Scope) (ast.Type, error) {
 		}
 	case *ast.UnaryExpr:
 		if x.Op == '*' {
-			typ, err := isType(x.X, scope)
+			typ, err := r.isType(x.X)
 			if err != nil {
 				return nil, err
 			}
@@ -697,7 +701,7 @@ func operandName(d ast.Symbol) ast.Expr {
 // Declares in SCOPE a sequence of identifiers, which are on the left-hand
 // side of the ":=" token and only the identifiers, not already declared in
 // SCOPE.  Checks there is at least one such identifier.
-func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
+func (r *resolver) declareLHS(xs ...ast.Expr) error {
 	// Check that the left-hand side contains only identifiers and at least
 	// one is not declared in current scope.
 	new := false
@@ -706,7 +710,7 @@ func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
 		if !ok || len(x.Pkg) > 0 {
 			return errors.New("non-name on the left side of :=")
 		}
-		if x.Id == "_" || scope.Find(x.Id) != nil {
+		if x.Id == "_" || r.scope.Find(x.Id) != nil {
 			continue
 		}
 		new = true
@@ -734,11 +738,11 @@ func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
 	// Do the declaration.
 	for _, x := range xs {
 		id := x.(*ast.QualifiedId)
-		if id.Id == "_" || scope.Find(id.Id) != nil {
+		if id.Id == "_" || r.scope.Find(id.Id) != nil {
 			continue
 		}
-		v := &ast.Var{Off: id.Off, File: scope.File(), Name: id.Id}
-		scope.Declare(v.Name, v) // cannot fail here
+		v := &ast.Var{Off: id.Off, File: r.scope.File(), Name: id.Id}
+		r.scope.Declare(v.Name, v) // cannot fail here
 	}
 	return nil
 }
@@ -746,267 +750,287 @@ func declareLHS(scope ast.Scope, xs ...ast.Expr) error {
 // Resolves an expression on the left-hand size of an assignment statement or
 // a short variable declaration.  Replaces occurences blank QualifiedId with
 // `ast.Blank`.
-func resolveLHS(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
+func (r *resolver) resolveLHS(x ast.Expr) (ast.Expr, error) {
 	if x == nil {
 		return nil, nil
 	}
 	if id, ok := x.(*ast.QualifiedId); ok && len(id.Pkg) == 0 && id.Id == "_" {
 		return ast.Blank, nil
 	}
-	return resolveExpr(x, scope)
+	return r.resolveExpr(x)
 }
 
-// Resolves the identifiers in an Expression. Removes occurences of
-// ParensExpr.
-func resolveExpr(x ast.Expr, scope ast.Scope) (ast.Expr, error) {
+func (r *resolver) resolveExpr(x ast.Expr) (ast.Expr, error) {
 	if x == nil {
 		return nil, nil
 	}
-	switch x := x.(type) {
-	case *ast.Literal:
-		return x, nil // FIXME
-	case *ast.CompLiteral:
-		if typ, err := resolveType(x.Type, scope); err != nil {
+	return x.TraverseExpr(r)
+}
+
+func (r *resolver) VisitLiteral(x *ast.Literal) (ast.Expr, error) {
+	return x, nil // FIXME
+}
+
+func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+	typ, err := r.resolveType(x.Type)
+	if err != nil {
+		return nil, err
+	}
+	x.Type = typ
+
+	for _, e := range x.Elts {
+		v, err := r.resolveExpr(e.Value)
+		if err != nil {
 			return nil, err
-		} else {
-			x.Type = typ
 		}
-		// Resolve values.
-		for _, e := range x.Elts {
-			if v, err := resolveExpr(e.Value, scope); err != nil {
-				return nil, err
-			} else {
-				e.Value = v
-			}
-		}
-		// For struct types, check the keys are fields in the structure,
-		// otherwise resolve the key expressions as usual.
-		str := asStructType(x.Type)
-		if str == nil {
-			for _, e := range x.Elts {
-				if k, err := resolveExpr(e.Key, scope); err != nil {
-					return nil, err
-				} else {
-					e.Key = k
-				}
-			}
-			return x, nil
-		}
-		for _, e := range x.Elts {
-			if e.Key == nil {
-				continue
-			}
-			id, ok := e.Key.(*ast.QualifiedId)
-			if !ok || len(id.Pkg) > 0 || id.Id == "_" {
-				return nil, errors.New("key is not a valid field name")
-			}
-			if findField(str, id.Id) == nil {
-				return nil, errors.New(id.Id + " field name not found")
-			}
-			if !isExported(id.Id) {
-				// If the field name is not exported, the structure must be
-				// decared in the same package that contains this composite
-				// literal.
-				if findTypeOrigPackage(x.Type) != scope.Package() {
-					return nil, errors.New("field " + id.Id + " is not accessible")
-				}
-			}
-		}
-	case *ast.Call:
-		// A Conversion, which begins with a Typename is parsed as a
-		// Call. Check for this case and tranform the Call into a Conversion.
-		if typ, err := isType(x.Func, scope); err != nil {
-			return nil, err
-		} else if typ != nil {
-			if x.Type != nil || len(x.Xs) != 1 || x.Ell {
-				return nil, errors.New("invalid conversion argument")
-			}
-			if x, err := resolveExpr(x.Xs[0], scope); err != nil {
-				return nil, err
-			} else {
-				return &ast.Conversion{Type: typ, X: x}, nil
-			}
-		}
-		// Not a conversion.
-		if fn, err := resolveExpr(x.Func, scope); err != nil {
-			return nil, err
-		} else {
-			x.Func = fn
-		}
-		if typ, err := resolveType(x.Type, scope); err != nil {
-			return nil, err
-		} else {
-			x.Type = typ
-		}
-		for i := range x.Xs {
-			if y, err := resolveExpr(x.Xs[i], scope); err != nil {
-				return nil, err
-			} else {
-				x.Xs[i] = y
-			}
-		}
+		e.Value = v
+	}
+
+	// For struct types, do not resolve key expressions: they should be field
+	// names.
+	if isStructType(x.Type) {
 		return x, nil
-	case *ast.Conversion:
-		if typ, err := resolveType(x.Type, scope); err != nil {
+	}
+
+	for _, e := range x.Elts {
+		k, err := r.resolveExpr(e.Key)
+		if err != nil {
 			return nil, err
-		} else {
-			x.Type = typ
 		}
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.ParensExpr:
-		return resolveExpr(x.X, scope)
-	case *ast.Func:
-		if sig, err := resolveType(x.Sig, scope); err != nil {
-			return nil, err
-		} else {
-			x.Sig = sig.(*ast.FuncType)
-		}
-		if blk, err := resolveBlock(x.Blk, scope); err != nil {
-			return nil, err
-		} else {
-			x.Blk = blk
-		}
-		return x, nil
-	case *ast.TypeAssertion:
-		if typ, err := resolveType(x.Type, scope); err != nil {
-			return nil, err
-		} else {
-			x.Type = typ
-		}
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.Selector:
-		// Check for a MethodExpr parsed as a Selector
-		if typ, err := isType(x.X, scope); err != nil {
-			return nil, err
-		} else if typ != nil {
-			return &ast.MethodExpr{Type: typ, Id: x.Id}, nil
-		}
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.IndexExpr:
-		if i, err := resolveExpr(x.I, scope); err != nil {
-			return nil, err
-		} else {
-			x.I = i
-		}
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.SliceExpr:
-		if lo, err := resolveExpr(x.Lo, scope); err != nil {
-			return nil, err
-		} else {
-			x.Lo = lo
-		}
-		if hi, err := resolveExpr(x.Hi, scope); err != nil {
-			return nil, err
-		} else {
-			x.Hi = hi
-		}
-		if cap, err := resolveExpr(x.Cap, scope); err != nil {
-			return nil, err
-		} else {
-			x.Cap = cap
-		}
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.UnaryExpr:
-		if y, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = y
-		}
-		return x, nil
-	case *ast.BinaryExpr:
-		if u, err := resolveExpr(x.X, scope); err != nil {
-			return nil, err
-		} else {
-			x.X = u
-		}
-		if v, err := resolveExpr(x.Y, scope); err != nil {
-			return nil, err
-		} else {
-			x.Y = v
-		}
-		return x, nil
-	case *ast.QualifiedId:
-		if x.Id == "_" {
-			return nil, errors.New("`_` is not a valid operand")
-		}
-		if len(x.Pkg) > 0 {
-			// Depending on what the constituent names (hereafter referred to
-			// by PKG and ID) of the QualifiedId resolve to, there are a few
-			// options:
-			//  * If PKG refers to a package, then ID must refer to an
-			//    exported non-type declaration, in which case the whole
-			//    QualifiedId is an OperandName, otherwise it's an error.
-			//  * If PKG refers to a type declaration, then the expression is
-			//    a MethodExpr
-			//  * If PKG refers to a non-type declaration, then the expression
-			//    is a Selector
-			if d := scope.Lookup(x.Pkg); d == nil {
-				return nil, errors.New(x.Pkg + " not declared")
-			} else if imp, ok := d.(*ast.ImportDecl); ok {
-				if d := imp.Pkg.Lookup(x.Id); d == nil {
-					return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
-				} else if _, ok := d.(*ast.TypeDecl); ok {
-					return nil, errors.New("invalid operand " + x.Pkg + "." + x.Id)
-				} else if !isExported(x.Id) {
-					return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
-				} else {
-					return operandName(d), nil
-				}
-			} else if t, ok := d.(*ast.TypeDecl); ok {
-				return &ast.MethodExpr{Type: t, Id: x.Id}, nil
-			} else {
-				return &ast.Selector{X: operandName(d), Id: x.Id}, nil
-			}
-		} else {
-			// A single identifier must be simply a valid operand.
-			if d := scope.Lookup(x.Id); d == nil {
-				return nil, errors.New(x.Id + " not declared")
-			} else if _, ok := d.(*ast.TypeDecl); ok {
-				return nil, errors.New("invalid operand " + x.Id)
-			} else {
-				return operandName(d), nil
-			}
-		}
-	case *ast.MethodExpr:
-		panic("internal error: the parser does not generate MethodExpr")
-	default:
-		panic("not reached")
+		e.Key = k
 	}
 	return x, nil
 }
 
-func resolveBlock(blk *ast.Block, scope ast.Scope) (*ast.Block, error) {
-	blk.Up = scope
+func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
+	// A Conversion, which begins with a Typename is parsed as a Call. Check
+	// for this case and tranform the Call into a Conversion.
+	typ, err := r.isType(x.Func)
+	if err != nil {
+		return nil, err
+	}
+	if typ == nil {
+		// Not a conversion.
+		fn, err := r.resolveExpr(x.Func)
+		if err != nil {
+			return nil, err
+		}
+		x.Func = fn
+		typ, err := r.resolveType(x.Type)
+		if err != nil {
+			return nil, err
+		}
+		x.Type = typ
+		for i := range x.Xs {
+			y, err := r.resolveExpr(x.Xs[i])
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[i] = y
+		}
+		return x, nil
+	} else {
+		if x.Type != nil || len(x.Xs) != 1 || x.Ell {
+			return nil, errors.New("invalid conversion argument")
+		}
+		x, err := r.resolveExpr(x.Xs[0])
+		if err != nil {
+			return nil, err
+		}
+		return &ast.Conversion{Type: typ, X: x}, nil
+	}
+}
+
+func (r *resolver) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
+	typ, err := r.resolveType(x.Type)
+	if err != nil {
+		return nil, err
+	}
+	x.Type = typ
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitParensExpr(x *ast.ParensExpr) (ast.Expr, error) {
+	return r.resolveExpr(x.X)
+}
+
+func (r *resolver) VisitFunc(x *ast.Func) (ast.Expr, error) {
+	sig, err := r.resolveType(x.Sig)
+	if err != nil {
+		return nil, err
+	}
+	x.Sig = sig.(*ast.FuncType)
+	blk, err := r.resolveBlock(x.Blk)
+	if err != nil {
+		return nil, err
+	}
+	x.Blk = blk
+	return x, nil
+}
+
+func (r *resolver) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
+	typ, err := r.resolveType(x.Type)
+	if err != nil {
+		return nil, err
+	}
+	x.Type = typ
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitSelector(x *ast.Selector) (ast.Expr, error) {
+	// Check for a MethodExpr parsed as a Selector
+	typ, err := r.isType(x.X)
+	if err != nil {
+		return nil, err
+	}
+	if typ != nil {
+		return &ast.MethodExpr{Type: typ, Id: x.Id}, nil
+	}
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
+	i, err := r.resolveExpr(x.I)
+	if err != nil {
+		return nil, err
+	}
+	x.I = i
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
+	lo, err := r.resolveExpr(x.Lo)
+	if err != nil {
+		return nil, err
+	}
+	x.Lo = lo
+	hi, err := r.resolveExpr(x.Hi)
+	if err != nil {
+		return nil, err
+	}
+	x.Hi = hi
+	cap, err := r.resolveExpr(x.Cap)
+	if err != nil {
+		return nil, err
+	}
+	x.Cap = cap
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
+	y, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	return x, nil
+}
+
+func (r *resolver) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
+	u, err := r.resolveExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = u
+	v, err := r.resolveExpr(x.Y)
+	if err != nil {
+		return nil, err
+	}
+	x.Y = v
+	return x, nil
+}
+
+func (*resolver) VisitVar(*ast.Var) (ast.Expr, error) {
+	panic("not reached")
+}
+
+func (*resolver) VisitConst(*ast.Const) (ast.Expr, error) {
+	panic("not reached")
+}
+
+func (r *resolver) VisitOperandName(x *ast.QualifiedId) (ast.Expr, error) {
+	if x.Id == "_" {
+		return nil, errors.New("`_` is not a valid operand")
+	}
+	if len(x.Pkg) > 0 {
+		// Depending on what the constituent names (hereafter referred to by
+		// PKG and ID) of the QualifiedId resolve to, there are a few options:
+		//  * If PKG refers to a package, then ID must refer to an exported
+		//    non-type declaration, in which case the whole QualifiedId is an
+		//    OperandName, otherwise it's an error.
+		//  * If PKG refers to a type declaration, then the expression is a
+		//    MethodExpr
+		//  * If PKG refers to a non-type declaration, then the expression is
+		//    a Selector
+		if d := r.scope.Lookup(x.Pkg); d == nil {
+			return nil, errors.New(x.Pkg + " not declared")
+		} else if imp, ok := d.(*ast.ImportDecl); ok {
+			if d := imp.Pkg.Lookup(x.Id); d == nil {
+				return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
+			} else if _, ok := d.(*ast.TypeDecl); ok {
+				return nil, errors.New("invalid operand " + x.Pkg + "." + x.Id)
+			} else if !isExported(x.Id) {
+				return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
+			} else {
+				return operandName(d), nil
+			}
+		} else if t, ok := d.(*ast.TypeDecl); ok {
+			return &ast.MethodExpr{Type: t, Id: x.Id}, nil
+		} else {
+			return &ast.Selector{X: operandName(d), Id: x.Id}, nil
+		}
+	} else {
+		// A single identifier must be simply a valid operand.
+		if d := r.scope.Lookup(x.Id); d == nil {
+			return nil, errors.New(x.Id + " not declared")
+		} else if _, ok := d.(*ast.TypeDecl); ok {
+			return nil, errors.New("invalid operand " + x.Id)
+		} else {
+			return operandName(d), nil
+		}
+	}
+}
+
+func (*resolver) VisitMethodExpr(*ast.MethodExpr) (ast.Expr, error) {
+	panic("internal error: the parser does not generate MethodExpr")
+}
+
+func (r *resolver) resolveBlock(blk *ast.Block) (*ast.Block, error) {
+	blk.Up = r.scope
+	r.enterScope(blk)
+	defer r.exitScope()
 	ss := []ast.Stmt{}
 	for i := range blk.Body {
-		if st, err := resolveStmt(blk.Body[i], blk); err != nil {
+		st, err := r.resolveStmt(blk.Body[i])
+		if err != nil {
 			return nil, err
-		} else if st != nil {
+		}
+		if st != nil {
 			ss = append(ss, st)
 		}
 	}
@@ -1014,406 +1038,479 @@ func resolveBlock(blk *ast.Block, scope ast.Scope) (*ast.Block, error) {
 	return blk, nil
 }
 
-func resolveStmt(stmt ast.Stmt, scope ast.Scope) (ast.Stmt, error) {
-	if stmt == nil {
+func (r *resolver) resolveStmt(s ast.Stmt) (ast.Stmt, error) {
+	if s == nil {
 		return nil, nil
 	}
-	switch s := stmt.(type) {
-	case *ast.TypeDecl:
-		if err := declareType(s, scope.File(), scope); err != nil {
+	return s.TraverseStmt(r)
+}
+
+func (r *resolver) VisitTypeDecl(s *ast.TypeDecl) (ast.Stmt, error) {
+	if err := r.declareTypeName(s, r.scope.File()); err != nil {
+		return nil, err
+	}
+	return nil, r.resolveTypeDecl(s)
+}
+
+func (r *resolver) VisitTypeDeclGroup(s *ast.TypeDeclGroup) (ast.Stmt, error) {
+	for _, d := range s.Types {
+		if err := r.declareTypeName(d, r.scope.File()); err != nil {
 			return nil, err
 		}
-		if err := resolveTypeDecl(s, scope); err != nil {
+		if err := r.resolveTypeDecl(d); err != nil {
 			return nil, err
 		}
-		return nil, nil
-	case *ast.TypeDeclGroup:
-		for _, d := range s.Types {
-			if err := declareType(d, scope.File(), scope); err != nil {
-				return nil, err
-			}
-			if err := resolveTypeDecl(d, scope); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
-	case *ast.ConstDecl:
-		if err := resolveConst(s, scope); err != nil {
+	}
+	return nil, nil
+}
+
+func (r *resolver) VisitConstDecl(s *ast.ConstDecl) (ast.Stmt, error) {
+	if err := r.resolveConst(s); err != nil {
+		return nil, err
+	}
+	return nil, r.declareConst(s, r.scope.File())
+}
+
+func (r *resolver) VisitConstDeclGroup(s *ast.ConstDeclGroup) (ast.Stmt, error) {
+	return nil, r.resolveConstGroup(s, true)
+}
+
+func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
+	typ, err := r.resolveType(s.Type)
+	if err != nil {
+		return nil, err
+	}
+	s.Type = typ
+	for i := range s.Init {
+		x, err := r.resolveExpr(s.Init[i])
+		if err != nil {
 			return nil, err
 		}
-		if err := declareConst(s, scope.File(), scope); err != nil {
+		s.Init[i] = x
+	}
+
+	var init *ast.AssignStmt
+	if len(s.Init) > 0 {
+		init = &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
+		s.Init = nil
+		for i, v := range s.Names {
+			init.LHS[i] = v
+			v.Init = init
+		}
+	}
+	for _, v := range s.Names {
+		if v.Name == "_" {
+			continue
+		}
+		v.File = r.scope.File()
+		if err := r.scope.Declare(v.Name, v); err != nil {
 			return nil, err
 		}
-		return nil, nil
-	case *ast.ConstDeclGroup:
-		return nil, resolveConstGroup(s, scope, true)
-	case *ast.VarDecl:
-		if err := resolveBlockVar(s, scope); err != nil {
+	}
+	return init, nil
+}
+
+func (r *resolver) VisitVarDeclGroup(s *ast.VarDeclGroup) (ast.Stmt, error) {
+	ss := []ast.Stmt{}
+	for _, v := range s.Vars {
+		st, err := r.VisitVarDecl(v)
+		if err != nil {
 			return nil, err
 		}
-		if st, err := declareBlockVar(s, scope.File(), scope); err != nil {
+		ss = append(ss, st)
+	}
+
+	return &ast.Block{Up: r.scope, Body: ss, Decls: make(map[string]ast.Symbol)}, nil
+}
+
+func (*resolver) VisitEmptyStmt(*ast.EmptyStmt) (ast.Stmt, error) {
+	return nil, nil
+}
+
+func (r *resolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
+	return r.resolveBlock(s)
+}
+
+func (r *resolver) VisitLabeledStmt(s *ast.LabeledStmt) (ast.Stmt, error) {
+	// FIXME: label at file scope
+	return r.resolveStmt(s.Stmt)
+}
+
+func (r *resolver) VisitGoStmt(s *ast.GoStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitReturnStmt(s *ast.ReturnStmt) (ast.Stmt, error) {
+	for i := range s.Xs {
+		x, err := r.resolveExpr(s.Xs[i])
+		if err != nil {
 			return nil, err
+		}
+		s.Xs[i] = x
+	}
+	return s, nil
+}
+
+func (r *resolver) VisitBreakStmt(s *ast.BreakStmt) (ast.Stmt, error) {
+	return s, nil
+}
+
+func (r *resolver) VisitContinueStmt(s *ast.ContinueStmt) (ast.Stmt, error) {
+	return s, nil
+}
+
+func (r *resolver) VisitGotoStmt(s *ast.GotoStmt) (ast.Stmt, error) {
+	return s, nil
+}
+
+func (r *resolver) VisitFallthroughStmt(s *ast.FallthroughStmt) (ast.Stmt, error) {
+	return s, nil
+}
+
+func (r *resolver) VisitSendStmt(s *ast.SendStmt) (ast.Stmt, error) {
+	ch, err := r.resolveExpr(s.Ch)
+	if err != nil {
+		return nil, err
+	}
+	s.Ch = ch
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitRecvStmt(s *ast.RecvStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.Rcv)
+	if err != nil {
+		return nil, err
+	}
+	s.Rcv = x
+	if s.Op == scanner.DEFINE {
+		var err error
+		if s.Y == nil {
+			err = r.declareLHS(s.X)
 		} else {
-			return st, nil
+			err = r.declareLHS(s.X, s.Y)
 		}
-	case *ast.VarDeclGroup:
-		ss := []ast.Stmt{}
-		for _, v := range s.Vars {
-			if err := resolveBlockVar(v, scope); err != nil {
-				return nil, err
-			}
-			if st, err := declareBlockVar(v, scope.File(), scope); err != nil {
-				return nil, err
-			} else {
-				ss = append(ss, st)
-			}
-		}
-		return &ast.Block{Up: scope, Body: ss, Decls: make(map[string]ast.Symbol)}, nil
-	case *ast.EmptyStmt:
-		return nil, nil
-	case *ast.Block:
-		return resolveBlock(s, scope)
-	case *ast.LabeledStmt:
-		// FIXME: label at file scope
-		if st, err := resolveStmt(s.Stmt, scope); err != nil {
+		if err != nil {
 			return nil, err
-		} else {
-			return st, nil
 		}
-	case *ast.GoStmt:
-		if x, err := resolveExpr(s.X, scope); err != nil {
+	}
+	x, err = r.resolveLHS(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	y, err := r.resolveLHS(s.Y)
+	if err != nil {
+		return nil, err
+	}
+	s.Y = y
+	return s, nil
+}
+
+func (r *resolver) VisitIncStmt(s *ast.IncStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitDecStmt(s *ast.DecStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitAssignStmt(s *ast.AssignStmt) (ast.Stmt, error) {
+	// Resolve right-hand side(s).
+	for i := range s.RHS {
+		x, err := r.resolveExpr(s.RHS[i])
+		if err != nil {
 			return nil, err
-		} else {
-			s.X = x
 		}
-		return s, nil
-	case *ast.ReturnStmt:
-		for i := range s.Xs {
-			if x, err := resolveExpr(s.Xs[i], scope); err != nil {
-				return nil, err
-			} else {
-				s.Xs[i] = x
-			}
-		}
-		return s, nil
-	case *ast.BreakStmt:
-		return s, nil
-	case *ast.ContinueStmt:
-		return s, nil
-	case *ast.GotoStmt:
-		return s, nil
-	case *ast.FallthroughStmt:
-		return s, nil
-	case *ast.SendStmt:
-		if ch, err := resolveExpr(s.Ch, scope); err != nil {
+		s.RHS[i] = x
+
+	}
+	if s.Op == scanner.DEFINE {
+		if err := r.declareLHS(s.LHS...); err != nil {
 			return nil, err
-		} else {
-			s.Ch = ch
 		}
-		if x, err := resolveExpr(s.X, scope); err != nil {
+	}
+	// Resolve left-hand side(s).
+	for i := range s.LHS {
+		x, err := r.resolveLHS(s.LHS[i])
+		if err != nil {
 			return nil, err
-		} else {
-			s.X = x
 		}
+		s.LHS[i] = x
+	}
+	// The statement becomes an ordinary assignment.
+	s.Op = '='
+	return s, nil
+}
+
+func (r *resolver) VisitExprStmt(s *ast.ExprStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitIfStmt(s *ast.IfStmt) (ast.Stmt, error) {
+	// If the initial statement is a short variable declaration, put an extra
+	// block around the if.
+	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+		blk := &ast.Block{
+			Body:  []ast.Stmt{s.Init, s},
+			Decls: make(map[string]ast.Symbol),
+		}
+		s.Init = nil
+		return r.resolveBlock(blk)
+	}
+
+	// No new variable declarations.
+	st, err := r.resolveStmt(s.Init)
+	if err != nil {
+		return nil, err
+	}
+	s.Init = st
+	x, err := r.resolveExpr(s.Cond)
+	if err != nil {
+		return nil, err
+	}
+	s.Cond = x
+	blk, err := r.resolveBlock(s.Then)
+	if err != nil {
+		return nil, err
+	}
+	s.Then = blk
+	st, err = r.resolveStmt(s.Else)
+	if err != nil {
+		return nil, err
+	}
+	s.Else = st
+	return s, nil
+}
+
+func (r *resolver) VisitForStmt(s *ast.ForStmt) (ast.Stmt, error) {
+	// If the initial statement is a short variable declaration, put an extra
+	// block around the for.
+	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+		blk := &ast.Block{
+			Body:  []ast.Stmt{s.Init, s},
+			Decls: make(map[string]ast.Symbol),
+		}
+		s.Init = nil
+		return r.resolveBlock(blk)
+	}
+
+	// No new variable declarations.
+	st, err := r.resolveStmt(s.Init)
+	if err != nil {
+		return nil, err
+	}
+	s.Init = st
+	x, err := r.resolveExpr(s.Cond)
+	if err != nil {
+		return nil, err
+	}
+	s.Cond = x
+	// The Post statement cannot be a declaration.
+	if d, ok := s.Post.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+		return nil, errors.New("cannot declare in for post-statement")
+	}
+	st, err = r.resolveStmt(s.Post)
+	if err != nil {
+		return nil, err
+	}
+	s.Post = st
+	blk, err := r.resolveBlock(s.Blk)
+	if err != nil {
+		return nil, err
+	}
+	s.Blk = blk
+	return s, nil
+}
+
+func (r *resolver) VisitForRangeStmt(s *ast.ForRangeStmt) (ast.Stmt, error) {
+	// Resolve the range expression in the current scope.
+	x, err := r.resolveExpr(s.Range)
+	if err != nil {
+		return nil, err
+	}
+	s.Range = x
+	// If the range-for declares new variables, put a block around the for and
+	// declare the variables in this block. Resolution continues then from
+	// within the new scope.
+	var blk *ast.Block
+	if s.Op == scanner.DEFINE {
+		blk = &ast.Block{
+			Up:    r.scope,
+			Decls: make(map[string]ast.Symbol),
+		}
+		r.enterScope(blk)
+		defer r.exitScope()
+		if err := r.declareLHS(s.LHS...); err != nil {
+			return nil, err
+		}
+	}
+	// Resolve the LHS.
+	for i := range s.LHS {
+		x, err := r.resolveLHS(s.LHS[i])
+		if err != nil {
+			return nil, err
+		}
+		s.LHS[i] = x
+
+	}
+	// Resolve the loop body.
+	b, err := r.resolveBlock(s.Blk)
+	if err != nil {
+		return nil, err
+	}
+	s.Blk = b
+	if blk == nil {
 		return s, nil
-	case *ast.RecvStmt:
-		if x, err := resolveExpr(s.Rcv, scope); err != nil {
-			return nil, err
-		} else {
-			s.Rcv = x
+	}
+	blk.Body = []ast.Stmt{s}
+	return blk, nil
+}
+
+func (r *resolver) VisitDeferStmt(s *ast.DeferStmt) (ast.Stmt, error) {
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	return s, nil
+}
+
+func (r *resolver) VisitExprSwitchStmt(s *ast.ExprSwitchStmt) (ast.Stmt, error) {
+	// If the initial statement is a short variable declaration, put an extra
+	// block around the switch.
+	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+		blk := &ast.Block{
+			Body:  []ast.Stmt{s.Init, s},
+			Decls: make(map[string]ast.Symbol),
 		}
-		if s.Op == scanner.DEFINE {
-			var err error
-			if s.Y == nil {
-				err = declareLHS(scope, s.X)
-			} else {
-				err = declareLHS(scope, s.X, s.Y)
-			}
+		s.Init = nil
+		return r.resolveBlock(blk)
+	}
+
+	// No new variable declarations.
+	st, err := r.resolveStmt(s.Init)
+	if err != nil {
+		return nil, err
+	}
+	s.Init = st
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+	for i := range s.Cases {
+		c := &s.Cases[i]
+		for i := range c.Xs {
+			x, err := r.resolveExpr(c.Xs[i])
 			if err != nil {
 				return nil, err
 			}
+			c.Xs[i] = x
+
 		}
-		if x, err := resolveLHS(s.X, scope); err != nil {
+		b, err := r.resolveBlock(c.Blk)
+		if err != nil {
 			return nil, err
-		} else {
-			s.X = x
 		}
-		if y, err := resolveLHS(s.Y, scope); err != nil {
-			return nil, err
-		} else {
-			s.Y = y
-		}
-		return s, nil
-	case *ast.IncStmt:
-		if x, err := resolveExpr(s.X, scope); err != nil {
-			return nil, err
-		} else {
-			s.X = x
-		}
-		return s, nil
-	case *ast.DecStmt:
-		if x, err := resolveExpr(s.X, scope); err != nil {
-			return nil, err
-		} else {
-			s.X = x
-		}
-		return s, nil
-	case *ast.AssignStmt:
-		// Resolve right-hand side(s).
-		for i := range s.RHS {
-			if x, err := resolveExpr(s.RHS[i], scope); err != nil {
-				return nil, err
-			} else {
-				s.RHS[i] = x
-			}
-		}
-		if s.Op == scanner.DEFINE {
-			if err := declareLHS(scope, s.LHS...); err != nil {
-				return nil, err
-			}
-		}
-		// Resolve left-hand side(s).
-		for i := range s.LHS {
-			if x, err := resolveLHS(s.LHS[i], scope); err != nil {
-				return nil, err
-			} else {
-				s.LHS[i] = x
-			}
-		}
-		// The statement becomes an ordinary assignment.
-		s.Op = '='
-		return s, nil
-	case *ast.ExprStmt:
-		if x, err := resolveExpr(s.X, scope); err != nil {
-			return nil, err
-		} else {
-			s.X = x
-		}
-		return s, nil
-	case *ast.IfStmt:
-		// If the initial statement is a short variable declaration, put an
-		// extra block around the if.
-		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{
-				Body:  []ast.Stmt{s.Init, s},
-				Decls: make(map[string]ast.Symbol),
-			}
-			s.Init = nil
-			return resolveBlock(blk, scope)
-		} else {
-			// No new variable declarations.
-			if st, err := resolveStmt(s.Init, scope); err != nil {
-				return nil, err
-			} else {
-				s.Init = st
-			}
-			if x, err := resolveExpr(s.Cond, scope); err != nil {
-				return nil, err
-			} else {
-				s.Cond = x
-			}
-			if blk, err := resolveBlock(s.Then, scope); err != nil {
-				return nil, err
-			} else {
-				s.Then = blk
-			}
-			if st, err := resolveStmt(s.Else, scope); err != nil {
-				return nil, err
-			} else {
-				s.Else = st
-			}
-			return s, nil
-		}
-	case *ast.ForStmt:
-		// If the initial statement is a short variable declaration, put an
-		// extra block around the for.
-		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{
-				Body:  []ast.Stmt{s.Init, s},
-				Decls: make(map[string]ast.Symbol),
-			}
-			s.Init = nil
-			return resolveBlock(blk, scope)
-		} else {
-			// No new variable declarations.
-			if st, err := resolveStmt(s.Init, scope); err != nil {
-				return nil, err
-			} else {
-				s.Init = st
-			}
-			if x, err := resolveExpr(s.Cond, scope); err != nil {
-				return nil, err
-			} else {
-				s.Cond = x
-			}
-			// The Post statement cannot be a declaration.
-			if d, ok := s.Post.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-				return nil, errors.New("cannot declare in for post-statement")
-			}
-			if st, err := resolveStmt(s.Post, scope); err != nil {
-				return nil, err
-			} else {
-				s.Post = st
-			}
-			if blk, err := resolveBlock(s.Blk, scope); err != nil {
-				return nil, err
-			} else {
-				s.Blk = blk
-			}
-			return s, nil
-		}
-	case *ast.ForRangeStmt:
-		// Resolve the range expression in the current scope.
-		if x, err := resolveExpr(s.Range, scope); err != nil {
-			return nil, err
-		} else {
-			s.Range = x
-		}
-		// If the range-for declares new variables, put a block around the for
-		// and declare the variables in this block. Resolution continues then
-		// from within the new scope.
-		var blk *ast.Block
-		if s.Op == scanner.DEFINE {
-			blk = &ast.Block{
-				Up:    scope,
-				Decls: make(map[string]ast.Symbol),
-			}
-			scope = blk
-			if err := declareLHS(scope, s.LHS...); err != nil {
-				return nil, err
-			}
-		}
-		// Resolve the LHS.
-		for i := range s.LHS {
-			if x, err := resolveLHS(s.LHS[i], scope); err != nil {
-				return nil, err
-			} else {
-				s.LHS[i] = x
-			}
-		}
-		// Resolve the loop body.
-		if b, err := resolveBlock(s.Blk, scope); err != nil {
-			return nil, err
-		} else {
-			s.Blk = b
-		}
-		if blk == nil {
-			return s, nil
-		} else {
-			blk.Body = []ast.Stmt{s}
-			return blk, nil
-		}
-	case *ast.DeferStmt:
-		if x, err := resolveExpr(s.X, scope); err != nil {
-			return nil, err
-		} else {
-			s.X = x
-		}
-		return s, nil
-	case *ast.ExprSwitchStmt:
-		// If the initial statement is a short variable declaration, put an
-		// extra block around the switch.
-		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{
-				Body:  []ast.Stmt{s.Init, s},
-				Decls: make(map[string]ast.Symbol),
-			}
-			s.Init = nil
-			return resolveBlock(blk, scope)
-		} else {
-			// No new variable declarations.
-			if st, err := resolveStmt(s.Init, scope); err != nil {
-				return nil, err
-			} else {
-				s.Init = st
-			}
-			if x, err := resolveExpr(s.X, scope); err != nil {
-				return nil, err
-			} else {
-				s.X = x
-			}
-			for i := range s.Cases {
-				c := &s.Cases[i]
-				for i := range c.Xs {
-					if x, err := resolveExpr(c.Xs[i], scope); err != nil {
-						return nil, err
-					} else {
-						c.Xs[i] = x
-					}
-				}
-				if b, err := resolveBlock(c.Blk, scope); err != nil {
-					return nil, err
-				} else {
-					c.Blk = b
-				}
-			}
-			return s, nil
-		}
-	case *ast.TypeSwitchStmt:
-		// If the initial statement is a short variable declaration, put an
-		// extra block around the type switch.
-		if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-			blk := &ast.Block{
-				Body:  []ast.Stmt{s.Init, s},
-				Decls: make(map[string]ast.Symbol),
-			}
-			s.Init = nil
-			return resolveBlock(blk, scope)
-		} else {
-			// No new variable declarations.
-			if st, err := resolveStmt(s.Init, scope); err != nil {
-				return nil, err
-			} else {
-				s.Init = st
-			}
-			if x, err := resolveExpr(s.X, scope); err != nil {
-				return nil, err
-			} else {
-				s.X = x
-			}
-			for i := range s.Cases {
-				c := &s.Cases[i]
-				for i := range c.Types {
-					if t, err := resolveType(c.Types[i], scope); err != nil {
-						return nil, err
-					} else {
-						c.Types[i] = t
-					}
-				}
-				// Declare the variable from the type switch guard in every
-				// block, except the default. Block has no declaraitons
-				// whatsoever at this point, so the below declare cannot fail.
-				if len(s.Id) > 0 && len(c.Types) > 0 {
-					v := &ast.Var{Off: s.Off, File: scope.File(), Name: s.Id}
-					c.Blk.Declare(v.Name, v)
-				}
-				if b, err := resolveBlock(c.Blk, scope); err != nil {
-					return nil, err
-				} else {
-					c.Blk = b
-				}
-			}
-			return s, nil
-		}
-	case *ast.SelectStmt:
-		for i := range s.Comms {
-			c := &s.Comms[i]
-			// Resolve the CommCase statement in the scope of the clause
-			// block, so eventual variable names are declared in that scope.
-			c.Blk.Up = scope
-			if st, err := resolveStmt(c.Comm, c.Blk); err != nil {
-				return nil, err
-			} else {
-				c.Comm = st
-			}
-			if b, err := resolveBlock(c.Blk, scope); err != nil {
-				return nil, err
-			} else {
-				c.Blk = b
-			}
-		}
-		return s, nil
-	default:
-		panic("not reached")
+		c.Blk = b
+
 	}
+	return s, nil
+}
+
+func (r *resolver) VisitTypeSwitchStmt(s *ast.TypeSwitchStmt) (ast.Stmt, error) {
+	// If the initial statement is a short variable declaration, put an extra
+	// block around the type switch.
+	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+		blk := &ast.Block{
+			Body:  []ast.Stmt{s.Init, s},
+			Decls: make(map[string]ast.Symbol),
+		}
+		s.Init = nil
+		return r.resolveBlock(blk)
+	}
+
+	// No new variable declarations.
+	st, err := r.resolveStmt(s.Init)
+	if err != nil {
+		return nil, err
+	}
+	s.Init = st
+
+	x, err := r.resolveExpr(s.X)
+	if err != nil {
+		return nil, err
+	}
+	s.X = x
+
+	for i := range s.Cases {
+		c := &s.Cases[i]
+		for i := range c.Types {
+			t, err := r.resolveType(c.Types[i])
+			if err != nil {
+				return nil, err
+			}
+			c.Types[i] = t
+		}
+		// Declare the variable from the type switch guard in every block,
+		// except the default. Block has no declaraitons whatsoever at this
+		// point, so the below `Declare` cannot fail.
+		if len(s.Id) > 0 && len(c.Types) > 0 {
+			v := &ast.Var{Off: s.Off, File: r.scope.File(), Name: s.Id}
+			c.Blk.Declare(v.Name, v)
+		}
+		b, err := r.resolveBlock(c.Blk)
+		if err != nil {
+			return nil, err
+		}
+		c.Blk = b
+	}
+	return s, nil
+}
+
+func (r *resolver) VisitSelectStmt(s *ast.SelectStmt) (ast.Stmt, error) {
+	for i := range s.Comms {
+		c := &s.Comms[i]
+		// Resolve the CommCase statement in the scope of the clause block, so
+		// eventual variable names are declared in that scope.
+		c.Blk.Up = r.scope
+		r.enterScope(c.Blk)
+		st, err := r.resolveStmt(c.Comm)
+		r.exitScope()
+		if err != nil {
+			return nil, err
+		}
+		c.Comm = st
+		b, err := r.resolveBlock(c.Blk)
+		if err != nil {
+			return nil, err
+		}
+		c.Blk = b
+	}
+	return s, nil
 }

@@ -22,6 +22,7 @@ func (FuncDecl) decl()       {}
 
 type Type interface {
 	Node
+	TraverseType(Visitor) (Type, error)
 	typ()
 }
 
@@ -40,10 +41,12 @@ func (InterfaceType) typ() {}
 
 type Expr interface {
 	Node
+	TraverseExpr(Visitor) (Expr, error)
 	expr()
 }
 
 func (Error) expr()         {}
+func (QualifiedId) expr()   {}
 func (Literal) expr()       {}
 func (CompLiteral) expr()   {}
 func (Call) expr()          {}
@@ -57,12 +60,12 @@ func (IndexExpr) expr()     {}
 func (SliceExpr) expr()     {}
 func (UnaryExpr) expr()     {}
 func (BinaryExpr) expr()    {}
-func (QualifiedId) expr()   {}
 func (Var) expr()           {}
 func (Const) expr()         {}
 
 type Stmt interface {
 	Node
+	TraverseStmt(Visitor) (Stmt, error)
 	stmt()
 }
 
