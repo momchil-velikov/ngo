@@ -123,7 +123,6 @@ type Package struct {
 	Files []*File            // Source files of the package
 	Decls map[string]Symbol  // Package-level declarations
 	Deps  map[string]*Import // Map of package dependencies
-	Init  []*AssignStmt      // Init statements for package-level variables
 }
 
 // Imported package
@@ -148,6 +147,7 @@ type File struct {
 	Name    string            // File name
 	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
 	Decls   map[string]Symbol // File scope declarations
+	Init    []*AssignStmt     // Init statements for package-level variables
 }
 
 type UnresolvedFile struct {

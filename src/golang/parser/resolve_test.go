@@ -2261,6 +2261,7 @@ func TestResolveTypeMultiPackage(t *testing.T) {
 	}
 	loc.pkgs["a"] = pkgA
 	A := pkgA.Find("A").(*ast.TypeDecl)
+	B := pkgA.Find("B").(*ast.Var)
 
 	pkg, err := compilePackage("_test/pkg/src/d", []string{"d1.go"}, loc)
 	if err != nil {
@@ -2278,6 +2279,16 @@ func TestResolveTypeMultiPackage(t *testing.T) {
 
 	if typD.Type != A {
 		t.Error("typename `D` does not refer to `a.A`")
+	}
+
+	// Test package-level initialization statements are resolved in the scope
+	// of the file, which contains the variable declaration.
+	d := pkg.Find("d").(*ast.Var)
+	if d.Init == nil || d.Init.RHS == nil {
+		t.Error("`d` missing an initialization statement")
+	}
+	if d.Init.RHS[0] != B {
+		t.Error("`d` must be initialized by `a.B`")
 	}
 
 	// Test unknown package name

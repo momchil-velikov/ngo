@@ -52,24 +52,9 @@ func ResolvePackage(
 		pkg.Files = append(pkg.Files, file)
 	}
 
-	// Resolve right-hand sides of package-level variable initialization
-	// statements.
-	for _, st := range pkg.Init {
-		for i := range st.RHS {
-			x, err := r.resolveExpr(st.RHS[i])
-			if err != nil {
-				return nil, err
-			}
-			st.RHS[i] = x
-		}
-	}
-
 	// Declare lower level names and resolve all.
 	for i, f := range p.Files {
-		r.enterScope(pkg.Files[i])
-		err := r.resolveTopLevel(f.Decls)
-		r.exitScope()
-		if err != nil {
+		if err := r.resolveTopLevel(pkg.Files[i], f.Decls); err != nil {
 			return nil, err
 		}
 	}
@@ -168,7 +153,20 @@ func (r *resolver) declareTopLevel(
 	return file, nil
 }
 
-func (r *resolver) resolveTopLevel(ds []ast.Decl) error {
+func (r *resolver) resolveTopLevel(file *ast.File, ds []ast.Decl) error {
+	r.enterScope(file)
+	defer r.exitScope()
+	// Resolve right-hand sides of package-level variable initialization
+	// statements.
+	for _, st := range file.Init {
+		for i := range st.RHS {
+			x, err := r.resolveExpr(st.RHS[i])
+			if err != nil {
+				return err
+			}
+			st.RHS[i] = x
+		}
+	}
 	for _, d := range ds {
 		var err error
 		switch d := d.(type) {
@@ -318,7 +316,7 @@ func (r *resolver) declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 			lhs[i] = v
 			v.Init = init
 		}
-		file.Pkg.Init = append(file.Pkg.Init, init)
+		file.Init = append(file.Init, init)
 	}
 	for _, v := range vr.Names {
 		if v.Name == "_" {
