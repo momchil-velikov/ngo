@@ -858,17 +858,7 @@ func (r *resolver) VisitParensExpr(x *ast.ParensExpr) (ast.Expr, error) {
 }
 
 func (r *resolver) VisitFunc(x *ast.Func) (ast.Expr, error) {
-	sig, err := r.resolveType(x.Sig)
-	if err != nil {
-		return nil, err
-	}
-	x.Sig = sig.(*ast.FuncType)
-	blk, err := r.resolveBlock(x.Blk)
-	if err != nil {
-		return nil, err
-	}
-	x.Blk = blk
-	return x, nil
+	return x, r.resolveFunc(x)
 }
 
 func (r *resolver) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {

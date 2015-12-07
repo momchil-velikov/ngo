@@ -567,6 +567,23 @@ func TestResolveExprFuncLiteral(t *testing.T) {
 	if fn.Sig.Returns[1].Type != I {
 		t.Error("second return in the function literal must have type `I`")
 	}
+
+	x := fn.Blk.Find("x")
+	if x == nil {
+		t.Error("parameter `x` must be declared at function block scope")
+	}
+	x = fn.Blk.Find("y")
+	if x == nil {
+		t.Error("parameter `y` must be declared at function block scope")
+	}
+	x = fn.Blk.Find("u")
+	if x == nil {
+		t.Error("return `u` must be declared at function block scope")
+	}
+	x = fn.Blk.Find("v")
+	if x == nil {
+		t.Error("return `v` must be declared at function block scope")
+	}
 }
 
 func TestResolveTypeAssertion(t *testing.T) {
