@@ -1526,7 +1526,7 @@ func (p *parser) parseLabeledStmt(x ast.Expr) ast.Stmt {
 		off = q.Off
 		id = q.Id
 	}
-	return &ast.LabeledStmt{Off: off, Label: id, Stmt: p.parseStmt()}
+	return &ast.Label{Off: off, Label: id, Stmt: p.parseStmt()}
 }
 
 // GoStmt = "go" Expression .

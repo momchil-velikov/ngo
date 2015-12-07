@@ -654,7 +654,7 @@ func (b *Block) Format(ctx *FormatContext, n uint) {
 			}
 		} else {
 			empty = false
-			if s, ok := b.Body[i].(*LabeledStmt); ok {
+			if s, ok := b.Body[i].(*Label); ok {
 				s.Format(ctx, n)
 			} else {
 				ctx.WriteV(n+1, "\n", ctx.Indent, b.Body[i].Format)
@@ -674,7 +674,7 @@ func (e *EmptyStmt) Format(ctx *FormatContext, n uint) {
 	}
 }
 
-func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
+func (s *Label) Format(ctx *FormatContext, n uint) {
 	if ctx.stmtPositions() {
 		ctx.WriteV(n, "\n", ctx.Indent, "/* #", s.Off, " */", s.Label, ":")
 	} else {
@@ -685,7 +685,7 @@ func (s *LabeledStmt) Format(ctx *FormatContext, n uint) {
 		if ctx.stmtPositions() {
 			ctx.WriteV(n+1, "\n", ctx.Indent, e.Format)
 		}
-	} else if l, ok := s.Stmt.(*LabeledStmt); ok {
+	} else if l, ok := s.Stmt.(*Label); ok {
 		l.Format(ctx, n)
 	} else {
 		ctx.WriteV(n+1, "\n", ctx.Indent, s.Stmt.Format)

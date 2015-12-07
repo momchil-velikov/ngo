@@ -47,7 +47,7 @@ type Visitor interface {
 	// Statements
 	VisitEmptyStmt(*EmptyStmt) (Stmt, error)
 	VisitBlock(*Block) (Stmt, error)
-	VisitLabeledStmt(*LabeledStmt) (Stmt, error)
+	VisitLabel(*Label) (Stmt, error)
 	VisitGoStmt(*GoStmt) (Stmt, error)
 	VisitReturnStmt(*ReturnStmt) (Stmt, error)
 	VisitBreakStmt(*BreakStmt) (Stmt, error)
@@ -229,8 +229,8 @@ func (s *Block) TraverseStmt(v Visitor) (Stmt, error) {
 	return v.VisitBlock(s)
 }
 
-func (s *LabeledStmt) TraverseStmt(v Visitor) (Stmt, error) {
-	return v.VisitLabeledStmt(s)
+func (s *Label) TraverseStmt(v Visitor) (Stmt, error) {
+	return v.VisitLabel(s)
 }
 
 func (s *GoStmt) TraverseStmt(v Visitor) (Stmt, error) {

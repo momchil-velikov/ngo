@@ -78,7 +78,7 @@ func (VarDecl) stmt()         {}
 func (VarDeclGroup) stmt()    {}
 func (EmptyStmt) stmt()       {}
 func (Block) stmt()           {}
-func (LabeledStmt) stmt()     {}
+func (Label) stmt()           {}
 func (GoStmt) stmt()          {}
 func (ReturnStmt) stmt()      {}
 func (BreakStmt) stmt()       {}
@@ -451,7 +451,7 @@ type Block struct {
 	Body  []Stmt
 }
 
-type LabeledStmt struct {
+type Label struct {
 	Off   int
 	Label string
 	Stmt  Stmt

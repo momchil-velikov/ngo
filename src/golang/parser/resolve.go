@@ -1129,7 +1129,7 @@ func (r *resolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
 	return r.resolveBlock(s)
 }
 
-func (r *resolver) VisitLabeledStmt(s *ast.LabeledStmt) (ast.Stmt, error) {
+func (r *resolver) VisitLabel(s *ast.Label) (ast.Stmt, error) {
 	// FIXME: label at file scope
 	return r.resolveStmt(s.Stmt)
 }
