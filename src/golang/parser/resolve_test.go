@@ -12,6 +12,16 @@ import (
 	"testing"
 )
 
+func compilePackage(
+	dir string, srcs []string, loc ast.PackageLocator) (*ast.Package, error) {
+
+	up, err := ParsePackage(dir, srcs)
+	if err != nil {
+		return nil, err
+	}
+	return ResolvePackage(up, loc)
+}
+
 func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
 	sym := s.Find(name)
 	if sym == nil {
@@ -24,11 +34,7 @@ func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
 func expectErrorWithLoc(
 	t *testing.T, pkg string, srcs []string, loc ast.PackageLocator, msg string) {
 
-	up, err := ParsePackage(pkg, srcs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, loc)
+	_, err := compilePackage(pkg, srcs, loc)
 	if err == nil || !strings.Contains(err.Error(), msg) {
 		t.Errorf("%s:%v: expected `%s` error", pkg, srcs, msg)
 		if err == nil {
@@ -45,15 +51,10 @@ func expectError(t *testing.T, pkg string, srcs []string, msg string) {
 
 func TestResolveTypeUniverse(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
-	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
+	p, err := compilePackage(TESTDIR, []string{"a.go", "b.go"}, nil)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	p, err := ResolvePackage(up, nil)
-	if err != nil {
-		t.Error(err)
-	}
-
 	cases := []struct{ decl, ref, file string }{
 		{"a", "bool", "a.go"},
 		{"b", "byte", "a.go"},
@@ -121,11 +122,7 @@ func TestResolveTypeDuplicatelAtPackageScope(t *testing.T) {
 
 func TestResolveTypePackageScope(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
-	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage(TESTDIR, []string{"a.go", "b.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,14 +170,11 @@ func TestResolveTypePackageScope(t *testing.T) {
 
 func TestResolveTypeBlockScope(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
-	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
+	p, err := compilePackage(TESTDIR, []string{"a.go", "b.go"}, nil)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	p, err := ResolvePackage(up, nil)
-	if err != nil {
-		t.Error(err)
-	}
+
 	fn, ok := p.Find("F").(*ast.FuncDecl)
 	if !ok {
 		t.Fatal("function declaration `F` not found at package scope")
@@ -253,11 +247,7 @@ func TestResolveTypeBlockScope(t *testing.T) {
 
 func TestResolveTypeSelfReference(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct/"
-	up, err := ParsePackage(TESTDIR, []string{"self.go"})
-	if err != nil {
-		t.Error(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage(TESTDIR, []string{"self.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,13 +300,9 @@ func TestResolveTypeSelfReference(t *testing.T) {
 
 func TestResolveConstructedType(t *testing.T) {
 	const TESTDIR = "_test/typedecl/src/correct"
-	up, err := ParsePackage(TESTDIR, []string{"a.go", "b.go"})
+	p, err := compilePackage(TESTDIR, []string{"a.go", "b.go"}, nil)
 	if err != nil {
-		t.Error(err)
-	}
-	p, err := ResolvePackage(up, nil)
-	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	a := getTypeDecl(p, "a")
@@ -425,33 +411,21 @@ func TestResolveTypeDuplicateField(t *testing.T) {
 			"X is duplicated")
 	}
 	// Check blank ident does nor cause a duplicated field error
-	up, err := ParsePackage("_test/typedecl/src/correct/", []string{"c.go"})
+	_, err := compilePackage("_test/typedecl/src/correct/", []string{"c.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err != nil {
-		t.Error(err)
 	}
 }
 
 func TestResolveExprLiteral(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"lit.go"})
+	_, err := compilePackage("_test/expr/src/ok", []string{"lit.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
-	if err != nil {
-		t.Error(err)
 	}
 }
 
 func TestResolveExprComposite(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"comp.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"comp.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,11 +476,7 @@ func TestResolveExprComposite(t *testing.T) {
 }
 
 func TestResolveExprConversion(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"conv.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"conv.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,11 +507,7 @@ func TestResolveExprConversion(t *testing.T) {
 }
 
 func TestResolveExprCall(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"call.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"call.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,11 +532,7 @@ func TestResolveExprCall(t *testing.T) {
 }
 
 func TestResolveExprParens(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"parens.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"parens.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,11 +549,7 @@ func TestResolveExprParens(t *testing.T) {
 }
 
 func TestResolveExprFuncLiteral(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"func.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"func.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -612,11 +570,7 @@ func TestResolveExprFuncLiteral(t *testing.T) {
 }
 
 func TestResolveTypeAssertion(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"assert.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"assert.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -634,11 +588,7 @@ func TestResolveTypeAssertion(t *testing.T) {
 }
 
 func TestResolveExprSelector(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"selector.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"selector.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -682,11 +632,7 @@ func TestResolveExprSelector(t *testing.T) {
 }
 
 func TestResolveExprIndex(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"index.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"index.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -704,11 +650,7 @@ func TestResolveExprIndex(t *testing.T) {
 }
 
 func TestResolveExprSlice(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"slice.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"slice.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -734,11 +676,7 @@ func TestResolveExprSlice(t *testing.T) {
 }
 
 func TestResolveExprUnary(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"unary.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"unary.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -752,11 +690,7 @@ func TestResolveExprUnary(t *testing.T) {
 }
 
 func TestResolveExprBinary(t *testing.T) {
-	up, err := ParsePackage("_test/expr/src/ok", []string{"binary.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/expr/src/ok", []string{"binary.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,11 +755,7 @@ func TestResolveExprInvConversion(t *testing.T) {
 }
 
 func TestResolveScope(t *testing.T) {
-	up, err := ParsePackage("_test/scope/src/ok", []string{"scope.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/scope/src/ok", []string{"scope.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -944,11 +874,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 
 func TestResolveVarPkgDecl(t *testing.T) {
 	// Test package-level variable declarations
-	up, err := ParsePackage("_test/vardecl/src/ok", []string{"decl.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/vardecl/src/ok", []string{"decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -964,11 +890,7 @@ func TestResolveVarPkgDecl(t *testing.T) {
 	}
 
 	// Test block-level varuiable declarations.
-	up, err = ParsePackage("_test/vardecl/src/ok", []string{"blk-decl.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err = ResolvePackage(up, nil)
+	p, err = compilePackage("_test/vardecl/src/ok", []string{"blk-decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1110,11 +1032,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 }
 
 func TestResolveConstDecl(t *testing.T) {
-	up, err := ParsePackage("_test/constdecl/src/ok", []string{"decl.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/constdecl/src/ok", []string{"decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1229,11 +1147,7 @@ func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
 }
 
 func TestResolveConstDeclGroup(t *testing.T) {
-	up, err := ParsePackage("_test/constdecl/src/ok", []string{"decl-group.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/constdecl/src/ok", []string{"decl-group.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1279,11 +1193,7 @@ func TestResolveConstCountMismatch(t *testing.T) {
 }
 
 func TestResolveFuncDecl(t *testing.T) {
-	up, err := ParsePackage("_test/funcdecl/src/ok", []string{"decl.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/funcdecl/src/ok", []string{"decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1333,11 +1243,7 @@ func TestResolveFuncDeclDupParam(t *testing.T) {
 }
 
 func TestResolveStmtEmpty(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"empty.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"empty.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1349,11 +1255,7 @@ func TestResolveStmtEmpty(t *testing.T) {
 }
 
 func TestResolveStmtGo(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"go.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"go.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1366,14 +1268,11 @@ func TestResolveStmtGo(t *testing.T) {
 }
 
 func TestResolveStmtReturn(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"return.go"})
+	p, err := compilePackage("_test/stmt/src/ok", []string{"return.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := ResolvePackage(up, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	F := p.Find("F").(*ast.FuncDecl)
 	r := F.Func.Blk.Body[0].(*ast.ReturnStmt)
 	if len(r.Xs) != 0 {
@@ -1396,11 +1295,7 @@ func TestResolveStmtReturn(t *testing.T) {
 }
 
 func TestResolveStmtSend(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"send.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"send.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1418,11 +1313,7 @@ func TestResolveStmtSend(t *testing.T) {
 }
 
 func TestResolveStmtIncDec(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"incdec.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"incdec.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1441,11 +1332,7 @@ func TestResolveStmtIncDec(t *testing.T) {
 }
 
 func TestResolveStmtAssign(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"assign.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"assign.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1475,11 +1362,7 @@ func TestResolveStmtAssign(t *testing.T) {
 }
 
 func TestResolveStmtShortVarDecl(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"short-var-decl.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"short-var-decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1550,22 +1433,14 @@ func TestResolveShortVarDeclError(t *testing.T) {
 }
 
 func TestResolveStmtExpr(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"expr.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ResolvePackage(up, nil)
+	_, err := compilePackage("_test/stmt/src/ok", []string{"expr.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestResolveStmtIf(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"if.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"if.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1712,11 +1587,7 @@ func TestResolveStmtIf(t *testing.T) {
 }
 
 func TestResolveStmtFor(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"for.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"for.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1782,11 +1653,7 @@ func TestResolveStmtFor(t *testing.T) {
 }
 
 func TestResolveStmtForRange(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"for-range.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"for-range.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1833,11 +1700,7 @@ func TestResolveStmtForRange(t *testing.T) {
 }
 
 func TestResolveStmtDefer(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"defer.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"defer.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1852,11 +1715,7 @@ func TestResolveStmtDefer(t *testing.T) {
 }
 
 func TestResolveStmtExprSwitch(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"expr-switch.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"expr-switch.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1921,11 +1780,7 @@ func TestResolveStmtExprSwitch(t *testing.T) {
 }
 
 func TestResolveStmtTypeSwitch(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"type-switch.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"type-switch.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2021,11 +1876,7 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 }
 
 func TestResolveStmtSelect(t *testing.T) {
-	up, err := ParsePackage("_test/stmt/src/ok", []string{"select.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := ResolvePackage(up, nil)
+	p, err := compilePackage("_test/stmt/src/ok", []string{"select.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2108,16 +1959,6 @@ func (loc *MockPackageLocator) FindPackage(path string) (*ast.Package, error) {
 		return nil, errors.New("import `" + path + "` not found")
 	}
 	return pkg, nil
-}
-
-func compilePackage(
-	dir string, srcs []string, loc ast.PackageLocator) (*ast.Package, error) {
-
-	up, err := ParsePackage(dir, srcs)
-	if err != nil {
-		return nil, err
-	}
-	return ResolvePackage(up, loc)
 }
 
 func reloadPackage(pkg *ast.Package, loc ast.PackageLocator) (*ast.Package, error) {
