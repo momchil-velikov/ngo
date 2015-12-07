@@ -382,8 +382,14 @@ func (r *resolver) resolveFunc(fn *ast.Func) error {
 	if fn.Blk == nil {
 		return nil
 	}
+	// The function body forms an extra scope, holding only labels and
+	// transparent for ordinary name lookups.
+	fn.Up = r.scope
+	r.enterScope(fn)
+	defer r.exitScope()
 	// Declare parameter and return names in the scope of the function block.
 	fn.Blk.Up = r.scope
+	// FIXME: scope is not exited on error, not sure if it matters at all
 	r.enterScope(fn.Blk)
 	if err := r.declareParams(fn.Sig.Params); err != nil {
 		return err
@@ -1120,8 +1126,17 @@ func (r *resolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
 }
 
 func (r *resolver) VisitLabel(s *ast.Label) (ast.Stmt, error) {
-	// FIXME: label at file scope
-	return r.resolveStmt(s.Stmt)
+	fn := r.scope.Func()
+	s.Blk = r.scope.(*ast.Block)
+	if err := fn.Declare(s.Label, s); err != nil {
+		return nil, err
+	}
+	st, err := r.resolveStmt(s.Stmt)
+	if err != nil {
+		return nil, err
+	}
+	s.Stmt = st
+	return st, nil
 }
 
 func (r *resolver) VisitGoStmt(s *ast.GoStmt) (ast.Stmt, error) {

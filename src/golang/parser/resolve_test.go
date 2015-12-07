@@ -786,9 +786,12 @@ func TestResolveScope(t *testing.T) {
 		t.Error("file scope must point to package scope")
 	}
 	F := p.Find("F").(*ast.FuncDecl)
+	if F.Func.Parent() != file {
+		t.Error("function scope must point to file scope")
+	}
 	fblk := F.Func.Blk
-	if fblk.Parent() != file {
-		t.Error("function block scope must point to file scope")
+	if fblk.Parent() != &F.Func {
+		t.Error("function block scope must point to function scope")
 	}
 	blk := fblk.Body[0].(*ast.Block)
 	if blk.Parent() != fblk {
@@ -2263,4 +2266,38 @@ func TestResolveReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestResolveLabel(t *testing.T) {
+	p, err := compilePackage("_test/funcdecl/src/ok", []string{"labels.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	vL := F.Func.Blk.Lookup("L")
+	L := F.Func.Find("L").(*ast.Label)
+	if L == vL {
+		t.Error("label `L` must not be found by ordinary lookup")
+	}
+	if L.Blk != F.Func.Blk {
+		t.Error("label `L` must point to the containing block")
+	}
+
+	s := F.Func.Blk.Body[1].(*ast.AssignStmt)
+	fn := s.RHS[0].(*ast.Func)
+	vLL := fn.Blk.Lookup("L")
+	LL := fn.Find("L").(*ast.Label)
+	if LL == vLL {
+		t.Error("label `L` must not be found by ordinary lookup")
+	}
+	if LL.Blk != fn.Blk {
+		t.Error("label `L` must point to the containing block")
+	}
+	if vLL != vL {
+		t.Error(
+			"`L` in function literal must resolve to `L` variable in the outer function")
+	}
+
+	expectError(t, "_test/funcdecl/src/err", []string{"dup-label.go"}, "L redeclared")
 }

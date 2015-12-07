@@ -54,6 +54,12 @@ func (f *FuncDecl) DeclaredAt() (string, int, *File) {
 }
 func (f *FuncDecl) IsExported() bool { return isExported(f.Name) }
 
+func (Label) symbol() {}
+func (l *Label) DeclaredAt() (string, int, *File) {
+	return l.Label, l.Off, l.Blk.File()
+}
+func (l *Label) IsExported() bool { return false }
+
 // The Scope interface determines the set of visible names at each point of a
 // program
 type Scope interface {
@@ -145,6 +151,32 @@ func (f *File) Lookup(name string) Symbol {
 
 func (f *File) Find(name string) Symbol {
 	return f.Decls[name]
+}
+
+// Function scope.
+func (fn *Func) Parent() Scope { return fn.Up }
+
+func (fn *Func) Package() *Package { return fn.Up.Package() }
+
+func (fn *Func) File() *File { return fn.Up.File() }
+
+func (fn *Func) Func() *Func { return fn }
+
+func (fn *Func) Declare(name string, sym Symbol) error {
+	if fn.Labels == nil {
+		fn.Labels = make(map[string]*Label)
+	}
+	if old := fn.Labels[name]; old != nil {
+		return &redeclarationError{old: old, new: sym}
+	}
+	fn.Labels[name] = sym.(*Label)
+	return nil
+}
+
+func (fn *Func) Lookup(name string) Symbol { return fn.Up.Lookup(name) }
+
+func (fn *Func) Find(name string) Symbol {
+	return fn.Labels[name]
 }
 
 // Block scope

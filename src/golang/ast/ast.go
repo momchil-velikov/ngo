@@ -233,11 +233,13 @@ type VarDeclGroup struct {
 }
 
 type Func struct {
-	Off  int
-	Decl *FuncDecl
-	Recv *Param
-	Sig  *FuncType
-	Blk  *Block
+	Off    int
+	Decl   *FuncDecl
+	Recv   *Param
+	Sig    *FuncType
+	Blk    *Block
+	Up     Scope
+	Labels map[string]*Label
 }
 
 type FuncDecl struct {
@@ -455,6 +457,7 @@ type Label struct {
 	Off   int
 	Label string
 	Stmt  Stmt
+	Blk   *Block
 }
 
 type GoStmt struct {
