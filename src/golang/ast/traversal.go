@@ -70,10 +70,6 @@ type Visitor interface {
 }
 
 // Error node
-func (e *Error) TraverseDecl(v Visitor) (Decl, error) {
-	return v.VisitError(e)
-}
-
 func (e *Error) TraverseType(v Visitor) (Type, error) {
 	return v.VisitError(e)
 }
