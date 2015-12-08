@@ -1,9 +1,8 @@
 package ast
 
-type Visitor interface {
+type TypeVisitor interface {
 	VisitError(*Error) (*Error, error)
 
-	// Types
 	VisitTypeName(*QualifiedId) (Type, error)
 	VisitTypeDeclType(*TypeDecl) (Type, error)
 
@@ -16,8 +15,11 @@ type Visitor interface {
 	VisitStructType(*StructType) (Type, error)
 	VisitFuncType(*FuncType) (Type, error)
 	VisitInterfaceType(*InterfaceType) (Type, error)
+}
 
-	// Expressions
+type ExprVisitor interface {
+	VisitError(*Error) (*Error, error)
+
 	VisitOperandName(*QualifiedId) (Expr, error)
 
 	VisitLiteral(*Literal) (Expr, error)
@@ -35,6 +37,10 @@ type Visitor interface {
 	VisitBinaryExpr(*BinaryExpr) (Expr, error)
 	VisitVar(*Var) (Expr, error)
 	VisitConst(*Const) (Expr, error)
+}
+
+type StmtVisitor interface {
+	VisitError(*Error) (*Error, error)
 
 	// Block-level declarations
 	VisitTypeDecl(*TypeDecl) (Stmt, error)
@@ -70,237 +76,236 @@ type Visitor interface {
 }
 
 // Error node
-func (e *Error) TraverseType(v Visitor) (Type, error) {
-	return v.VisitError(e)
-}
-
-func (e *Error) TraverseExpr(v Visitor) (Expr, error) {
-	return v.VisitError(e)
-}
-
-func (e *Error) TraverseStmt(v Visitor) (Stmt, error) {
-	return v.VisitError(e)
-}
 
 // Types
-func (t *QualifiedId) TraverseType(v Visitor) (Type, error) {
+func (e *Error) TraverseType(v TypeVisitor) (Type, error) {
+	return v.VisitError(e)
+}
+func (t *QualifiedId) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitTypeName(t)
 }
 
-func (t *TypeDecl) TraverseType(v Visitor) (Type, error) {
+func (t *TypeDecl) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitTypeDeclType(t)
 }
 
-func (t *BuiltinType) TraverseType(v Visitor) (Type, error) {
+func (t *BuiltinType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitBuiltinType(t)
 }
 
-func (t *ArrayType) TraverseType(v Visitor) (Type, error) {
+func (t *ArrayType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitArrayType(t)
 }
 
-func (t *SliceType) TraverseType(v Visitor) (Type, error) {
+func (t *SliceType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitSliceType(t)
 }
 
-func (t *PtrType) TraverseType(v Visitor) (Type, error) {
+func (t *PtrType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitPtrType(t)
 }
 
-func (t *MapType) TraverseType(v Visitor) (Type, error) {
+func (t *MapType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitMapType(t)
 }
 
-func (t *ChanType) TraverseType(v Visitor) (Type, error) {
+func (t *ChanType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitChanType(t)
 }
 
-func (t *StructType) TraverseType(v Visitor) (Type, error) {
+func (t *StructType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitStructType(t)
 }
 
-func (t *FuncType) TraverseType(v Visitor) (Type, error) {
+func (t *FuncType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitFuncType(t)
 }
 
-func (t *InterfaceType) TraverseType(v Visitor) (Type, error) {
+func (t *InterfaceType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitInterfaceType(t)
 }
 
 // Expressions
-func (x *QualifiedId) TraverseExpr(v Visitor) (Expr, error) {
+func (e *Error) TraverseExpr(v ExprVisitor) (Expr, error) {
+	return v.VisitError(e)
+}
+func (x *QualifiedId) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitOperandName(x)
 }
 
-func (x *Literal) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Literal) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitLiteral(x)
 }
 
-func (x *CompLiteral) TraverseExpr(v Visitor) (Expr, error) {
+func (x *CompLiteral) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitCompLiteral(x)
 }
 
-func (x *Call) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Call) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitCall(x)
 }
 
-func (x *Conversion) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Conversion) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitConversion(x)
 }
 
-func (x *MethodExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *MethodExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitMethodExpr(x)
 }
 
-func (x *ParensExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *ParensExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitParensExpr(x)
 }
 
-func (x *Func) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Func) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitFunc(x)
 }
 
-func (x *TypeAssertion) TraverseExpr(v Visitor) (Expr, error) {
+func (x *TypeAssertion) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitTypeAssertion(x)
 }
 
-func (x *Selector) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Selector) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitSelector(x)
 }
 
-func (x *IndexExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *IndexExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitIndexExpr(x)
 }
 
-func (x *SliceExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *SliceExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitSliceExpr(x)
 }
 
-func (x *UnaryExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *UnaryExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitUnaryExpr(x)
 }
 
-func (x *BinaryExpr) TraverseExpr(v Visitor) (Expr, error) {
+func (x *BinaryExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitBinaryExpr(x)
 }
 
-func (x *Var) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Var) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitVar(x)
 }
 
-func (x *Const) TraverseExpr(v Visitor) (Expr, error) {
+func (x *Const) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitConst(x)
 }
 
 // Statements
-func (s *TypeDecl) TraverseStmt(v Visitor) (Stmt, error) {
+func (e *Error) TraverseStmt(v StmtVisitor) (Stmt, error) {
+	return v.VisitError(e)
+}
+
+func (s *TypeDecl) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitTypeDecl(s)
 }
 
-func (s *TypeDeclGroup) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *TypeDeclGroup) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitTypeDeclGroup(s)
 }
 
-func (s *ConstDecl) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ConstDecl) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitConstDecl(s)
 }
 
-func (s *ConstDeclGroup) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ConstDeclGroup) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitConstDeclGroup(s)
 }
 
-func (s *VarDecl) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *VarDecl) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitVarDecl(s)
 }
 
-func (s *VarDeclGroup) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *VarDeclGroup) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitVarDeclGroup(s)
 }
 
-func (s *EmptyStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *EmptyStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitEmptyStmt(s)
 }
 
-func (s *Block) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *Block) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitBlock(s)
 }
 
-func (s *Label) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *Label) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitLabel(s)
 }
 
-func (s *GoStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *GoStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitGoStmt(s)
 }
 
-func (s *ReturnStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ReturnStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitReturnStmt(s)
 }
 
-func (s *BreakStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *BreakStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitBreakStmt(s)
 }
 
-func (s *ContinueStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ContinueStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitContinueStmt(s)
 }
 
-func (s *GotoStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *GotoStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitGotoStmt(s)
 }
 
-func (s *FallthroughStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *FallthroughStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitFallthroughStmt(s)
 }
 
-func (s *SendStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *SendStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitSendStmt(s)
 }
 
-func (s *RecvStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *RecvStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitRecvStmt(s)
 }
 
-func (s *IncStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *IncStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitIncStmt(s)
 }
 
-func (s *DecStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *DecStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitDecStmt(s)
 }
 
-func (s *AssignStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *AssignStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitAssignStmt(s)
 }
 
-func (s *ExprStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ExprStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitExprStmt(s)
 }
 
-func (s *IfStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *IfStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitIfStmt(s)
 }
 
-func (s *ForStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ForStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitForStmt(s)
 }
 
-func (s *ForRangeStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ForRangeStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitForRangeStmt(s)
 }
 
-func (s *DeferStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *DeferStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitDeferStmt(s)
 }
 
-func (s *ExprSwitchStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *ExprSwitchStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitExprSwitchStmt(s)
 }
 
-func (s *TypeSwitchStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *TypeSwitchStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitTypeSwitchStmt(s)
 }
 
-func (s *SelectStmt) TraverseStmt(v Visitor) (Stmt, error) {
+func (s *SelectStmt) TraverseStmt(v StmtVisitor) (Stmt, error) {
 	return v.VisitSelectStmt(s)
 }

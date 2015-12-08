@@ -22,7 +22,7 @@ func (FuncDecl) decl()       {}
 
 type Type interface {
 	Node
-	TraverseType(Visitor) (Type, error)
+	TraverseType(TypeVisitor) (Type, error)
 	typ()
 }
 
@@ -41,7 +41,7 @@ func (InterfaceType) typ() {}
 
 type Expr interface {
 	Node
-	TraverseExpr(Visitor) (Expr, error)
+	TraverseExpr(ExprVisitor) (Expr, error)
 	expr()
 }
 
@@ -65,7 +65,7 @@ func (Const) expr()         {}
 
 type Stmt interface {
 	Node
-	TraverseStmt(Visitor) (Stmt, error)
+	TraverseStmt(StmtVisitor) (Stmt, error)
 	stmt()
 }
 
