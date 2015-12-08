@@ -2277,17 +2277,21 @@ func TestResolveLabel(t *testing.T) {
 	F := p.Find("F").(*ast.FuncDecl)
 	vL := F.Func.Blk.Lookup("L")
 	L := F.Func.Find("L").(*ast.Label)
+	L1 := F.Func.Find("L1").(*ast.Label)
 	if L == vL {
 		t.Error("label `L` must not be found by ordinary lookup")
 	}
 	if L.Blk != F.Func.Blk {
 		t.Error("label `L` must point to the containing block")
 	}
-
+	if L.Stmt != L1.Stmt {
+		t.Error("`L` and `L1` must refer to the same statement")
+	}
 	s := F.Func.Blk.Body[1].(*ast.AssignStmt)
 	fn := s.RHS[0].(*ast.Func)
 	vLL := fn.Blk.Lookup("L")
 	LL := fn.Find("L").(*ast.Label)
+	LL1 := fn.Find("L1").(*ast.Label)
 	if LL == vLL {
 		t.Error("label `L` must not be found by ordinary lookup")
 	}
@@ -2298,6 +2302,11 @@ func TestResolveLabel(t *testing.T) {
 		t.Error(
 			"`L` in function literal must resolve to `L` variable in the outer function")
 	}
-
+	if LL.Stmt != LL1.Stmt {
+		t.Error("`L` and `L1` must refer to the same statement")
+	}
+	if LL.Stmt != nil {
+		t.Error("`L` must refer to empty statement")
+	}
 	expectError(t, "_test/funcdecl/src/err", []string{"dup-label.go"}, "L redeclared")
 }
