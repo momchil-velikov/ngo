@@ -163,20 +163,28 @@ func (fn *Func) File() *File { return fn.Up.File() }
 func (fn *Func) Func() *Func { return fn }
 
 func (fn *Func) Declare(name string, sym Symbol) error {
-	if fn.Labels == nil {
-		fn.Labels = make(map[string]*Label)
-	}
-	if old := fn.Labels[name]; old != nil {
-		return &redeclarationError{old: old, new: sym}
-	}
-	fn.Labels[name] = sym.(*Label)
-	return nil
+	panic("not reached")
 }
 
 func (fn *Func) Lookup(name string) Symbol { return fn.Up.Lookup(name) }
 
 func (fn *Func) Find(name string) Symbol {
+	return nil
+}
+
+func (fn *Func) FindLabel(name string) *Label {
 	return fn.Labels[name]
+}
+
+func (fn *Func) DeclareLabel(name string, l *Label) error {
+	if fn.Labels == nil {
+		fn.Labels = make(map[string]*Label)
+	}
+	if old := fn.Labels[name]; old != nil {
+		return &redeclarationError{old: old, new: l}
+	}
+	fn.Labels[name] = l
+	return nil
 }
 
 // Implementation of the Scope interface for statements

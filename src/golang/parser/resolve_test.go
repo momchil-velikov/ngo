@@ -2239,8 +2239,8 @@ func TestResolveLabel(t *testing.T) {
 
 	F := p.Find("F").(*ast.FuncDecl)
 	vL := F.Func.Blk.Lookup("L")
-	L := F.Func.Find("L").(*ast.Label)
-	L1 := F.Func.Find("L1").(*ast.Label)
+	L := F.Func.FindLabel("L")
+	L1 := F.Func.FindLabel("L1")
 	if L == vL {
 		t.Error("label `L` must not be found by ordinary lookup")
 	}
@@ -2253,8 +2253,8 @@ func TestResolveLabel(t *testing.T) {
 	s := F.Func.Blk.Body[1].(*ast.AssignStmt)
 	fn := s.RHS[0].(*ast.Func)
 	vLL := fn.Blk.Lookup("L")
-	LL := fn.Find("L").(*ast.Label)
-	LL1 := fn.Find("L1").(*ast.Label)
+	LL := fn.FindLabel("L")
+	LL1 := fn.FindLabel("L1")
 	if LL == vLL {
 		t.Error("label `L` must not be found by ordinary lookup")
 	}

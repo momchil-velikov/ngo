@@ -1130,7 +1130,7 @@ func (r *resolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
 func (r *resolver) VisitLabel(s *ast.Label) (ast.Stmt, error) {
 	fn := r.scope.Func()
 	s.Blk = r.scope.(*ast.Block)
-	if err := fn.Declare(s.Label, s); err != nil {
+	if err := fn.DeclareLabel(s.Label, s); err != nil {
 		return nil, err
 	}
 	st, err := r.resolveStmt(s.Stmt)
