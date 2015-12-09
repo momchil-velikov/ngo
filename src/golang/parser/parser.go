@@ -1439,7 +1439,7 @@ func (p *parser) parseStatementList() *ast.Block {
 		p.syncEndStatement()
 	}
 	p.setBrackets(b)
-	return &ast.Block{Body: st, Decls: make(map[string]ast.Symbol)}
+	return &ast.Block{Body: st}
 }
 
 func (p *parser) syncEndStatement() {

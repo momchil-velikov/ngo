@@ -179,16 +179,24 @@ func (fn *Func) Find(name string) Symbol {
 	return fn.Labels[name]
 }
 
-// Block scope
-func (b *Block) Parent() Scope { return b.Up }
+// Implementation of the Scope interface for statements
+type blockScope struct {
+	Up    Scope
+	Decls map[string]Symbol
+}
 
-func (b *Block) Package() *Package { return b.Up.Package() }
+func (b *blockScope) Parent() Scope { return b.Up }
 
-func (b *Block) File() *File { return b.Up.File() }
+func (b *blockScope) Package() *Package { return b.Up.Package() }
 
-func (b *Block) Func() *Func { return b.Up.Func() }
+func (b *blockScope) File() *File { return b.Up.File() }
 
-func (b *Block) Declare(name string, sym Symbol) error {
+func (b *blockScope) Func() *Func { return b.Up.Func() }
+
+func (b *blockScope) Declare(name string, sym Symbol) error {
+	if b.Decls == nil {
+		b.Decls = make(map[string]Symbol)
+	}
 	if old := b.Decls[name]; old != nil {
 		return &redeclarationError{old: old, new: sym}
 	}
@@ -196,7 +204,7 @@ func (b *Block) Declare(name string, sym Symbol) error {
 	return nil
 }
 
-func (b *Block) Lookup(name string) Symbol {
+func (b *blockScope) Lookup(name string) Symbol {
 	sym := b.Find(name)
 	if sym == nil {
 		sym = b.Up.Lookup(name)
@@ -204,7 +212,10 @@ func (b *Block) Lookup(name string) Symbol {
 	return sym
 }
 
-func (b *Block) Find(name string) Symbol {
+func (b *blockScope) Find(name string) Symbol {
+	if b.Decls == nil {
+		return nil
+	}
 	return b.Decls[name]
 }
 

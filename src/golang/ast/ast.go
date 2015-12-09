@@ -448,9 +448,8 @@ type EmptyStmt struct {
 }
 
 type Block struct {
-	Up    Scope
-	Decls map[string]Symbol
-	Body  []Stmt
+	blockScope
+	Body []Stmt
 }
 
 type Label struct {
@@ -519,6 +518,7 @@ type ExprStmt struct {
 }
 
 type IfStmt struct {
+	blockScope
 	Off  int
 	Init Stmt
 	Cond Expr
@@ -527,6 +527,7 @@ type IfStmt struct {
 }
 
 type ForStmt struct {
+	blockScope
 	Off  int
 	Init Stmt
 	Cond Expr
@@ -535,6 +536,7 @@ type ForStmt struct {
 }
 
 type ForRangeStmt struct {
+	blockScope
 	Off   int
 	Op    uint
 	LHS   []Expr
@@ -553,6 +555,7 @@ type ExprCaseClause struct {
 }
 
 type ExprSwitchStmt struct {
+	blockScope
 	Off   int // position of the `switch` keyword
 	Init  Stmt
 	X     Expr
@@ -565,6 +568,7 @@ type TypeCaseClause struct {
 }
 
 type TypeSwitchStmt struct {
+	blockScope
 	Off   int // position of the `switch` keyword
 	Init  Stmt
 	Id    string
@@ -578,6 +582,7 @@ type CommClause struct {
 }
 
 type SelectStmt struct {
+	blockScope
 	Off     int // position of the `select` keyword
 	in, End int // positions of the opening and the closing braces
 	Comms   []CommClause

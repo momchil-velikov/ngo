@@ -1114,7 +1114,9 @@ func (r *resolver) VisitVarDeclGroup(s *ast.VarDeclGroup) (ast.Stmt, error) {
 		ss = append(ss, st)
 	}
 
-	return &ast.Block{Up: r.scope, Body: ss, Decls: make(map[string]ast.Symbol)}, nil
+	b := &ast.Block{Body: ss}
+	b.Up = r.scope
+	return b, nil
 }
 
 func (*resolver) VisitEmptyStmt(*ast.EmptyStmt) (ast.Stmt, error) {
@@ -1275,33 +1277,28 @@ func (r *resolver) VisitExprStmt(s *ast.ExprStmt) (ast.Stmt, error) {
 }
 
 func (r *resolver) VisitIfStmt(s *ast.IfStmt) (ast.Stmt, error) {
-	// If the initial statement is a short variable declaration, put an extra
-	// block around the if.
-	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-		blk := &ast.Block{
-			Body:  []ast.Stmt{s.Init, s},
-			Decls: make(map[string]ast.Symbol),
-		}
-		s.Init = nil
-		return r.resolveBlock(blk)
-	}
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
 
-	// No new variable declarations.
 	st, err := r.resolveStmt(s.Init)
 	if err != nil {
 		return nil, err
 	}
 	s.Init = st
+
 	x, err := r.resolveExpr(s.Cond)
 	if err != nil {
 		return nil, err
 	}
 	s.Cond = x
+
 	blk, err := r.resolveBlock(s.Then)
 	if err != nil {
 		return nil, err
 	}
 	s.Then = blk
+
 	st, err = r.resolveStmt(s.Else)
 	if err != nil {
 		return nil, err
@@ -1311,37 +1308,33 @@ func (r *resolver) VisitIfStmt(s *ast.IfStmt) (ast.Stmt, error) {
 }
 
 func (r *resolver) VisitForStmt(s *ast.ForStmt) (ast.Stmt, error) {
-	// If the initial statement is a short variable declaration, put an extra
-	// block around the for.
-	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-		blk := &ast.Block{
-			Body:  []ast.Stmt{s.Init, s},
-			Decls: make(map[string]ast.Symbol),
-		}
-		s.Init = nil
-		return r.resolveBlock(blk)
-	}
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
 
-	// No new variable declarations.
 	st, err := r.resolveStmt(s.Init)
 	if err != nil {
 		return nil, err
 	}
 	s.Init = st
+
 	x, err := r.resolveExpr(s.Cond)
 	if err != nil {
 		return nil, err
 	}
 	s.Cond = x
+
 	// The Post statement cannot be a declaration.
 	if d, ok := s.Post.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
 		return nil, errors.New("cannot declare in for post-statement")
 	}
+
 	st, err = r.resolveStmt(s.Post)
 	if err != nil {
 		return nil, err
 	}
 	s.Post = st
+
 	blk, err := r.resolveBlock(s.Blk)
 	if err != nil {
 		return nil, err
@@ -1351,27 +1344,25 @@ func (r *resolver) VisitForStmt(s *ast.ForStmt) (ast.Stmt, error) {
 }
 
 func (r *resolver) VisitForRangeStmt(s *ast.ForRangeStmt) (ast.Stmt, error) {
-	// Resolve the range expression in the current scope.
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
+
+	// Resolve the range expression before potential LHS variables are
+	// declared.
 	x, err := r.resolveExpr(s.Range)
 	if err != nil {
 		return nil, err
 	}
 	s.Range = x
-	// If the range-for declares new variables, put a block around the for and
-	// declare the variables in this block. Resolution continues then from
-	// within the new scope.
-	var blk *ast.Block
+
+	// Declare the LHS variables.
 	if s.Op == scanner.DEFINE {
-		blk = &ast.Block{
-			Up:    r.scope,
-			Decls: make(map[string]ast.Symbol),
-		}
-		r.enterScope(blk)
-		defer r.exitScope()
 		if err := r.declareLHS(s.LHS...); err != nil {
 			return nil, err
 		}
 	}
+
 	// Resolve the LHS.
 	for i := range s.LHS {
 		x, err := r.resolveLHS(s.LHS[i])
@@ -1381,17 +1372,14 @@ func (r *resolver) VisitForRangeStmt(s *ast.ForRangeStmt) (ast.Stmt, error) {
 		s.LHS[i] = x
 
 	}
+
 	// Resolve the loop body.
 	b, err := r.resolveBlock(s.Blk)
 	if err != nil {
 		return nil, err
 	}
 	s.Blk = b
-	if blk == nil {
-		return s, nil
-	}
-	blk.Body = []ast.Stmt{s}
-	return blk, nil
+	return s, nil
 }
 
 func (r *resolver) VisitDeferStmt(s *ast.DeferStmt) (ast.Stmt, error) {
@@ -1404,28 +1392,22 @@ func (r *resolver) VisitDeferStmt(s *ast.DeferStmt) (ast.Stmt, error) {
 }
 
 func (r *resolver) VisitExprSwitchStmt(s *ast.ExprSwitchStmt) (ast.Stmt, error) {
-	// If the initial statement is a short variable declaration, put an extra
-	// block around the switch.
-	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-		blk := &ast.Block{
-			Body:  []ast.Stmt{s.Init, s},
-			Decls: make(map[string]ast.Symbol),
-		}
-		s.Init = nil
-		return r.resolveBlock(blk)
-	}
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
 
-	// No new variable declarations.
 	st, err := r.resolveStmt(s.Init)
 	if err != nil {
 		return nil, err
 	}
 	s.Init = st
+
 	x, err := r.resolveExpr(s.X)
 	if err != nil {
 		return nil, err
 	}
 	s.X = x
+
 	for i := range s.Cases {
 		c := &s.Cases[i]
 		for i := range c.Xs {
@@ -1447,18 +1429,10 @@ func (r *resolver) VisitExprSwitchStmt(s *ast.ExprSwitchStmt) (ast.Stmt, error) 
 }
 
 func (r *resolver) VisitTypeSwitchStmt(s *ast.TypeSwitchStmt) (ast.Stmt, error) {
-	// If the initial statement is a short variable declaration, put an extra
-	// block around the type switch.
-	if d, ok := s.Init.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
-		blk := &ast.Block{
-			Body:  []ast.Stmt{s.Init, s},
-			Decls: make(map[string]ast.Symbol),
-		}
-		s.Init = nil
-		return r.resolveBlock(blk)
-	}
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
 
-	// No new variable declarations.
 	st, err := r.resolveStmt(s.Init)
 	if err != nil {
 		return nil, err
@@ -1481,7 +1455,7 @@ func (r *resolver) VisitTypeSwitchStmt(s *ast.TypeSwitchStmt) (ast.Stmt, error) 
 			c.Types[i] = t
 		}
 		// Declare the variable from the type switch guard in every block,
-		// except the default. Block has no declaraitons whatsoever at this
+		// except the default. Block has no declarations whatsoever at this
 		// point, so the below `Declare` cannot fail.
 		if len(s.Id) > 0 && len(c.Types) > 0 {
 			v := &ast.Var{Off: s.Off, File: r.scope.File(), Name: s.Id}
@@ -1497,6 +1471,10 @@ func (r *resolver) VisitTypeSwitchStmt(s *ast.TypeSwitchStmt) (ast.Stmt, error) 
 }
 
 func (r *resolver) VisitSelectStmt(s *ast.SelectStmt) (ast.Stmt, error) {
+	s.Up = r.scope
+	r.enterScope(s)
+	defer r.exitScope()
+
 	for i := range s.Comms {
 		c := &s.Comms[i]
 		// Resolve the CommCase statement in the scope of the clause block, so
