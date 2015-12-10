@@ -472,20 +472,24 @@ type ReturnStmt struct {
 type BreakStmt struct {
 	Off   int
 	Label string
+	Dst   Stmt
 }
 
 type ContinueStmt struct {
 	Off   int
 	Label string
+	Dst   Stmt
 }
 
 type GotoStmt struct {
 	Off   int
 	Label string
+	Dst   Stmt
 }
 
 type FallthroughStmt struct {
 	Off int
+	Dst Stmt
 }
 
 type SendStmt struct {
