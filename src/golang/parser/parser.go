@@ -317,25 +317,39 @@ func (p *parser) parseImportSpec() *ast.ImportDecl {
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 	for {
-		var f func() ast.Decl
+		var d ast.Decl
 		switch p.token {
 		case scanner.TYPE:
-			f = p.parseTypeDecl
+			p.match(scanner.TYPE)
+			if p.token == '(' {
+				d = p.parseTypeDeclGroup()
+			} else {
+				d = p.parseTypeSpec()
+			}
 		case scanner.CONST:
-			f = p.parseConstDecl
+			p.match(scanner.CONST)
+			if p.token == '(' {
+				d = p.parseConstDeclGroup()
+			} else {
+				d = p.parseConstSpec(false)
+			}
 		case scanner.VAR:
-			f = p.parseVarDecl
+			p.match(scanner.VAR)
+			if p.token == '(' {
+				d = p.parseVarDeclGroup()
+			} else {
+				d = p.parseVarSpec()
+			}
 		case scanner.FUNC:
-			f = p.parseFuncDecl
+			d = p.parseFuncDecl()
 		case scanner.EOF:
 			return
 		default:
 			p.error("expected type, const, var or func/method declaration")
 			p.syncDecl()
-			f = nil
 		}
-		if f != nil {
-			dcls = append(dcls, f())
+		if d != nil {
+			dcls = append(dcls, d)
 			p.match(';')
 		}
 	}
@@ -344,22 +358,17 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 // Parse type declaration
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
-func (p *parser) parseTypeDecl() ast.Decl {
-	p.match(scanner.TYPE)
-	if p.token == '(' {
-		p.next()
-		grp := &ast.TypeDeclGroup{}
-		for p.token != scanner.EOF && p.token != ')' {
-			grp.Types = append(grp.Types, p.parseTypeSpec())
-			if p.token != ')' {
-				p.sync2(';', ')')
-			}
+func (p *parser) parseTypeDeclGroup() *ast.TypeDeclGroup {
+	p.match('(')
+	grp := &ast.TypeDeclGroup{}
+	for p.token != scanner.EOF && p.token != ')' {
+		grp.Types = append(grp.Types, p.parseTypeSpec())
+		if p.token != ')' {
+			p.sync2(';', ')')
 		}
-		p.match(')')
-		return grp
-	} else {
-		return p.parseTypeSpec()
 	}
+	p.match(')')
+	return grp
 }
 
 // TypeSpec = identifier Type .
@@ -757,22 +766,17 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 }
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
-func (p *parser) parseConstDecl() ast.Decl {
-	p.match(scanner.CONST)
-	if p.token == '(' {
-		p.next()
-		grp := &ast.ConstDeclGroup{}
-		for p.token != scanner.EOF && p.token != ')' {
-			grp.Consts = append(grp.Consts, p.parseConstSpec(true))
-			if p.token != ')' {
-				p.sync2(';', ')')
-			}
+func (p *parser) parseConstDeclGroup() *ast.ConstDeclGroup {
+	p.match('(')
+	grp := &ast.ConstDeclGroup{}
+	for p.token != scanner.EOF && p.token != ')' {
+		grp.Consts = append(grp.Consts, p.parseConstSpec(true))
+		if p.token != ')' {
+			p.sync2(';', ')')
 		}
-		p.match(')')
-		return grp
-	} else {
-		return p.parseConstSpec(false)
 	}
+	p.match(')')
+	return grp
 }
 
 // ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .
@@ -800,22 +804,17 @@ func (p *parser) parseConstSpec(grp bool) *ast.ConstDecl {
 }
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
-func (p *parser) parseVarDecl() ast.Decl {
-	p.match(scanner.VAR)
-	if p.token == '(' {
-		p.next()
-		grp := &ast.VarDeclGroup{}
-		for p.token != scanner.EOF && p.token != ')' {
-			grp.Vars = append(grp.Vars, p.parseVarSpec())
-			if p.token != ')' {
-				p.sync2(';', ')')
-			}
+func (p *parser) parseVarDeclGroup() *ast.VarDeclGroup {
+	p.match('(')
+	grp := &ast.VarDeclGroup{}
+	for p.token != scanner.EOF && p.token != ')' {
+		grp.Vars = append(grp.Vars, p.parseVarSpec())
+		if p.token != ')' {
+			p.sync2(';', ')')
 		}
-		p.match(')')
-		return grp
-	} else {
-		return p.parseVarSpec()
 	}
+	p.match(')')
+	return grp
 }
 
 // VarSpec = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
@@ -1472,12 +1471,26 @@ func (p *parser) parseStmt() ast.Stmt {
 
 	switch p.token {
 	case scanner.CONST:
-		// FIXME: these type assertions are rather dubious
-		return p.parseConstDecl().(ast.Stmt)
+		p.match(scanner.CONST)
+		if p.token == '(' {
+			return p.parseConstDeclGroup()
+		} else {
+			return p.parseConstSpec(false)
+		}
 	case scanner.TYPE:
-		return p.parseTypeDecl().(ast.Stmt)
+		p.match(scanner.TYPE)
+		if p.token == '(' {
+			return p.parseTypeDeclGroup()
+		} else {
+			return p.parseTypeSpec()
+		}
 	case scanner.VAR:
-		return p.parseVarDecl().(ast.Stmt)
+		p.match(scanner.VAR)
+		if p.token == '(' {
+			return p.parseVarDeclGroup()
+		} else {
+			return p.parseVarSpec()
+		}
 	case scanner.GO:
 		return p.parseGoStmt()
 	case scanner.RETURN:
