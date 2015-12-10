@@ -456,7 +456,7 @@ type Label struct {
 	Off   int
 	Label string
 	Stmt  Stmt
-	Blk   *Block
+	Blk   Scope
 }
 
 type GoStmt struct {

@@ -2273,3 +2273,89 @@ func TestResolveLabel(t *testing.T) {
 	}
 	expectError(t, "_test/funcdecl/src/err", []string{"dup-label.go"}, "L redeclared")
 }
+
+func TestResolveBreak(t *testing.T) {
+	p, err := compilePackage("_test/labels/src/ok", []string{"break.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	L := []string{"L0", "L1", "L2", "L3", "L3", "L4", "L5", "L6", "L6", "L7", "L7"}
+	B := []string{"B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10"}
+	for i := range L {
+		l := F.Func.FindLabel(L[i])
+		b := F.Func.FindLabel(B[i]).Stmt.(*ast.BreakStmt)
+		if b.Dst != l.Stmt {
+			t.Errorf("break at `%s` must jump to label `%s`\n", B[i], L[i])
+		}
+	}
+
+	expectError(t, "_test/labels/src/err", []string{"break-1.go"},
+		"break label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"break-2.go"},
+		"break label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"break-3.go"},
+		"break label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"break-4.go"},
+		"break label does not refer to an enclosing")
+	expectError(t, "_test/labels/src/err", []string{"break-5.go"}, "unknown label")
+}
+
+func TestResolveContinue(t *testing.T) {
+	p, err := compilePackage("_test/labels/src/ok", []string{"cont.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	L := []string{"L0", "L1", "L2", "L3"}
+	C := []string{"C0", "C1", "C2", "C3"}
+	for i := range L {
+		l := F.Func.FindLabel(L[i])
+		c := F.Func.FindLabel(C[i]).Stmt.(*ast.ContinueStmt)
+		if c.Dst != l.Stmt {
+			t.Errorf("continue at `%s` must jump to label `%s`\n", C[i], L[i])
+		}
+	}
+
+	expectError(t, "_test/labels/src/err", []string{"cont-1.go"},
+		"continue label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"cont-2.go"},
+		"continue label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"cont-3.go"},
+		"continue label does not refer to a `for`")
+	expectError(t, "_test/labels/src/err", []string{"cont-4.go"},
+		"continue label does not refer to an enclosing")
+	expectError(t, "_test/labels/src/err", []string{"cont-5.go"}, "unknown label")
+}
+
+func TestResolveGoto(t *testing.T) {
+	p, err := compilePackage("_test/labels/src/ok", []string{"goto.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	F := p.Find("F").(*ast.FuncDecl)
+	L := []string{"E0", "E1", "E0", "E0", "B0", "B1", "B0", "B0"}
+	G := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7"}
+	for i := range L {
+		l := F.Func.FindLabel(L[i])
+		g := F.Func.FindLabel(G[i]).Stmt.(*ast.GotoStmt)
+		if g.Dst != l.Stmt {
+			t.Errorf("goto at `%s` must jump to label `%s`\n", G[i], L[i])
+		}
+	}
+
+	expectError(t, "_test/labels/src/err", []string{"goto-1.go"}, "unknown label")
+	expectError(t, "_test/labels/src/err", []string{"goto-2.go"}, "cross block")
+	expectError(t, "_test/labels/src/err", []string{"goto-3.go"}, "cross block")
+	expectError(t, "_test/labels/src/err", []string{"goto-4.go"}, "cross block")
+	expectError(t, "_test/labels/src/err", []string{"goto-5.go"}, "cross block")
+	expectError(t, "_test/labels/src/err", []string{"goto-6.go"},
+		"goto jumps into the scope")
+	expectError(t, "_test/labels/src/err", []string{"goto-7.go"},
+		"goto jumps into the scope")
+	expectError(t, "_test/labels/src/err", []string{"goto-8.go"},
+		"goto jumps into the scope")
+}

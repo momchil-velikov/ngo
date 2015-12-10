@@ -403,7 +403,10 @@ func (r *resolver) resolveFunc(fn *ast.Func) error {
 		return err
 	}
 	fn.Blk = blk
-	return nil
+	// Now check the goto, break and continute statement destinations
+	ck := jumpResolver{fn: fn}
+	_, err = ck.VisitBlock(fn.Blk)
+	return err
 }
 
 func (r *resolver) lookupIdent(id *ast.QualifiedId) (ast.Symbol, error) {
@@ -1129,7 +1132,7 @@ func (r *resolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
 
 func (r *resolver) VisitLabel(s *ast.Label) (ast.Stmt, error) {
 	fn := r.scope.Func()
-	s.Blk = r.scope.(*ast.Block)
+	s.Blk = r.scope
 	if err := fn.DeclareLabel(s.Label, s); err != nil {
 		return nil, err
 	}

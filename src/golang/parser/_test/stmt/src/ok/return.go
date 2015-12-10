@@ -10,9 +10,9 @@ func G() (int, int) {
 	return A, B
 }
 
-func H() {
-	break
-	continue
-	goto L
-	fallthrough
-}
+// func H() {
+// 	break
+// 	continue
+// 	goto L
+// 	fallthrough
+// }
