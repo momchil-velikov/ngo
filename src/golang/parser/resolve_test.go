@@ -2359,3 +2359,22 @@ func TestResolveGoto(t *testing.T) {
 	expectError(t, "_test/labels/src/err", []string{"goto-8.go"},
 		"goto jumps into the scope")
 }
+
+func TestResolveFallthrough(t *testing.T) {
+	p, err := compilePackage("_test/labels/src/ok", []string{"fallthrough.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	F := p.Find("F").(*ast.FuncDecl)
+	f := F.Func.FindLabel("f").Stmt.(*ast.FallthroughStmt)
+	s := F.Func.Blk.Body[0].(*ast.ExprSwitchStmt)
+	if f.Dst != s.Cases[1].Blk {
+		t.Error("the destination of the `fallthrough` must be the second case")
+	}
+
+	expectError(t, "_test/labels/src/err", []string{"fall-1.go"}, "misplaced fallthrough")
+	expectError(t, "_test/labels/src/err", []string{"fall-2.go"}, "misplaced fallthrough")
+	expectError(t, "_test/labels/src/err", []string{"fall-3.go"}, "misplaced fallthrough")
+	expectError(t, "_test/labels/src/err", []string{"fall-4.go"},
+		"cannot fallthrough the last case")
+}

@@ -16,10 +16,11 @@ import (
 // d) a labeled break or continue statement refers to a label, which is that of
 //    an enclosing `for`, `switch`, or `select` statement
 type jumpResolver struct {
-	fn    *ast.Func       // Function body being checked
-	blk   *ast.Block      // Current block
-	outer ast.Stmt        // Enclosing `for`, `switch`, or `select` statement
-	gotos []*ast.GotoStmt // Pending "forward" gotos
+	fn      *ast.Func       // Function body being checked
+	blk     *ast.Block      // Current block
+	outer   ast.Stmt        // Enclosing `for`, `switch`, or `select` statement
+	gotos   []*ast.GotoStmt // Pending "forward" gotos
+	through bool            // `fallthrough` statement allowed
 }
 
 // Checks if scope INNER is the same or nested in scope OUTER.
@@ -32,13 +33,23 @@ func isNested(inner ast.Scope, outer ast.Scope) bool {
 	return false
 }
 
-func (ck *jumpResolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
+// Traverses a block. The SW parameter is true if this is the StatementList
+// from an expressiopn switch statement.
+func (ck *jumpResolver) visitStatementList(s *ast.Block, sw bool) error {
 	b := ck.blk
 	ck.blk = s
 	defer func() { ck.blk = b }()
-	for i := range s.Body {
-		if _, err := s.Body[i].TraverseStmt(ck); err != nil {
-			return nil, err
+	if n := len(s.Body); n > 0 {
+		for i := 0; i < n-1; i++ {
+			if _, err := s.Body[i].TraverseStmt(ck); err != nil {
+				return err
+			}
+		}
+		ck.through = sw
+		_, err := s.Body[n-1].TraverseStmt(ck)
+		ck.through = false
+		if err != nil {
+			return err
 		}
 	}
 	// Process the pending gotos list: select `goto` statements with destination
@@ -58,11 +69,15 @@ func (ck *jumpResolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
 				continue
 			}
 			if g.Off < v.Off && v.Off < l.Off {
-				return nil, errors.New("goto jumps into the scope of " + v.Name)
+				return errors.New("goto jumps into the scope of " + v.Name)
 			}
 		}
 	}
-	return nil, nil
+	return nil
+}
+
+func (ck *jumpResolver) VisitBlock(s *ast.Block) (ast.Stmt, error) {
+	return nil, ck.visitStatementList(s, false)
 }
 
 func (ck *jumpResolver) VisitBreakStmt(s *ast.BreakStmt) (ast.Stmt, error) {
@@ -172,9 +187,20 @@ func (ck *jumpResolver) VisitExprSwitchStmt(s *ast.ExprSwitchStmt) (ast.Stmt, er
 	o := ck.outer
 	ck.outer = s
 	defer func() { ck.outer = o }()
-	for _, c := range s.Cases {
-		if _, err := c.Blk.TraverseStmt(ck); err != nil {
-			return nil, err
+	if n := len(s.Cases); n > 0 {
+		for i := 0; i < n; i++ {
+			c := &s.Cases[i]
+			if err := ck.visitStatementList(c.Blk, true); err != nil {
+				return nil, err
+			}
+			if m := len(c.Blk.Body); m > 0 {
+				if f, ok := c.Blk.Body[m-1].(*ast.FallthroughStmt); ok {
+					if i == n-1 {
+						return nil, errors.New("cannot fallthrough the last case")
+					}
+					f.Dst = s.Cases[i+1].Blk
+				}
+			}
 		}
 	}
 	return nil, nil
@@ -249,7 +275,10 @@ func (*jumpResolver) VisitGoStmt(s *ast.GoStmt) (ast.Stmt, error) {
 	return nil, nil
 }
 
-func (*jumpResolver) VisitFallthroughStmt(*ast.FallthroughStmt) (ast.Stmt, error) {
+func (ck *jumpResolver) VisitFallthroughStmt(s *ast.FallthroughStmt) (ast.Stmt, error) {
+	if !ck.through {
+		return nil, errors.New("misplaced fallthrough statement")
+	}
 	return nil, nil
 }
 
