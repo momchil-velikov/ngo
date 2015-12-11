@@ -517,6 +517,7 @@ func TestWriteVarDecl(t *testing.T) {
 			_VAR_DECL,
 			0, 0, // file, off
 			0, // name
+			0, // type
 		},
 	)
 
@@ -581,6 +582,7 @@ func TestWriteConstDecl(t *testing.T) {
 			_CONST_DECL,
 			0, 0, // file, off
 			0, // name
+			0, // type
 		},
 	)
 

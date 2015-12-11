@@ -215,6 +215,9 @@ const (
 )
 
 func writeType(enc *Encoder, pkg *ast.Package, t ast.Type) error {
+	if t == nil {
+		return enc.WriteByte(_NIL)
+	}
 	switch t := t.(type) {
 	case *ast.BuiltinType:
 		return writeBuiltinType(enc, t.Kind)
@@ -267,8 +270,9 @@ func writeType(enc *Encoder, pkg *ast.Package, t ast.Type) error {
 		return writeFuncType(enc, pkg, t)
 	case *ast.InterfaceType:
 		return writeIfaceType(enc, pkg, t)
+	default:
+		panic("not reached")
 	}
-	return nil
 }
 
 func writeBuiltinType(enc *Encoder, k int) error {
