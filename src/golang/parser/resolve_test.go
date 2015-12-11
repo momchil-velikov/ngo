@@ -2378,3 +2378,36 @@ func TestResolveFallthrough(t *testing.T) {
 	expectError(t, "_test/labels/src/err", []string{"fall-4.go"},
 		"cannot fallthrough the last case")
 }
+
+func TestResolveIndirectImport(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pkg, err := compilePackage("_test/indirect-import/src/a", []string{"a.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgA, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["a"] = pkgA
+
+	pkg, err = compilePackage("_test/indirect-import/src/b", []string{"b.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgB, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["b"] = pkgB
+
+	pkg, err = compilePackage("_test/indirect-import/src/c", []string{"c.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgC, err := reloadPackage(pkg, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["c"] = pkgC
+}
