@@ -831,11 +831,11 @@ func checkVarDeclared(t *testing.T, s ast.Scope, ns []string) (map[string]*ast.V
 }
 
 func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
-	// Check A and B have no initializer
-	if v["A"].Init != nil {
+	// Check A and B have an initializer with an empty RHS.
+	if v["A"].Init != nil && len(v["A"].Init.RHS) > 0 {
 		t.Error("`A` must be zero initialized")
 	}
-	if v["B"].Init != nil {
+	if v["B"].Init != nil && len(v["B"].Init.RHS) > 0 {
 		t.Error("`B` must be zero initialized")
 	}
 

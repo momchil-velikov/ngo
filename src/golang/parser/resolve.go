@@ -1086,15 +1086,16 @@ func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
 		s.Init[i] = x
 	}
 
-	var init *ast.AssignStmt
-	if len(s.Init) > 0 {
-		init = &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
-		s.Init = nil
-		for i, v := range s.Names {
-			init.LHS[i] = v
-			v.Init = init
-		}
+	// Even if there are not initialization expressions, create the assignment
+	// statement. The RHS side being empty means zero-initialization of the
+	// variables.
+	init := &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
+	s.Init = nil
+	for i, v := range s.Names {
+		init.LHS[i] = v
+		v.Init = init
 	}
+
 	for _, v := range s.Names {
 		if v.Name == "_" {
 			continue
