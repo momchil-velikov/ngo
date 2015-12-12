@@ -353,6 +353,7 @@ func (r *T) g() {}
 func (*T) h( a, b uint) bool
 func (r *T) i( a, b uint) (r0 []*X, r1 bool) {
 }
+func (r (*(T)),) f()
 `
 	exp := `package foo
 
@@ -364,6 +365,7 @@ func (r T) f()
 func (r *T) g() {}
 func (*T) h(a, b uint) bool
 func (r *T) i(a, b uint) (r0 []*X, r1 bool) {}
+func (r *T) f()
 `
 	t, e := Parse("func-decl.go", src)
 	if e != nil {

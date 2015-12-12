@@ -641,6 +641,7 @@ func (p *parser) parseSignature() *ast.FuncType {
 
 // Parameters    = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList = ParameterDecl { "," ParameterDecl } .
+// ParameterDecl = [ IdentifierList ] [ "..." ] Type .
 func (p *parser) parseParameters() ([]ast.Param, bool) {
 	var ns, ps []ast.Param
 	variadic := false
@@ -865,34 +866,42 @@ func (p *parser) parseFuncDecl() ast.Decl {
 	return fn
 }
 
-// Receiver     = "(" [ identifier ] [ "*" ] BaseTypeName ")" .
-// BaseTypeName = identifier .
+// Receiver = Parameters .
+// Instead of the above production from the Go Language Specification
+// we parse the receiver as
+// Receiver  = "(" [identifier] Type [","] ")"
 func (p *parser) parseReceiver() *ast.Param {
-	var (
-		name string
-		off  int
-	)
-	p.match('(')
+	off := p.match('(')
+	var name *ast.QualifiedId
 	if p.token == scanner.ID {
-		name, off = p.matchString(scanner.ID)
+		name = p.parseQualifiedId()
 	}
-
-	var t ast.Type
-	if p.token == '*' {
-		t = &ast.PtrType{Off: p.next(), Base: p.parseQualifiedId()}
-	} else if p.token == scanner.ID {
-		t = p.parseQualifiedId()
-	} else {
-		if len(name) == 0 {
+	switch p.token {
+	case ',':
+		p.next()
+		fallthrough
+	case ')':
+		p.match(')')
+		if name == nil {
 			p.error("missing receiver type")
-			t = &ast.Error{p.scan.TOff}
-		} else {
-			t = &ast.QualifiedId{Off: off, Id: name}
-			name = ""
+			return &ast.Param{Type: &ast.Error{Off: off}}
 		}
+		return &ast.Param{Type: name}
+	}
+	var id string
+	if name != nil {
+		if len(name.Pkg) > 0 {
+			p.error("receiver name cannot be qualified")
+		}
+		off = name.Off
+		id = name.Id
+	}
+	t := p.parseType()
+	if p.token == ',' {
+		p.next()
 	}
 	p.sync2(')', ';')
-	return &ast.Param{Off: off, Name: name, Type: t}
+	return &ast.Param{Off: off, Name: id, Type: t}
 }
 
 // ExpressionList = Expression { "," Expression } .
