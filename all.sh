@@ -14,5 +14,4 @@ parsefilt
 pkgdep
 "
 
-go test ${PKGS}
-go install ${PROGS}
+go test ${PKGS} && go install ${PROGS}
