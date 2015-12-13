@@ -1136,12 +1136,11 @@ func (p *parser) parseTypeAssertion(x ast.Expr) ast.Expr {
 // PrimaryExpr =
 //     Operand |
 //     Conversion |
-//     BuiltinCall |
 //     PrimaryExpr Selector |
 //     PrimaryExpr Index |
 //     PrimaryExpr Slice |
 //     PrimaryExpr TypeAssertion |
-//     PrimaryExpr Call .
+//     PrimaryExpr Arguments .
 
 func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 	// defer p.trace("PrimaryExprOrType", s.TokenNames[p.token])()
@@ -1150,15 +1149,15 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		x ast.Expr
 		t ast.Type
 	)
-	// Handle initial Operand, Conversion or a BuiltinCall
+	// Handle initial Operand or Conversion
 	switch p.token {
-	case scanner.ID: // CompositeLit, MethodExpr, Conversion, BuiltinCall, OperandName
+	case scanner.ID: // CompositeLit, MethodExpr, Conversion, OperandName
 		name, off := p.matchString(scanner.ID)
 		id := &ast.QualifiedId{Off: off, Id: name}
 		if p.token == '{' && p.brackets > 0 {
 			x = p.parseCompositeLiteral(id)
 		} else if p.token == '(' {
-			x = p.parseCall(id)
+			x = p.parseArguments(id)
 		} else if p.token == '.' {
 			p.next()
 			if p.token == '(' {
@@ -1249,8 +1248,8 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 			// PrimaryExpr Slice
 			x = p.parseIndexOrSlice(x)
 		case '(':
-			// PrimaryExpr Call
-			x = p.parseCall(x)
+			// PrimaryExpr Arguments
+			x = p.parseArguments(x)
 		default:
 			if p.token == '{' && p.brackets > 0 {
 				// Composite literal
@@ -1336,11 +1335,9 @@ func (p *parser) parseConversion(t ast.Type) ast.Expr {
 	return &ast.Conversion{Type: t, X: x}
 }
 
-// Call           = "(" [ ArgumentList [ "," ] ] ")" .
-// ArgumentList   = ExpressionList [ "..." ] .
-// BuiltinCall = identifier "(" [ BuiltinArgs [ "," ] ] ")" .
-// BuiltinArgs = Type [ "," ArgumentList ] | ArgumentList .
-func (p *parser) parseCall(f ast.Expr) ast.Expr {
+// Arguments =
+//    "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
+func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 	p.match('(')
 	p.beginBrackets()
 	defer p.endBrackets()
