@@ -376,6 +376,8 @@ func TestResolveConstructedType(t *testing.T) {
 	if mG.Returns[0].Type != y {
 		t.Error("return of method `IfB.G` is not of type `y`")
 	}
+
+	expectError(t, "_test/typedecl/src/errors", []string{"iface.go"}, "blank method")
 }
 
 func TestResolveFuncTypeError(t *testing.T) {

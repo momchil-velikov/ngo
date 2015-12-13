@@ -590,6 +590,9 @@ func (r *resolver) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
 func (r *resolver) VisitInterfaceType(t *ast.InterfaceType) (ast.Type, error) {
 	for i := range t.Methods {
 		m := &t.Methods[i]
+		if m.Name == "_" {
+			return nil, errors.New("blank method name is not allowed")
+		}
 		typ, err := r.resolveType(m.Type)
 		if err != nil {
 			return nil, err
