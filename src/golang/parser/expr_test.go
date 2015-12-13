@@ -254,8 +254,14 @@ var (
     u = [...]Point{{1.5, -3.5}, {0, 0}}
     v1 = [][]int{{1, 2, 3}, {4, 5}}
     v2 = [][]int{[]int{1, 2, 3}, []int{4, 5}}
+    p1 = [][]Point{{{0, 1}, {1, 2}}}
+    p2 = [][]Point{[]Point{Point{0, 1}, Point{1, 2}}}
+    m1 = map[string]Point{"orig": {0, 0}}
+    m2 = map[string]Point{"orig": Point{0, 0}}
     w1 = [...]*Point{{1.5, -3.5}, {0, 0}}
     w1 = [...]*Point{&Point{1.5, -3.5}, &Point{0, 0}}
+    m3 = map[Point]string{{0, 0}: "orig"}
+    m4 = map[Point]string{Point{0, 0}: "orig"}
 )
 `
 	exp := `package foo
@@ -277,8 +283,14 @@ var (
     u = [...]Point{{1.5, -3.5}, {0, 0}}
     v1 = [][]int{{1, 2, 3}, {4, 5}}
     v2 = [][]int{[]int{1, 2, 3}, []int{4, 5}}
+    p1 = [][]Point{{{0, 1}, {1, 2}}}
+    p2 = [][]Point{[]Point{Point{0, 1}, Point{1, 2}}}
+    m1 = map[string]Point{"orig": {0, 0}}
+    m2 = map[string]Point{"orig": Point{0, 0}}
     w1 = [...]*Point{{1.5, -3.5}, {0, 0}}
     w1 = [...]*Point{&Point{1.5, -3.5}, &Point{0, 0}}
+    m3 = map[Point]string{{0, 0}: "orig"}
+    m4 = map[Point]string{Point{0, 0}: "orig"}
 )
 `
 	t, e := Parse("comp-literal.go", src)

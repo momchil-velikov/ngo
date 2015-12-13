@@ -1299,26 +1299,27 @@ func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 }
 
 // Element       = [ Key ":" ] Value .
-// Key           = FieldName | ElementIndex .
+// Key           = FieldName | Expression | LiteralValue .
 // FieldName     = identifier .
-// ElementIndex  = Expression .
 // Value         = Expression | LiteralValue .
 func (p *parser) parseElement() *ast.Element {
 	var k ast.Expr
-	if p.token != '{' {
-		k = p.parseExpr()
-		if p.token != ':' {
-			return &ast.Element{Value: k}
-		}
-		p.match(':')
-	}
 	if p.token == '{' {
-		elts := p.parseLiteralValue()
-		e := &ast.CompLiteral{Elts: elts}
-		return &ast.Element{Key: k, Value: e}
+		k = &ast.CompLiteral{Elts: p.parseLiteralValue()}
 	} else {
-		e := p.parseExpr()
-		return &ast.Element{Key: k, Value: e}
+		k = p.parseExpr()
+	}
+	if p.token != ':' {
+		return &ast.Element{Value: k}
+	}
+	p.match(':')
+	if p.token == '{' {
+		return &ast.Element{
+			Key:   k,
+			Value: &ast.CompLiteral{Elts: p.parseLiteralValue()},
+		}
+	} else {
+		return &ast.Element{Key: k, Value: p.parseExpr()}
 	}
 }
 
