@@ -786,11 +786,11 @@ func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 	x.Type = typ
 
 	for _, e := range x.Elts {
-		v, err := r.resolveExpr(e.Value)
+		v, err := r.resolveExpr(e.Elt)
 		if err != nil {
 			return nil, err
 		}
-		e.Value = v
+		e.Elt = v
 	}
 
 	// For struct types, do not resolve key expressions: they should be field

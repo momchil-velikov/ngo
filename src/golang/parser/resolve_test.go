@@ -439,10 +439,10 @@ func TestResolveExprComposite(t *testing.T) {
 	if elt != ast.UniverseScope.Find("int") {
 		t.Error("`C`s initializer type must be `[]int`")
 	}
-	if x.Elts[0].Value.(*ast.Var) != A {
+	if x.Elts[0].Elt.(*ast.Var) != A {
 		t.Error("first element in the slice literal must be `A`")
 	}
-	if x.Elts[1].Value.(*ast.Var) != B {
+	if x.Elts[1].Elt.(*ast.Var) != B {
 		t.Error("first element in the slice literal must be `B`")
 	}
 
@@ -451,7 +451,7 @@ func TestResolveExprComposite(t *testing.T) {
 	if x.Elts[0].Key.(*ast.Var) != A {
 		t.Error("key in the map literal must be `A`")
 	}
-	if x.Elts[0].Value.(*ast.Var) != B {
+	if x.Elts[0].Elt.(*ast.Var) != B {
 		t.Error("value in the map literal must be `B`")
 	}
 
@@ -462,7 +462,7 @@ func TestResolveExprComposite(t *testing.T) {
 	} else if id.Id != "A" {
 		t.Errorf("unexpected fied name `%s`, must be `A`\n", id.Id)
 	}
-	if x.Elts[0].Value.(*ast.Var) != A {
+	if x.Elts[0].Elt.(*ast.Var) != A {
 		t.Error("initializer of fieeld `A` must be variable `A`")
 	}
 	if id, ok := x.Elts[1].Key.(*ast.QualifiedId); !ok {
@@ -470,7 +470,7 @@ func TestResolveExprComposite(t *testing.T) {
 	} else if id.Id != "B" {
 		t.Errorf("unexpected fied name `%s`, must be `B`\n", id.Id)
 	}
-	if x.Elts[1].Value.(*ast.Var) != B {
+	if x.Elts[1].Elt.(*ast.Var) != B {
 		t.Error("initializer of fieeld `B` must be variable `B`")
 	}
 }

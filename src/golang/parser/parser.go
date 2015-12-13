@@ -1283,12 +1283,12 @@ func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
 }
 
 // LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
-// ElementList   = Element { "," Element } .
-func (p *parser) parseLiteralValue() (elts []*ast.Element) {
+// ElementList   = KeyedElement { "," KeyedElement } .
+func (p *parser) parseLiteralValue() (elts []*ast.KeyedElement) {
 	p.match('{')
 	p.beginBrackets()
 	for p.token != scanner.EOF && p.token != '}' {
-		elts = append(elts, p.parseElement())
+		elts = append(elts, p.parseKeyedElement())
 		if p.token != '}' {
 			p.sync2(',', '}')
 		}
@@ -1298,11 +1298,11 @@ func (p *parser) parseLiteralValue() (elts []*ast.Element) {
 	return elts
 }
 
-// Element       = [ Key ":" ] Value .
+// KeyedElement  = [ Key ":" ] Element .
 // Key           = FieldName | Expression | LiteralValue .
 // FieldName     = identifier .
-// Value         = Expression | LiteralValue .
-func (p *parser) parseElement() *ast.Element {
+// Element       = Expression | LiteralValue .
+func (p *parser) parseKeyedElement() *ast.KeyedElement {
 	var k ast.Expr
 	if p.token == '{' {
 		k = &ast.CompLiteral{Elts: p.parseLiteralValue()}
@@ -1310,16 +1310,16 @@ func (p *parser) parseElement() *ast.Element {
 		k = p.parseExpr()
 	}
 	if p.token != ':' {
-		return &ast.Element{Value: k}
+		return &ast.KeyedElement{Elt: k}
 	}
 	p.match(':')
 	if p.token == '{' {
-		return &ast.Element{
-			Key:   k,
-			Value: &ast.CompLiteral{Elts: p.parseLiteralValue()},
+		return &ast.KeyedElement{
+			Key: k,
+			Elt: &ast.CompLiteral{Elts: p.parseLiteralValue()},
 		}
 	} else {
-		return &ast.Element{Key: k, Value: p.parseExpr()}
+		return &ast.KeyedElement{Key: k, Elt: p.parseExpr()}
 	}
 }
 

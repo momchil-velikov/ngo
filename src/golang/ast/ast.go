@@ -282,14 +282,14 @@ type Literal struct {
 	Value []byte
 }
 
-type Element struct {
-	Key   Expr
-	Value Expr
+type KeyedElement struct {
+	Key Expr
+	Elt Expr
 }
 
 type CompLiteral struct {
 	Type Type
-	Elts []*Element
+	Elts []*KeyedElement
 }
 
 type Call struct {

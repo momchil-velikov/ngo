@@ -574,12 +574,12 @@ func (e *CompLiteral) Format(ctx *FormatContext, n uint) {
 	ctx.WriteString("}")
 }
 
-func (e *Element) format(ctx *FormatContext) {
+func (e *KeyedElement) format(ctx *FormatContext) {
 	if e.Key != nil {
 		e.Key.Format(ctx, 0)
 		ctx.WriteString(": ")
 	}
-	e.Value.Format(ctx, 0)
+	e.Elt.Format(ctx, 0)
 }
 
 func (e *Conversion) Format(ctx *FormatContext, n uint) {
