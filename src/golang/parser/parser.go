@@ -437,7 +437,7 @@ func (p *parser) parseType() ast.Type {
 		t := p.parseType()
 		return &ast.MapType{Off: off, Key: k, Elt: t}
 
-	// ChannelType = ( "chan" [ "<-" ] | "<-" "chan" ) ElementType .
+	// ChannelType = ( "chan" | "chan" "<-" | "<-" "chan" ) ElementType .
 	case scanner.RECV:
 		off := p.next()
 		p.match(scanner.CHAN)
@@ -941,7 +941,7 @@ func (p *parser) parseExpr() ast.Expr {
 	return &ast.Error{p.scan.TOff}
 }
 
-// Expression = UnaryExpr | Expression binary_op UnaryExpr .
+// Expression = UnaryExpr | Expression binary_op Expression.
 // `Expression` from the Go Specification is replaced by the following
 // ``xxxExpr` productions.
 
@@ -1470,9 +1470,6 @@ func (p *parser) syncEndStatement() {
 //     GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
 //     FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
 //     DeferStmt .
-// SimpleStmt =
-//     EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment |
-//     ShortVarDecl .
 func (p *parser) parseStmt() ast.Stmt {
 	//	defer p.trace("Statement")()
 
@@ -1935,6 +1932,7 @@ func (p *parser) parseDeferStmt() ast.Stmt {
 // SimpleStmt =
 //     EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment |
 //     ShortVarDecl .
+// ExpressionStmt = Expression .
 func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	switch p.token {
 	case scanner.RECV:
