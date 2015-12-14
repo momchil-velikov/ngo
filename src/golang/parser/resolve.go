@@ -342,13 +342,13 @@ func (r *resolver) resolvePkgVar(d *ast.VarDecl) error {
 }
 
 func (r *resolver) declareFunc(fn *ast.FuncDecl, file *ast.File) error {
+	fn.File = file
 	if fn.Name == "_" {
 		return nil
 	}
 	if fn.Func.Recv != nil {
 		return nil
 	}
-	fn.File = file
 	return r.scope.Declare(fn.Name, fn)
 }
 
@@ -366,13 +366,82 @@ func (r *resolver) declareParams(ps []ast.Param) error {
 	return nil
 }
 
+// Checks if TYP is of the form `T` or `*T` where `T`, the receiver base type,
+// is a (unqualified) TypeName, declared in this package. The type `T` must
+// also not be a pointer or an interface type. Returns `T` or an error.
+// cf. https://golang.org/ref/spec#Method_declarations
+func (r *resolver) isReceiverType(typ ast.Type) (*ast.TypeDecl, error) {
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		typ = ptr.Base
+	}
+	d, ok := typ.(*ast.TypeDecl)
+	if !ok {
+		return nil, errors.New("invalid receiver type (is an unnamed type)")
+	}
+	if d.File == nil || r.scope.Package() != d.File.Pkg {
+		return nil, errors.New(
+			"receiver type and method must be declared in the same package")
+	}
+	return d, nil
+}
+
+// Returns the first type literal in a possibly empty chain of TypeNames.
+func unnamedType(dcl *ast.TypeDecl) ast.Type {
+	typ := dcl.Type
+	for t, ok := typ.(*ast.TypeDecl); ok; t, ok = typ.(*ast.TypeDecl) {
+		typ = t.Type
+	}
+	return typ
+}
+
+// Checks that a method name is unique in the method set of DCL and, if DCL is
+// a TypeName of a struct type, among the field names.
+func isUniqueMethod(name string, dcl *ast.TypeDecl) error {
+	for _, fn := range dcl.Methods {
+		if name == fn.Name {
+			return errors.New("duplicate method name")
+		}
+	}
+	for _, fn := range dcl.PMethods {
+		if name == fn.Name {
+			return errors.New("duplicate method name")
+		}
+	}
+	if s := checkStructType(dcl); s != nil {
+		for i := range s.Fields {
+			if name == fieldName(&s.Fields[i]) {
+				return errors.New("type has both field and method named " + name)
+			}
+		}
+	}
+	return nil
+}
+
 func (r *resolver) resolveFunc(fn *ast.Func) error {
 	if rcv := fn.Recv; rcv != nil {
 		typ, err := r.resolveType(rcv.Type)
 		if err != nil {
 			return err
 		}
+		base, err := r.isReceiverType(typ)
+		if err != nil {
+			return err
+		}
+		switch unnamedType(base).(type) {
+		case *ast.PtrType:
+			return errors.New("receiver base type cannot be a pointer")
+		case *ast.InterfaceType:
+			return errors.New("receiver base type cannot be an interface")
+		}
+		if err := isUniqueMethod(fn.Decl.Name, base); err != nil {
+			return err
+		}
 		rcv.Type = typ
+		if typ == base {
+			base.Methods = append(base.Methods, fn.Decl)
+		} else {
+			base.PMethods = append(base.PMethods, fn.Decl)
+		}
 	}
 	typ, err := r.resolveType(fn.Sig)
 	if err != nil {
@@ -403,7 +472,7 @@ func (r *resolver) resolveFunc(fn *ast.Func) error {
 		return err
 	}
 	fn.Blk = blk
-	// Now check the goto, break and continute statement destinations
+	// Now check the goto, break and continue statement destinations
 	ck := jumpResolver{fn: fn}
 	_, err = ck.VisitBlock(fn.Blk)
 	return err
@@ -604,15 +673,15 @@ func (r *resolver) VisitInterfaceType(t *ast.InterfaceType) (ast.Type, error) {
 
 // Checks if the given type refers (possibly via several typenames) to a
 // struct type.
-func isStructType(typ ast.Type) bool {
+func checkStructType(typ ast.Type) *ast.StructType {
 	for {
 		switch t := typ.(type) {
 		case *ast.TypeDecl:
 			typ = t.Type
 		case *ast.StructType:
-			return true
+			return t
 		default:
-			return false
+			return nil
 		}
 	}
 }
@@ -798,7 +867,7 @@ func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 
 	// For struct types, do not resolve key expressions: they should be field
 	// names.
-	if isStructType(x.Type) {
+	if checkStructType(x.Type) != nil {
 		return x, nil
 	}
 

@@ -185,10 +185,12 @@ type Ident struct {
 }
 
 type TypeDecl struct {
-	Off  int
-	File *File
-	Name string
-	Type Type
+	Off      int
+	File     *File
+	Name     string
+	Type     Type
+	Methods  []*FuncDecl
+	PMethods []*FuncDecl
 }
 
 type TypeDeclGroup struct {

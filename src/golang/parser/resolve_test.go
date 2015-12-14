@@ -2413,3 +2413,60 @@ func TestResolveIndirectImport(t *testing.T) {
 	}
 	loc.pkgs["c"] = pkgC
 }
+
+func TestResolveMethodDecl(t *testing.T) {
+	p, err := compilePackage("_test/methods/src/ok", []string{"method.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	A := p.Find("A").(*ast.TypeDecl)
+	if len(A.Methods) != 1 || A.Methods[0].Name != "F" {
+		t.Error("`F` must be in the methiods set of `A`")
+	}
+	if len(A.PMethods) != 1 || A.PMethods[0].Name != "G" {
+		t.Error("`G` must be in the methiods set of `*A`")
+	}
+
+	_, err = compilePackage("_test/methods/src/ok", []string{"uniq-1.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = compilePackage("_test/methods/src/ok", []string{"uniq-2.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectError(t, "_test/methods/src/err", []string{"bad-type-1.go"},
+		"invalid receiver type (is an unnamed type)")
+	expectError(t, "_test/methods/src/err", []string{"bad-type-2.go"},
+		"type and method must be declared in the same package")
+
+	pkgA, err := compilePackage("_test/methods/src/err/a", []string{"bad-type-3.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	loc.pkgs["a"] = pkgA
+	expectErrorWithLoc(t, "_test/methods/src/err/b", []string{"bad-type-4.go"}, loc,
+		"type and method must be declared in the same package")
+
+	expectError(t, "_test/methods/src/err", []string{"bad-type-5.go"}, "not declared")
+	expectError(t, "_test/methods/src/err", []string{"bad-type-6.go"},
+		"cannot be a pointer")
+	expectError(t, "_test/methods/src/err", []string{"bad-type-7.go"},
+		"cannot be an interface")
+	expectError(t, "_test/methods/src/err", []string{"uniq-1.go"},
+		"duplicate method name")
+	expectError(t, "_test/methods/src/err", []string{"uniq-2.go"},
+		"duplicate method name")
+	expectError(t, "_test/methods/src/err", []string{"uniq-3.go"},
+		"both field and method named")
+	expectError(t, "_test/methods/src/err", []string{"uniq-4.go"},
+		"both field and method named")
+	expectError(t, "_test/methods/src/err", []string{"uniq-5.go"},
+		"both field and method named")
+	expectError(t, "_test/methods/src/err", []string{"uniq-6.go"},
+		"both field and method named")
+	expectError(t, "_test/methods/src/err", []string{"uniq-7.go"},
+		"both field and method named")
+}
