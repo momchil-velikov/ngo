@@ -390,13 +390,6 @@ func TestWriteTypename(t *testing.T) {
 			t.Error("expecting BadFile error")
 		}
 	})
-	buf[7] = 1
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkgA)
-		if err == nil || err != BadFile {
-			t.Error("expecting BadFile error")
-		}
-	})
 	buf[7] = 0
 
 	buf[4] = 'B'
@@ -412,7 +405,7 @@ func TestWriteTypename(t *testing.T) {
 		t.Error("wrong declaration type: expecting TypeDecl")
 	} else if dcl.Name != "B" || dcl.Off != 13 || dcl.File != pkgA.Files[0] ||
 		!reflect.DeepEqual(dcl.Type, typA.Type) {
-		t.Error("declaration differ")
+		t.Error("declaration differ:", dcl.Name, dcl.Off, dcl.File)
 	}
 
 	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgA, typA) })
@@ -505,6 +498,119 @@ func TestWriteTypeDecl(t *testing.T) {
 		t.Error("incorrect declaration type; expected TypeDecl")
 	} else if !reflect.DeepEqual(d, dd) {
 		t.Error("declarations not equal")
+	}
+}
+
+func TestWriteTypeDecl1(t *testing.T) {
+	pkg := &ast.Package{
+		Name:  "pkg",
+		Decls: make(map[string]ast.Symbol),
+	}
+	file := &ast.File{
+		Pkg:   pkg,
+		Name:  "pkg.go",
+		Decls: make(map[string]ast.Symbol),
+	}
+	pkg.Files = append(pkg.Files, file)
+
+	Z := &ast.TypeDecl{
+		File: file,
+		Name: "Z",
+		Type: ast.BuiltinInt,
+	}
+
+	F := &ast.FuncDecl{
+		File: file,
+		Name: "F",
+		Func: ast.Func{
+			Recv: &ast.Param{Type: Z},
+			Sig:  &ast.FuncType{},
+			Up:   file,
+		},
+	}
+	F.Func.Decl = F
+	pkg.Declare("Z", Z)
+	pkg.Declare("F", F)
+
+	buf := bytes.Buffer{}
+	if err := Write(&buf, pkg); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Read(bytes.NewReader(buf.Bytes()), nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestWriteTypeDecl2(t *testing.T) {
+	pkg := &ast.Package{
+		Name:  "pkg",
+		Decls: make(map[string]ast.Symbol),
+	}
+	file := &ast.File{
+		Pkg:   pkg,
+		Name:  "pkg.go",
+		Decls: make(map[string]ast.Symbol),
+	}
+	pkg.Files = append(pkg.Files, file)
+
+	Z := &ast.TypeDecl{
+		File: file,
+		Name: "Z",
+		Type: ast.BuiltinInt,
+	}
+
+	S := &ast.TypeDecl{
+		File: file,
+		Name: "S",
+		Type: &ast.StructType{
+			Fields: []ast.Field{
+				{Name: "x", Type: Z},
+			},
+		},
+	}
+	pkg.Declare(Z.Name, Z)
+	pkg.Declare(S.Name, S)
+
+	buf := bytes.Buffer{}
+	if err := Write(&buf, pkg); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Read(bytes.NewReader(buf.Bytes()), nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestWriteTypeDecl3(t *testing.T) {
+	pkg := &ast.Package{
+		Name:  "pkg",
+		Decls: make(map[string]ast.Symbol),
+	}
+	file := &ast.File{
+		Pkg:   pkg,
+		Name:  "pkg.go",
+		Decls: make(map[string]ast.Symbol),
+	}
+	pkg.Files = append(pkg.Files, file)
+
+	str := &ast.StructType{
+		Fields: []ast.Field{
+			{Name: "x"},
+		},
+	}
+
+	S := &ast.TypeDecl{File: file, Name: "S", Type: str}
+	str.Fields[0].Type = S
+	pkg.Declare(S.Name, S)
+
+	buf := bytes.Buffer{}
+	if err := Write(&buf, pkg); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Read(bytes.NewReader(buf.Bytes()), nil)
+	if err != nil {
+		t.Error(err)
 	}
 }
 

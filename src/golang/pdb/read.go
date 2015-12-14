@@ -180,8 +180,18 @@ func readDecl(dec *Decoder, pkg *ast.Package) (bool, error) {
 		f.Func.Decl = f
 		pkg.Decls[name] = f
 	case _TYPE_DECL:
-		t := &ast.TypeDecl{Off: off, File: file, Name: name, Type: typ}
-		pkg.Decls[name] = t
+		var t *ast.TypeDecl
+		// Check if the type declaration was created by an earlier encounter
+		// with its type name.
+		if sym, ok := pkg.Decls[name]; !ok {
+			t = &ast.TypeDecl{}
+			pkg.Decls[name] = t
+		} else if td, ok := sym.(*ast.TypeDecl); !ok {
+			return false, BadFile
+		} else {
+			t = td
+		}
+		*t = ast.TypeDecl{Off: off, File: file, Name: name, Type: typ}
 	default:
 		return false, BadFile
 	}
@@ -322,7 +332,15 @@ func readTypename(dec *Decoder, pkg *ast.Package) (*ast.TypeDecl, error) {
 	}
 	s := findScopeByNo(pkg, int(n))
 	if sym := s.Find(name); sym == nil {
-		return nil, BadFile
+		if int(n) != 1 {
+			return nil, BadFile
+		}
+		// In the current package, if the type declaration is not found,
+		// create it. This allows a type name to refer to a type declaration
+		// that is not yet read.
+		dcl := &ast.TypeDecl{Name: name}
+		pkg.Decls[name] = dcl
+		return dcl, nil
 	} else if dcl, ok := sym.(*ast.TypeDecl); !ok {
 		return nil, BadFile
 	} else {
