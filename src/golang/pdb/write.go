@@ -28,7 +28,7 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 		return err
 	}
 
-	// Dependencies; note that they are maintained sorted.
+	// Dependencies
 	if err := w.WriteNum(uint64(len(pkg.Deps))); err != nil {
 		return err
 	}
@@ -42,17 +42,10 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 	}
 
 	// Source files
-	ss := make([]sort.StringKey, len(pkg.Files))
-	ss = ss[:0]
-	for _, f := range pkg.Files {
-		ss = append(ss, sort.StringKey{Key: f.Name, Value: f})
-	}
-	sort.StringKeySlice(ss).Quicksort()
-	if err := w.WriteNum(uint64(len(ss))); err != nil {
+	if err := w.WriteNum(uint64(len(pkg.Files))); err != nil {
 		return err
 	}
-	for i := range ss {
-		f := ss[i].Value.(*ast.File)
+	for i, f := range pkg.Files {
 		f.No = i + 1
 		if err := w.writeFile(f); err != nil {
 			return err
@@ -60,6 +53,7 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 	}
 
 	// Declarations
+	ss := make([]sort.StringKey, len(pkg.Decls))
 	ss = ss[:0]
 	for n, d := range pkg.Decls {
 		if !d.IsExported() {
