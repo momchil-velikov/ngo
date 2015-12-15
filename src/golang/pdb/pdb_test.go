@@ -1138,6 +1138,10 @@ func TestWritePackage3(t *testing.T) {
 		},
 	)
 
+	if pkg.Files[0].No != 1 || pkg.Files[1].No != 2 {
+		t.Error("files must get sequential numbers during write")
+	}
+
 	keepDecoding(t, buf, func(r *Reader) error {
 		_, err := r.readPkg(loc)
 		return err
