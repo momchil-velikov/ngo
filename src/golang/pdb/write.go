@@ -8,19 +8,23 @@ import (
 
 const VERSION = 1
 
-func Write(w io.Writer, pkg *ast.Package) error {
-	enc := Encoder{}
-	enc.Init(w)
-	return writePkg(&enc, pkg)
+type Writer struct {
+	Encoder
 }
 
-func writePkg(enc *Encoder, pkg *ast.Package) error {
+func Write(w io.Writer, pkg *ast.Package) error {
+	wr := &Writer{}
+	wr.Encoder.Init(w)
+	return wr.writePkg(pkg)
+}
+
+func (w *Writer) writePkg(pkg *ast.Package) error {
 	// Version
-	if err := enc.WriteNum(VERSION); err != nil {
+	if err := w.WriteNum(VERSION); err != nil {
 		return err
 	}
 	// Package name
-	if err := enc.WriteString(pkg.Name); err != nil {
+	if err := w.WriteString(pkg.Name); err != nil {
 		return err
 	}
 
@@ -31,16 +35,16 @@ func writePkg(enc *Encoder, pkg *ast.Package) error {
 		ss = append(ss, sort.StringKey{Key: k, Value: v})
 	}
 	sort.StringKeySlice(ss).Quicksort()
-	if err := enc.WriteNum(uint64(len(ss))); err != nil {
+	if err := w.WriteNum(uint64(len(ss))); err != nil {
 		return err
 	}
 	for i, n := 0, len(ss); i < n; i++ {
-		if err := enc.WriteString(ss[i].Key); err != nil {
+		if err := w.WriteString(ss[i].Key); err != nil {
 			return err
 		}
 		imp := ss[i].Value.(*ast.Import)
 		imp.No = i + 2
-		if err := enc.WriteBytes(imp.Pkg.Sig[:]); err != nil {
+		if err := w.WriteBytes(imp.Pkg.Sig[:]); err != nil {
 			return err
 		}
 	}
@@ -51,13 +55,13 @@ func writePkg(enc *Encoder, pkg *ast.Package) error {
 		ss = append(ss, sort.StringKey{Key: f.Name, Value: f})
 	}
 	sort.StringKeySlice(ss).Quicksort()
-	if err := enc.WriteNum(uint64(len(ss))); err != nil {
+	if err := w.WriteNum(uint64(len(ss))); err != nil {
 		return err
 	}
 	for i := range ss {
 		f := ss[i].Value.(*ast.File)
 		f.No = i + 1
-		if err := writeFile(enc, f); err != nil {
+		if err := w.writeFile(f); err != nil {
 			return err
 		}
 	}
@@ -72,32 +76,32 @@ func writePkg(enc *Encoder, pkg *ast.Package) error {
 	}
 	sort.StringKeySlice(ss).Quicksort()
 	for i := range ss {
-		if err := writeDecl(enc, pkg, ss[i].Value.(ast.Symbol)); err != nil {
+		if err := w.writeDecl(pkg, ss[i].Value.(ast.Symbol)); err != nil {
 			return err
 		}
 	}
 
 	// End of declarations
-	if err := enc.WriteByte(_END); err != nil {
+	if err := w.WriteByte(_END); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeFile(enc *Encoder, file *ast.File) error {
+func (w *Writer) writeFile(file *ast.File) error {
 	// Output file name
-	if err := enc.WriteString(file.Name); err != nil {
+	if err := w.WriteString(file.Name); err != nil {
 		return err
 	}
 	// Output source map.
 	for i, n := 0, file.SrcMap.LineCount(); i < n; i++ {
 		_, len := file.SrcMap.LineExtent(i)
-		if err := enc.WriteNum(uint64(len)); err != nil {
+		if err := w.WriteNum(uint64(len)); err != nil {
 			return err
 		}
 	}
 	// Terminate source map with a zero.
-	if err := enc.WriteNum(0); err != nil {
+	if err := w.WriteNum(0); err != nil {
 		return err
 	}
 	return nil
@@ -111,7 +115,7 @@ const (
 	_TYPE_DECL
 )
 
-func writeDecl(enc *Encoder, pkg *ast.Package, d ast.Symbol) error {
+func (w *Writer) writeDecl(pkg *ast.Package, d ast.Symbol) error {
 	var (
 		k  byte
 		t  ast.Type
@@ -123,26 +127,26 @@ func writeDecl(enc *Encoder, pkg *ast.Package, d ast.Symbol) error {
 	}
 	switch d := d.(type) {
 	case *ast.FuncDecl:
-		if err := enc.WriteByte(_FUNC_DECL); err != nil {
+		if err := w.WriteByte(_FUNC_DECL); err != nil {
 			return err
 		}
-		if err := enc.WriteNum(uint64(fn)); err != nil {
+		if err := w.WriteNum(uint64(fn)); err != nil {
 			return err
 		}
-		if err := enc.WriteNum(uint64(off)); err != nil {
+		if err := w.WriteNum(uint64(off)); err != nil {
 			return err
 		}
-		if err := enc.WriteString(name); err != nil {
+		if err := w.WriteString(name); err != nil {
 			return err
 		}
 		var err error
 		if d.Func.Recv == nil {
-			err = enc.WriteByte(_NIL)
+			err = w.WriteByte(_NIL)
 		} else {
-			err = writeType(enc, pkg, d.Func.Recv.Type)
+			err = w.writeType(pkg, d.Func.Recv.Type)
 		}
 		if err == nil {
-			err = writeType(enc, pkg, d.Func.Sig)
+			err = w.writeType(pkg, d.Func.Sig)
 		}
 		return err
 	case *ast.Var:
@@ -157,26 +161,25 @@ func writeDecl(enc *Encoder, pkg *ast.Package, d ast.Symbol) error {
 	default:
 		panic("not reached")
 	}
-	return writedcl(enc, pkg, k, fn, off, name, t)
+	return w.writedcl(pkg, k, fn, off, name, t)
 }
 
-func writedcl(
-	enc *Encoder, pkg *ast.Package,
-	k byte, file, off int, name string, t ast.Type) error {
+func (w *Writer) writedcl(
+	pkg *ast.Package, k byte, file, off int, name string, t ast.Type) error {
 
-	if err := enc.WriteByte(k); err != nil {
+	if err := w.WriteByte(k); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(file)); err != nil {
+	if err := w.WriteNum(uint64(file)); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(off)); err != nil {
+	if err := w.WriteNum(uint64(off)); err != nil {
 		return err
 	}
-	if err := enc.WriteString(name); err != nil {
+	if err := w.WriteString(name); err != nil {
 		return err
 	}
-	return writeType(enc, pkg, t)
+	return w.writeType(pkg, t)
 }
 
 const (
@@ -214,41 +217,41 @@ const (
 	_CHAN_CAN_RECV = 2
 )
 
-func writeType(enc *Encoder, pkg *ast.Package, t ast.Type) error {
+func (w *Writer) writeType(pkg *ast.Package, t ast.Type) error {
 	if t == nil {
-		return enc.WriteByte(_NIL)
+		return w.WriteByte(_NIL)
 	}
 	switch t := t.(type) {
 	case *ast.BuiltinType:
-		return writeBuiltinType(enc, t.Kind)
+		return w.writeBuiltinType(t.Kind)
 	case *ast.TypeDecl:
-		return writeTypename(enc, pkg, t)
+		return w.writeTypename(pkg, t)
 	case *ast.ArrayType:
-		if err := enc.WriteByte(_ARRAY); err != nil {
+		if err := w.WriteByte(_ARRAY); err != nil {
 			return err
 		}
-		if err := enc.WriteNum(10 /* FIXME: t.Dim */); err != nil {
+		if err := w.WriteNum(10 /* FIXME: t.Dim */); err != nil {
 			return err
 		}
-		return writeType(enc, pkg, t.Elt)
+		return w.writeType(pkg, t.Elt)
 	case *ast.SliceType:
-		if err := enc.WriteByte(_SLICE); err != nil {
+		if err := w.WriteByte(_SLICE); err != nil {
 			return err
 		}
-		return writeType(enc, pkg, t.Elt)
+		return w.writeType(pkg, t.Elt)
 	case *ast.PtrType:
-		if err := enc.WriteByte(_PTR); err != nil {
+		if err := w.WriteByte(_PTR); err != nil {
 			return err
 		}
-		return writeType(enc, pkg, t.Base)
+		return w.writeType(pkg, t.Base)
 	case *ast.MapType:
-		if err := enc.WriteByte(_MAP); err != nil {
+		if err := w.WriteByte(_MAP); err != nil {
 			return err
 		}
-		if err := writeType(enc, pkg, t.Key); err != nil {
+		if err := w.writeType(pkg, t.Key); err != nil {
 			return err
 		}
-		return writeType(enc, pkg, t.Elt)
+		return w.writeType(pkg, t.Elt)
 	case *ast.ChanType:
 		b := byte(0)
 		if t.Send {
@@ -257,25 +260,25 @@ func writeType(enc *Encoder, pkg *ast.Package, t ast.Type) error {
 		if t.Recv {
 			b |= _CHAN_CAN_RECV
 		}
-		if err := enc.WriteByte(_CHAN); err != nil {
+		if err := w.WriteByte(_CHAN); err != nil {
 			return err
 		}
-		if err := enc.WriteByte(b); err != nil {
+		if err := w.WriteByte(b); err != nil {
 			return err
 		}
-		return writeType(enc, pkg, t.Elt)
+		return w.writeType(pkg, t.Elt)
 	case *ast.StructType:
-		return writeStructType(enc, pkg, t)
+		return w.writeStructType(pkg, t)
 	case *ast.FuncType:
-		return writeFuncType(enc, pkg, t)
+		return w.writeFuncType(pkg, t)
 	case *ast.InterfaceType:
-		return writeIfaceType(enc, pkg, t)
+		return w.writeIfaceType(pkg, t)
 	default:
 		panic("not reached")
 	}
 }
 
-func writeBuiltinType(enc *Encoder, k int) error {
+func (w *Writer) writeBuiltinType(k int) error {
 	var b byte
 	switch k {
 	case ast.BUILTIN_NIL:
@@ -317,10 +320,10 @@ func writeBuiltinType(enc *Encoder, k int) error {
 	default:
 		panic("not reached")
 	}
-	return enc.WriteByte(b)
+	return w.WriteByte(b)
 }
 
-func findImportNo(pkg *ast.Package, imp *ast.Package) int {
+func (w *Writer) findImportNo(pkg *ast.Package, imp *ast.Package) int {
 	if pkg == imp {
 		return 1
 	}
@@ -332,92 +335,92 @@ func findImportNo(pkg *ast.Package, imp *ast.Package) int {
 	panic("not reached")
 }
 
-func writeTypename(enc *Encoder, pkg *ast.Package, t *ast.TypeDecl) error {
+func (w *Writer) writeTypename(pkg *ast.Package, t *ast.TypeDecl) error {
 	pno := 0
 	if f := t.File; f != nil {
-		pno = findImportNo(pkg, f.Pkg)
+		pno = w.findImportNo(pkg, f.Pkg)
 	}
-	if err := enc.WriteByte(_TYPENAME); err != nil {
+	if err := w.WriteByte(_TYPENAME); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(pno)); err != nil {
+	if err := w.WriteNum(uint64(pno)); err != nil {
 		return err
 	}
-	return enc.WriteString(t.Name)
+	return w.WriteString(t.Name)
 }
 
-func writeStructType(enc *Encoder, pkg *ast.Package, t *ast.StructType) error {
-	if err := enc.WriteByte(_STRUCT); err != nil {
+func (w *Writer) writeStructType(pkg *ast.Package, t *ast.StructType) error {
+	if err := w.WriteByte(_STRUCT); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(len(t.Fields))); err != nil {
+	if err := w.WriteNum(uint64(len(t.Fields))); err != nil {
 		return err
 	}
 	for i := range t.Fields {
 		f := &t.Fields[i]
-		if err := enc.WriteString(f.Name); err != nil {
+		if err := w.WriteString(f.Name); err != nil {
 			return err
 		}
-		if err := writeType(enc, pkg, f.Type); err != nil {
+		if err := w.writeType(pkg, f.Type); err != nil {
 			return err
 		}
-		if err := enc.WriteString(f.Tag); err != nil {
+		if err := w.WriteString(f.Tag); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeParams(enc *Encoder, pkg *ast.Package, ps []ast.Param) error {
-	if err := enc.WriteNum(uint64(len(ps))); err != nil {
+func (w *Writer) writeParams(pkg *ast.Package, ps []ast.Param) error {
+	if err := w.WriteNum(uint64(len(ps))); err != nil {
 		return err
 	}
 	for i := range ps {
 		p := &ps[i]
-		if err := enc.WriteString(p.Name); err != nil {
+		if err := w.WriteString(p.Name); err != nil {
 			return err
 		}
-		if err := writeType(enc, pkg, p.Type); err != nil {
+		if err := w.writeType(pkg, p.Type); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeFuncType(enc *Encoder, pkg *ast.Package, t *ast.FuncType) error {
-	if err := enc.WriteByte(_FUNC); err != nil {
+func (w *Writer) writeFuncType(pkg *ast.Package, t *ast.FuncType) error {
+	if err := w.WriteByte(_FUNC); err != nil {
 		return err
 	}
-	if err := writeParams(enc, pkg, t.Params); err != nil {
+	if err := w.writeParams(pkg, t.Params); err != nil {
 		return err
 	}
-	if err := writeParams(enc, pkg, t.Returns); err != nil {
+	if err := w.writeParams(pkg, t.Returns); err != nil {
 		return err
 	}
 	b := byte(0)
 	if t.Var {
 		b = 1
 	}
-	return enc.WriteByte(b)
+	return w.WriteByte(b)
 }
 
-func writeIfaceType(enc *Encoder, pkg *ast.Package, t *ast.InterfaceType) error {
-	if err := enc.WriteByte(_IFACE); err != nil {
+func (w *Writer) writeIfaceType(pkg *ast.Package, t *ast.InterfaceType) error {
+	if err := w.WriteByte(_IFACE); err != nil {
 		return err
 	}
-	if err := enc.WriteNum(uint64(len(t.Methods))); err != nil {
+	if err := w.WriteNum(uint64(len(t.Methods))); err != nil {
 		return err
 	}
 	for i := range t.Methods {
 		var err error
 		m := &t.Methods[i]
 		if len(m.Name) > 0 {
-			err = writeFuncType(enc, pkg, m.Type.(*ast.FuncType))
+			err = w.writeFuncType(pkg, m.Type.(*ast.FuncType))
 			if err == nil {
-				err = enc.WriteString(m.Name)
+				err = w.WriteString(m.Name)
 			}
 		} else {
-			err = writeType(enc, pkg, m.Type)
+			err = w.writeType(pkg, m.Type)
 		}
 		if err != nil {
 			return err

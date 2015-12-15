@@ -19,15 +19,19 @@ var (
 	BadFile    errorBadFile
 )
 
-func Read(r io.Reader, loc ast.PackageLocator) (*ast.Package, error) {
-	dec := Decoder{}
-	dec.Init(r)
-	return readPkg(&dec, loc)
+type Reader struct {
+	Decoder
 }
 
-func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
+func Read(r io.Reader, loc ast.PackageLocator) (*ast.Package, error) {
+	rd := Reader{}
+	rd.Decoder.Init(r)
+	return rd.readPkg(loc)
+}
+
+func (r *Reader) readPkg(loc ast.PackageLocator) (*ast.Package, error) {
 	// Version
-	n, err := dec.ReadNum()
+	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
@@ -41,19 +45,19 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	// Package name
-	pkg.Name, err = dec.ReadString()
+	pkg.Name, err = r.ReadString()
 	if err != nil {
 		return nil, err
 	}
 
 	// Dependencies
-	n, err = dec.ReadNum()
+	n, err = r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < int(n); i++ {
 		imp := &ast.Import{No: i + 2}
-		path, err := dec.ReadString()
+		path, err := r.ReadString()
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +65,7 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = dec.ReadBytes(imp.Sig[:])
+		err = r.ReadBytes(imp.Sig[:])
 		if err != nil {
 			return nil, err
 		}
@@ -69,13 +73,13 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	// Source files
-	n, err = dec.ReadNum()
+	n, err = r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
 	pkg.Files = make([]*ast.File, n)
 	for i := range pkg.Files {
-		pkg.Files[i], err = readFile(dec)
+		pkg.Files[i], err = r.readFile()
 		if err != nil {
 			return nil, err
 		}
@@ -84,9 +88,9 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	// Declarations.
-	ok, err := readDecl(dec, pkg)
+	ok, err := r.readDecl(pkg)
 	for err == nil && ok {
-		ok, err = readDecl(dec, pkg)
+		ok, err = r.readDecl(pkg)
 	}
 	if err != nil {
 		return nil, err
@@ -96,14 +100,14 @@ func readPkg(dec *Decoder, loc ast.PackageLocator) (*ast.Package, error) {
 	return pkg, nil
 }
 
-func readFile(dec *Decoder) (*ast.File, error) {
-	name, err := dec.ReadString()
+func (r *Reader) readFile() (*ast.File, error) {
+	name, err := r.ReadString()
 	if err != nil {
 		return nil, err
 	}
 	file := &ast.File{Name: name, Decls: make(map[string]ast.Symbol)}
 	for {
-		n, err := dec.ReadNum()
+		n, err := r.ReadNum()
 		if err != nil {
 			return nil, err
 		}
@@ -115,15 +119,15 @@ func readFile(dec *Decoder) (*ast.File, error) {
 
 }
 
-func readDecl(dec *Decoder, pkg *ast.Package) (bool, error) {
-	kind, err := dec.ReadByte()
+func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
+	kind, err := r.ReadByte()
 	if err != nil {
 		return false, err
 	}
 	if kind == _END {
 		return false, nil
 	}
-	n, err := dec.ReadNum()
+	n, err := r.ReadNum()
 	if err != nil {
 		return false, err
 	}
@@ -135,19 +139,19 @@ func readDecl(dec *Decoder, pkg *ast.Package) (bool, error) {
 	if fno > 0 {
 		file = pkg.Files[fno-1]
 	}
-	n, err = dec.ReadNum()
+	n, err = r.ReadNum()
 	if err != nil {
 		return false, err
 	}
 	off := int(n)
-	name, err := dec.ReadString()
+	name, err := r.ReadString()
 	if err != nil {
 		return false, err
 	}
 	if len(name) == 0 {
 		return false, BadFile
 	}
-	typ, err := readType(dec, pkg)
+	typ, err := r.readType(pkg)
 	if err != nil {
 		return false, err
 	}
@@ -163,7 +167,7 @@ func readDecl(dec *Decoder, pkg *ast.Package) (bool, error) {
 		if typ != ast.BuiltinNil {
 			rcv = &ast.Param{Type: typ}
 		}
-		typ, err = readType(dec, pkg)
+		typ, err = r.readType(pkg)
 		if err != nil {
 			return false, err
 		}
@@ -198,8 +202,8 @@ func readDecl(dec *Decoder, pkg *ast.Package) (bool, error) {
 	return true, nil
 }
 
-func readType(dec *Decoder, pkg *ast.Package) (ast.Type, error) {
-	tag, err := dec.ReadByte()
+func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
+	tag, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
@@ -242,10 +246,10 @@ func readType(dec *Decoder, pkg *ast.Package) (ast.Type, error) {
 		return ast.BuiltinString, nil
 	case _ARRAY:
 		// FIXME: real dimension
-		if _, err := dec.ReadNum(); err != nil {
+		if _, err := r.ReadNum(); err != nil {
 			return nil, err
 		}
-		t, err := readType(dec, pkg)
+		t, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
@@ -254,39 +258,39 @@ func readType(dec *Decoder, pkg *ast.Package) (ast.Type, error) {
 			Elt: t,
 		}, nil
 	case _SLICE:
-		t, err := readType(dec, pkg)
+		t, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
 		return &ast.SliceType{Elt: t}, nil
 	case _STRUCT:
-		return readStructType(dec, pkg)
+		return r.readStructType(pkg)
 	case _PTR:
-		t, err := readType(dec, pkg)
+		t, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
 		return &ast.PtrType{Base: t}, nil
 	case _FUNC:
-		return readFuncType(dec, pkg)
+		return r.readFuncType(pkg)
 	case _IFACE:
-		return readIfaceType(dec, pkg)
+		return r.readIfaceType(pkg)
 	case _MAP:
-		k, err := readType(dec, pkg)
+		k, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
-		e, err := readType(dec, pkg)
+		e, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
 		return &ast.MapType{Key: k, Elt: e}, nil
 	case _CHAN:
-		b, err := dec.ReadByte()
+		b, err := r.ReadByte()
 		if err != nil {
 			return nil, err
 		}
-		t, err := readType(dec, pkg)
+		t, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
@@ -296,7 +300,7 @@ func readType(dec *Decoder, pkg *ast.Package) (ast.Type, error) {
 			Elt:  t,
 		}, nil
 	case _TYPENAME:
-		return readTypename(dec, pkg)
+		return r.readTypename(pkg)
 	default:
 		panic("not reached")
 	}
@@ -318,15 +322,15 @@ func findScopeByNo(pkg *ast.Package, no int) ast.Scope {
 	panic("not reached")
 }
 
-func readTypename(dec *Decoder, pkg *ast.Package) (*ast.TypeDecl, error) {
-	n, err := dec.ReadNum()
+func (r *Reader) readTypename(pkg *ast.Package) (*ast.TypeDecl, error) {
+	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
 	if n >= uint64(len(pkg.Deps)+2) {
 		return nil, BadFile
 	}
-	name, err := dec.ReadString()
+	name, err := r.ReadString()
 	if err != nil {
 		return nil, err
 	}
@@ -348,8 +352,8 @@ func readTypename(dec *Decoder, pkg *ast.Package) (*ast.TypeDecl, error) {
 	}
 }
 
-func readStructType(dec *Decoder, pkg *ast.Package) (*ast.StructType, error) {
-	n, err := dec.ReadNum()
+func (r *Reader) readStructType(pkg *ast.Package) (*ast.StructType, error) {
+	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
@@ -357,21 +361,21 @@ func readStructType(dec *Decoder, pkg *ast.Package) (*ast.StructType, error) {
 	for i := range fs {
 		f := &fs[i]
 		var err error
-		if f.Name, err = dec.ReadString(); err != nil {
+		if f.Name, err = r.ReadString(); err != nil {
 			return nil, err
 		}
-		if f.Type, err = readType(dec, pkg); err != nil {
+		if f.Type, err = r.readType(pkg); err != nil {
 			return nil, err
 		}
-		if f.Tag, err = dec.ReadString(); err != nil {
+		if f.Tag, err = r.ReadString(); err != nil {
 			return nil, err
 		}
 	}
 	return &ast.StructType{Fields: fs}, nil
 }
 
-func readParams(dec *Decoder, pkg *ast.Package) ([]ast.Param, error) {
-	n, err := dec.ReadNum()
+func (r *Reader) readParams(pkg *ast.Package) ([]ast.Param, error) {
+	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
@@ -381,11 +385,11 @@ func readParams(dec *Decoder, pkg *ast.Package) ([]ast.Param, error) {
 	ps := make([]ast.Param, n)
 	for i := range ps {
 		p := &ps[i]
-		p.Name, err = dec.ReadString()
+		p.Name, err = r.ReadString()
 		if err != nil {
 			return nil, err
 		}
-		p.Type, err = readType(dec, pkg)
+		p.Type, err = r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
@@ -393,24 +397,24 @@ func readParams(dec *Decoder, pkg *ast.Package) ([]ast.Param, error) {
 	return ps, nil
 }
 
-func readFuncType(dec *Decoder, pkg *ast.Package) (*ast.FuncType, error) {
-	ps, err := readParams(dec, pkg)
+func (r *Reader) readFuncType(pkg *ast.Package) (*ast.FuncType, error) {
+	ps, err := r.readParams(pkg)
 	if err != nil {
 		return nil, err
 	}
-	rs, err := readParams(dec, pkg)
+	rs, err := r.readParams(pkg)
 	if err != nil {
 		return nil, err
 	}
-	b, err := dec.ReadByte()
+	b, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
 	return &ast.FuncType{Params: ps, Returns: rs, Var: b == 1}, nil
 }
 
-func readIfaceType(dec *Decoder, pkg *ast.Package) (*ast.InterfaceType, error) {
-	n, err := dec.ReadNum()
+func (r *Reader) readIfaceType(pkg *ast.Package) (*ast.InterfaceType, error) {
+	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
@@ -421,12 +425,12 @@ func readIfaceType(dec *Decoder, pkg *ast.Package) (*ast.InterfaceType, error) {
 	for i := range ms {
 		var err error
 		m := &ms[i]
-		m.Type, err = readType(dec, pkg)
+		m.Type, err = r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
 		if _, ok := m.Type.(*ast.FuncType); ok {
-			m.Name, err = dec.ReadString()
+			m.Name, err = r.ReadString()
 			if err != nil {
 				return nil, err
 			}

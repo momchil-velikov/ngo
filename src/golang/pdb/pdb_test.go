@@ -9,57 +9,60 @@ import (
 	"testing"
 )
 
-func encode(t *testing.T, fn func(e *Encoder) error) ([]byte, error) {
+func encode(t *testing.T, fn func(*Writer) error) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	enc := new(Encoder).Init(buf)
-	err := fn(enc)
+	w := &Writer{}
+	w.Encoder.Init(buf)
+	err := fn(w)
 	return buf.Bytes(), err
 }
 
-func decode(t *testing.T, buf []byte, fn func(d *Decoder)) {
-	rd := bytes.NewReader(buf)
-	dec := new(Decoder).Init(rd)
-	fn(dec)
+func decode(t *testing.T, buf []byte, fn func(*Reader)) {
+	r := &Reader{}
+	r.Decoder.Init(bytes.NewReader(buf))
+	fn(r)
 }
 
-func keepEncoding(t *testing.T, fn func(*Encoder) error) []byte {
+func keepEncoding(t *testing.T, fn func(*Writer) error) []byte {
 	buf := &bytes.Buffer{}
 	lim := 0
-	w := LimitWriter(buf, lim)
-	enc := new(Encoder).Init(w)
-	for err := fn(enc); err != nil; {
+	lw := LimitWriter(buf, lim)
+	w := &Writer{}
+	w.Encoder.Init(lw)
+	for err := fn(w); err != nil; {
 		if err != ErrorNoSpace {
 			t.Fatal("expected I/O error, got", err)
 		}
 		lim++
 		buf.Reset()
-		w.N = lim
-		err = fn(enc)
+		lw.N = lim
+		err = fn(w)
 	}
 	return buf.Bytes()
 }
 
-func keepDecoding(t *testing.T, bs []byte, fn func(*Decoder) error) {
+func keepDecoding(t *testing.T, bs []byte, fn func(*Reader) error) {
 	buf := bytes.NewReader(bs)
 	lim := int64(0)
-	r := &io.LimitedReader{R: buf, N: lim}
-	dec := new(Decoder).Init(r)
-	for err := fn(dec); err != nil; {
+	lr := &io.LimitedReader{R: buf, N: lim}
+	r := &Reader{}
+	r.Decoder.Init(lr)
+	for err := fn(r); err != nil; {
 		if err != io.EOF {
 			t.Fatal("expected I/O error, got", err)
 		}
 		lim++
 		buf.Seek(0, 0)
-		r.N = lim
-		err = fn(dec)
+		lr.N = lim
+		err = fn(r)
 	}
 }
 
 func decodeType(t *testing.T, buf []byte) ast.Type {
 	var typ ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		typ, err = readType(d, nil)
+		typ, err = r.readType(nil)
 		return err
 	})
 	return typ
@@ -110,7 +113,7 @@ func TestWriteBuiltinType(t *testing.T) {
 
 	exp := []byte{0}
 	for i, typ := range ts {
-		buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+		buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 		exp[0] = tk[i]
 		expect_eq(t, "write builtin types", buf, exp)
 
@@ -125,7 +128,7 @@ func TestWriteArrayType(t *testing.T) {
 		Dim: &ast.Literal{Kind: scanner.INTEGER, Value: []byte{'1', '0'}},
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write array type", buf, []byte{_ARRAY, 10, _UINT8})
 
 	if dtyp := decodeType(t, buf); !reflect.DeepEqual(typ, dtyp) {
@@ -137,13 +140,13 @@ func TestWriteSliceType(t *testing.T) {
 	typ := &ast.SliceType{
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write slice type", buf, []byte{_SLICE, _UINT8})
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -155,13 +158,13 @@ func TestWritePtrType(t *testing.T) {
 	typ := &ast.PtrType{
 		Base: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write ptr type", buf, []byte{_PTR, _UINT8})
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -174,13 +177,13 @@ func TestWriteMapType(t *testing.T) {
 		Key: &ast.BuiltinType{Kind: ast.BUILTIN_STRING},
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write map type", buf, []byte{_MAP, _STRING, _UINT8})
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -194,13 +197,13 @@ func TestWriteChanType(t *testing.T) {
 		Recv: true,
 		Elt:  &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write chan type", buf, []byte{_CHAN, 3, _UINT8})
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -210,7 +213,7 @@ func TestWriteChanType(t *testing.T) {
 
 func TestWriteStructType1(t *testing.T) {
 	typ := &ast.StructType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write struct type", buf, []byte{_STRUCT, 0})
 }
 
@@ -221,7 +224,7 @@ func TestWriteStructType2(t *testing.T) {
 			{Name: "b", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}, Tag: "xy"},
 		},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write struct type",
 		buf,
 		[]byte{
@@ -233,9 +236,9 @@ func TestWriteStructType2(t *testing.T) {
 	)
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -245,7 +248,7 @@ func TestWriteStructType2(t *testing.T) {
 
 func TestWriteFuncType1(t *testing.T) {
 	typ := &ast.FuncType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write func type", buf, []byte{_FUNC, 0, 0, 0})
 }
 
@@ -260,7 +263,7 @@ func TestWriteFuncType2(t *testing.T) {
 		},
 		Var: true,
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write func type",
 		buf,
 		[]byte{
@@ -274,9 +277,9 @@ func TestWriteFuncType2(t *testing.T) {
 	)
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -286,7 +289,7 @@ func TestWriteFuncType2(t *testing.T) {
 
 func TestWriteIfaceType1(t *testing.T) {
 	typ := &ast.InterfaceType{}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write iface type", buf, []byte{_IFACE, 0})
 }
 
@@ -297,7 +300,7 @@ func TestWriteIfaceType2(t *testing.T) {
 			{Name: "F", Type: &ast.FuncType{}},
 		},
 	}
-	buf := keepEncoding(t, func(enc *Encoder) error { return writeType(enc, nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write iface type",
 		buf,
 		[]byte{
@@ -309,9 +312,9 @@ func TestWriteIfaceType2(t *testing.T) {
 	)
 
 	var dtyp ast.Type
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, nil)
+		dtyp, err = r.readType(nil)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -348,8 +351,8 @@ func TestWriteTypename(t *testing.T) {
 	}
 	pkgA.Decls["X"] = varX
 
-	buf, err := encode(t, func(e *Encoder) error {
-		return writeDecl(e, pkgA, varX)
+	buf, err := encode(t, func(e *Writer) error {
+		return e.writeDecl(pkgA, varX)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -365,14 +368,14 @@ func TestWriteTypename(t *testing.T) {
 	)
 	buf[4] = 'Y'
 	buf[8] = 'X'
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkgA)
+	decode(t, buf, func(r *Reader) {
+		_, err := r.readDecl(pkgA)
 		if err == nil || err != BadFile {
 			t.Error("expecting BadFile error")
 		}
 	})
 
-	buf = keepEncoding(t, func(enc *Encoder) error { return writeDecl(enc, pkgA, typA) })
+	buf = keepEncoding(t, func(w *Writer) error { return w.writeDecl(pkgA, typA) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -384,8 +387,8 @@ func TestWriteTypename(t *testing.T) {
 	)
 
 	buf[7] = 2
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkgA)
+	decode(t, buf, func(r *Reader) {
+		_, err := r.readDecl(pkgA)
 		if err == nil || err != BadFile {
 			t.Error("expecting BadFile error")
 		}
@@ -393,8 +396,8 @@ func TestWriteTypename(t *testing.T) {
 	buf[7] = 0
 
 	buf[4] = 'B'
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkgA)
+	decode(t, buf, func(r *Reader) {
+		_, err := r.readDecl(pkgA)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -408,7 +411,7 @@ func TestWriteTypename(t *testing.T) {
 		t.Error("declaration differ:", dcl.Name, dcl.Off, dcl.File)
 	}
 
-	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgA, typA) })
+	buf = keepEncoding(t, func(w *Writer) error { return w.writeType(pkgA, typA) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -418,8 +421,8 @@ func TestWriteTypename(t *testing.T) {
 		},
 	)
 	var dtyp ast.Type
-	decode(t, buf, func(d *Decoder) {
-		typ, err := readType(d, pkgA)
+	decode(t, buf, func(r *Reader) {
+		typ, err := r.readType(pkgA)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -441,7 +444,7 @@ func TestWriteTypename(t *testing.T) {
 	}
 	pkgB.Files = files
 
-	buf = keepEncoding(t, func(enc *Encoder) error { return writeType(enc, pkgB, typA) })
+	buf = keepEncoding(t, func(w *Writer) error { return w.writeType(pkgB, typA) })
 	expect_eq(t, "write typename",
 		buf,
 		[]byte{
@@ -450,9 +453,9 @@ func TestWriteTypename(t *testing.T) {
 			1, 'A',
 		},
 	)
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = readType(d, pkgB)
+		dtyp, err = r.readType(pkgB)
 		return err
 	})
 	if tn, ok := dtyp.(*ast.TypeDecl); !ok {
@@ -468,7 +471,7 @@ func TestWriteTypeDecl(t *testing.T) {
 		Name: "S",
 		Type: &ast.PtrType{Base: &ast.BuiltinType{Kind: ast.BUILTIN_FLOAT32}},
 	}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, d) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, d) })
 	expect_eq(t, "type decl",
 		buf,
 		[]byte{
@@ -480,16 +483,16 @@ func TestWriteTypeDecl(t *testing.T) {
 	)
 
 	buf[0] = _TYPE_DECL + 1
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkg)
+	decode(t, buf, func(r *Reader) {
+		_, err := r.readDecl(pkg)
 		if err == nil || err != BadFile {
 			t.Error("expecting BadFile error")
 		}
 	})
 	buf[0] = _TYPE_DECL
 
-	keepDecoding(t, buf, func(d *Decoder) error {
-		_, err := readDecl(d, pkg)
+	keepDecoding(t, buf, func(r *Reader) error {
+		_, err := r.readDecl(pkg)
 		return err
 	})
 	if sym, ok := pkg.Decls["S"]; !ok {
@@ -616,7 +619,7 @@ func TestWriteTypeDecl3(t *testing.T) {
 
 func TestWriteVarDecl(t *testing.T) {
 	v := &ast.Var{}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, v) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, v) })
 	expect_eq(t, "var decl",
 		buf,
 		[]byte{
@@ -631,8 +634,8 @@ func TestWriteVarDecl(t *testing.T) {
 		Files: []*ast.File{&ast.File{No: 1}},
 		Decls: make(map[string]ast.Symbol),
 	}
-	decode(t, buf, func(d *Decoder) {
-		ok, err := readDecl(d, pkg)
+	decode(t, buf, func(r *Reader) {
+		ok, err := r.readDecl(pkg)
 		if ok || err == nil || err != BadFile {
 			t.Error("unnamed decl: expecing BadFile")
 		}
@@ -640,14 +643,14 @@ func TestWriteVarDecl(t *testing.T) {
 
 	v.Name = "xyz"
 	v.File = &ast.File{No: 2}
-	buf, err := encode(t, func(e *Encoder) error {
-		return writeDecl(e, pkg, v)
+	buf, err := encode(t, func(e *Writer) error {
+		return e.writeDecl(pkg, v)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	decode(t, buf, func(d *Decoder) {
-		ok, err := readDecl(d, pkg)
+	decode(t, buf, func(r *Reader) {
+		ok, err := r.readDecl(pkg)
 		if ok || err == nil || err != BadFile {
 			t.Error("bogus file index: expecting BadFile")
 		}
@@ -656,7 +659,7 @@ func TestWriteVarDecl(t *testing.T) {
 	v.Off = 12
 	v.File = pkg.Files[0]
 	v.Type = &ast.BuiltinType{Kind: ast.BUILTIN_INT32}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, v) })
+	buf = keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, v) })
 	expect_eq(t, "var decl",
 		buf,
 		[]byte{
@@ -666,8 +669,8 @@ func TestWriteVarDecl(t *testing.T) {
 			_INT32,
 		},
 	)
-	keepDecoding(t, buf, func(d *Decoder) error {
-		_, err := readDecl(d, pkg)
+	keepDecoding(t, buf, func(r *Reader) error {
+		_, err := r.readDecl(pkg)
 		return err
 	})
 	if sym, ok := pkg.Decls["xyz"]; !ok {
@@ -681,7 +684,7 @@ func TestWriteVarDecl(t *testing.T) {
 
 func TestWriteConstDecl(t *testing.T) {
 	c := &ast.Const{}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, c) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, c) })
 	expect_eq(t, "const decl",
 		buf,
 		[]byte{
@@ -696,7 +699,7 @@ func TestWriteConstDecl(t *testing.T) {
 	c.File = &ast.File{No: 42}
 	c.Name = "xyz"
 	c.Type = &ast.BuiltinType{Kind: ast.BUILTIN_INT32}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, c) })
+	buf = keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, c) })
 	expect_eq(t, "const decl",
 		buf,
 		[]byte{
@@ -707,7 +710,7 @@ func TestWriteConstDecl(t *testing.T) {
 		},
 	)
 	c.File = nil
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, nil, c) })
+	buf = keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, c) })
 	expect_eq(t, "const decl",
 		buf,
 		[]byte{
@@ -718,8 +721,8 @@ func TestWriteConstDecl(t *testing.T) {
 		},
 	)
 	pkg := &ast.Package{Decls: make(map[string]ast.Symbol)}
-	keepDecoding(t, buf, func(d *Decoder) error {
-		_, err := readDecl(d, pkg)
+	keepDecoding(t, buf, func(r *Reader) error {
+		_, err := r.readDecl(pkg)
 		return err
 	})
 	if sym, ok := pkg.Decls["xyz"]; !ok {
@@ -758,7 +761,7 @@ func TestWriteFuncDecl(t *testing.T) {
 			Sig: &ast.FuncType{},
 		},
 	}
-	buf := keepEncoding(t, func(e *Encoder) error { return writeDecl(e, pkg, fn) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(pkg, fn) })
 	expect_eq(t, "func decl",
 		buf,
 		[]byte{
@@ -771,8 +774,8 @@ func TestWriteFuncDecl(t *testing.T) {
 	)
 
 	buf[5] = 'F'
-	keepDecoding(t, buf, func(d *Decoder) error {
-		_, err := readDecl(d, pkg)
+	keepDecoding(t, buf, func(r *Reader) error {
+		_, err := r.readDecl(pkg)
 		return err
 	})
 	if sym, ok := pkg.Decls["FF"]; !ok {
@@ -794,7 +797,7 @@ func TestWriteFuncDecl(t *testing.T) {
 	pkg.Decls["S"] = typS
 
 	fn.Func.Recv = &ast.Param{Type: &ast.PtrType{Base: typS}}
-	buf = keepEncoding(t, func(e *Encoder) error { return writeDecl(e, pkg, fn) })
+	buf = keepEncoding(t, func(e *Writer) error { return e.writeDecl(pkg, fn) })
 	expect_eq(t, "func decl",
 		buf,
 		[]byte{
@@ -806,8 +809,8 @@ func TestWriteFuncDecl(t *testing.T) {
 		},
 	)
 	copy(buf[11:], []byte{_TYPENAME, 1, 1, 'S'})
-	decode(t, buf, func(d *Decoder) {
-		_, err := readDecl(d, pkg)
+	decode(t, buf, func(r *Reader) {
+		_, err := r.readDecl(pkg)
 		if err == nil || err != BadFile {
 			t.Error("expecting BadFile error")
 		}
@@ -815,9 +818,9 @@ func TestWriteFuncDecl(t *testing.T) {
 
 	buf[5] = 'F'
 	copy(buf[11:], []byte{_FUNC, 0, 0, 0})
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		_, err = readDecl(d, pkg)
+		_, err = r.readDecl(pkg)
 		return err
 	})
 	if sym, ok := pkg.Decls["FF"]; !ok {
@@ -841,10 +844,10 @@ func TestWriteFile1(t *testing.T) {
 			"123456789012345678901234567890123456789012345678901234567890.go",
 	}
 
-	_ = keepEncoding(t, func(e *Encoder) error { return writeFile(e, file) })
+	_ = keepEncoding(t, func(e *Writer) error { return e.writeFile(file) })
 
 	file.Name = "xx.go"
-	buf := keepEncoding(t, func(e *Encoder) error { return writeFile(e, file) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeFile(file) })
 	expect_eq(t, "empty file",
 		buf,
 		[]byte{
@@ -853,9 +856,9 @@ func TestWriteFile1(t *testing.T) {
 		})
 
 	var dfile *ast.File
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dfile, err = readFile(d)
+		dfile, err = r.readFile()
 		return err
 	})
 	if file.Name != dfile.Name || dfile.SrcMap.LineCount() != 0 {
@@ -874,7 +877,7 @@ func TestWriteFile2(t *testing.T) {
 	file.SrcMap.AddLine(2)
 	file.SrcMap.AddLine(3)
 
-	buf := keepEncoding(t, func(e *Encoder) error { return writeFile(e, file) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writeFile(file) })
 	expect_eq(t, "empty file",
 		buf,
 		[]byte{
@@ -882,9 +885,9 @@ func TestWriteFile2(t *testing.T) {
 			1, 2, 3, 0, // source map
 		})
 	var dfile *ast.File
-	keepDecoding(t, buf, func(d *Decoder) error {
+	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dfile, err = readFile(d)
+		dfile, err = r.readFile()
 		return err
 	})
 	if file.Name != dfile.Name || dfile.SrcMap.LineCount() != 3 {
@@ -933,7 +936,7 @@ func TestWritePackage2(t *testing.T) {
 		f.SrcMap.AddLine(15)
 	}
 
-	buf := keepEncoding(t, func(e *Encoder) error { return writePkg(e, pkg) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writePkg(pkg) })
 	expect_eq(t, "pkg",
 		buf,
 		[]byte{
@@ -994,7 +997,7 @@ func TestWritePackage3(t *testing.T) {
 	}
 	pkg.Decls[d1.Name] = d1
 
-	buf := keepEncoding(t, func(e *Encoder) error { return writePkg(e, pkg) })
+	buf := keepEncoding(t, func(e *Writer) error { return e.writePkg(pkg) })
 	expect_eq(t, "pkg",
 		buf,
 		[]byte{
@@ -1018,8 +1021,8 @@ func TestWritePackage3(t *testing.T) {
 		},
 	)
 
-	keepDecoding(t, buf, func(d *Decoder) error {
-		_, err := readPkg(d, loc)
+	keepDecoding(t, buf, func(r *Reader) error {
+		_, err := r.readPkg(loc)
 		return err
 	})
 
