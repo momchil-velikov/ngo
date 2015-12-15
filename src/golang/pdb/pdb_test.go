@@ -328,7 +328,6 @@ func TestWriteTypename(t *testing.T) {
 		Path:  "x/y/a",
 		Name:  "a",
 		Decls: make(map[string]ast.Symbol),
-		Deps:  make(map[string]*ast.Import),
 	}
 	files := []*ast.File{
 		{No: 1, Name: "a.go", Pkg: pkgA},
@@ -436,7 +435,7 @@ func TestWriteTypename(t *testing.T) {
 		Path:  "x/y/b",
 		Name:  "b",
 		Decls: make(map[string]ast.Symbol),
-		Deps:  map[string]*ast.Import{"a": &ast.Import{No: 2, Pkg: pkgA}},
+		Deps:  []*ast.Import{&ast.Import{Path: "a", Pkg: pkgA}},
 	}
 	files = []*ast.File{
 		{No: 1, Name: "c.go", Pkg: pkgB},
@@ -739,7 +738,6 @@ func TestWriteFuncDecl(t *testing.T) {
 		Path:  "x/y/a",
 		Name:  "a",
 		Decls: make(map[string]ast.Symbol),
-		Deps:  make(map[string]*ast.Import),
 	}
 	files := []*ast.File{
 		{No: 1, Name: "a.go", Pkg: pkg},
@@ -969,15 +967,13 @@ func TestWritePackage3(t *testing.T) {
 			&ast.File{Name: "xx.go"},
 			&ast.File{Name: "yy.go"},
 		},
-		Deps:  make(map[string]*ast.Import),
 		Decls: make(map[string]ast.Symbol),
 	}
-	depX := &ast.Package{Name: "depX", Sig: [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1}}
 	dep1 := &ast.Package{Name: "dep1", Sig: [20]byte{5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}}
+	depX := &ast.Package{Name: "depX", Sig: [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1}}
 
-	deps := []*ast.Import{{Pkg: depX}, {Pkg: dep1}}
-	for _, d := range deps {
-		pkg.Deps[d.Pkg.Name] = d
+	pkg.Deps = []*ast.Import{{Path: "dep1", Pkg: dep1}, {Path: "depX", Pkg: depX}}
+	for _, d := range pkg.Deps {
 		loc.pkgs[d.Pkg.Name] = d.Pkg
 	}
 
@@ -1033,14 +1029,17 @@ func TestWritePackage3(t *testing.T) {
 	if dpkg.Name != pkg.Name {
 		t.Error("package names different")
 	}
+	if len(dpkg.Deps) != 2 {
+		t.Fatal("expected exactly two dependencies")
+	}
 	if len(dpkg.Deps) != len(pkg.Deps) {
 		t.Error("incorrect number of depdendencies")
 	}
-	if dpkg.Deps["depX"] == nil || dpkg.Deps["dep1"] == nil {
+	if dpkg.Deps[0].Path != "dep1" || dpkg.Deps[1].Path != "depX" {
 		t.Error("unexpected dependency name")
 	}
-	if !reflect.DeepEqual(dpkg.Deps["depX"].Sig, depX.Sig) ||
-		!reflect.DeepEqual(dpkg.Deps["dep1"].Sig, dep1.Sig) {
+	if !reflect.DeepEqual(dpkg.Deps[0].Sig, dep1.Sig) ||
+		!reflect.DeepEqual(dpkg.Deps[1].Sig, depX.Sig) {
 		t.Error("incorrect signature read")
 	}
 	if len(dpkg.Decls) != 1 {

@@ -37,7 +37,6 @@ func ResolvePackage(
 		Name:  p.Name,
 		Files: nil,
 		Decls: make(map[string]ast.Symbol),
-		Deps:  make(map[string]*ast.Import),
 	}
 
 	r := resolver{scope: ast.UniverseScope}
@@ -62,6 +61,24 @@ func ResolvePackage(
 	return pkg, nil
 }
 
+func findImport(path string, is []*ast.Import) (*ast.Import, int) {
+	i := 0
+	for i < len(is) && path < is[i].Path {
+		i++
+	}
+	if i >= len(is) || path != is[i].Path {
+		return nil, i
+	}
+	return is[i], i
+}
+
+func insertImport(is []*ast.Import, i int, imp *ast.Import) []*ast.Import {
+	is = append(is, nil)
+	copy(is[i+1:], is[i:])
+	is[i] = imp
+	return is
+}
+
 func (r *resolver) declareTopLevel(
 	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
 
@@ -77,14 +94,14 @@ func (r *resolver) declareTopLevel(
 	// Declare imported package names.
 	for _, i := range file.Imports {
 		path := constexpr.String(i.Path)
-		dep, ok := pkg.Deps[path]
-		if !ok {
+		dep, pos := findImport(path, pkg.Deps)
+		if dep == nil {
 			p, err := loc.FindPackage(path)
 			if err != nil {
 				return nil, err
 			}
-			dep = &ast.Import{Pkg: p}
-			pkg.Deps[path] = dep
+			dep = &ast.Import{Path: path, Pkg: p}
+			pkg.Deps = insertImport(pkg.Deps, pos, dep)
 		}
 		i.File = file
 		i.Pkg = dep.Pkg

@@ -40,7 +40,6 @@ func (r *Reader) readPkg(loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	pkg := &ast.Package{
-		Deps:  make(map[string]*ast.Import),
 		Decls: make(map[string]ast.Symbol),
 	}
 
@@ -56,20 +55,20 @@ func (r *Reader) readPkg(loc ast.PackageLocator) (*ast.Package, error) {
 		return nil, err
 	}
 	for i := 0; i < int(n); i++ {
-		imp := &ast.Import{No: i + 2}
 		path, err := r.ReadString()
 		if err != nil {
 			return nil, err
 		}
-		imp.Pkg, err = loc.FindPackage(path)
+		p, err := loc.FindPackage(path)
 		if err != nil {
 			return nil, err
 		}
+		imp := &ast.Import{Path: path, Pkg: p}
 		err = r.ReadBytes(imp.Sig[:])
 		if err != nil {
 			return nil, err
 		}
-		pkg.Deps[path] = imp
+		pkg.Deps = append(pkg.Deps, imp)
 	}
 
 	// Source files
@@ -313,13 +312,8 @@ func findScopeByNo(pkg *ast.Package, no int) ast.Scope {
 	case 1:
 		return pkg
 	default:
-		for _, i := range pkg.Deps {
-			if i.No == no {
-				return i.Pkg
-			}
-		}
+		return pkg.Deps[no-2].Pkg
 	}
-	panic("not reached")
 }
 
 func (r *Reader) readTypename(pkg *ast.Package) (*ast.TypeDecl, error) {

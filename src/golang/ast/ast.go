@@ -117,19 +117,19 @@ type PackageLocator interface {
 
 // Package
 type Package struct {
-	Path  string             // Absolute path of the package directory
-	Name  string             // Last component of the path name or "main"
-	Sig   [20]byte           // SHA-1 signature of something unrelated here
-	Files []*File            // Source files of the package
-	Decls map[string]Symbol  // Package-level declarations
-	Deps  map[string]*Import // Map of package dependencies
+	Path  string            // Absolute path of the package directory
+	Name  string            // Last component of the path name or "main"
+	Sig   [20]byte          // SHA-1 signature of something unrelated here
+	Files []*File           // Source files of the package
+	Decls map[string]Symbol // Package-level declarations
+	Deps  []*Import         // Package dependencies, ordered by import path
 }
 
 // Imported package
 type Import struct {
-	No  int
-	Pkg *Package
-	Sig [20]byte
+	Path string
+	Pkg  *Package
+	Sig  [20]byte
 }
 
 type UnresolvedPackage struct {

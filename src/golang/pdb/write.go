@@ -28,28 +28,21 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 		return err
 	}
 
-	// Dependencies
-	ss := make([]sort.StringKey, len(pkg.Deps))
-	ss = ss[:0]
-	for k, v := range pkg.Deps {
-		ss = append(ss, sort.StringKey{Key: k, Value: v})
-	}
-	sort.StringKeySlice(ss).Quicksort()
-	if err := w.WriteNum(uint64(len(ss))); err != nil {
+	// Dependencies; note that they are maintained sorted.
+	if err := w.WriteNum(uint64(len(pkg.Deps))); err != nil {
 		return err
 	}
-	for i, n := 0, len(ss); i < n; i++ {
-		if err := w.WriteString(ss[i].Key); err != nil {
+	for _, i := range pkg.Deps {
+		if err := w.WriteString(i.Path); err != nil {
 			return err
 		}
-		imp := ss[i].Value.(*ast.Import)
-		imp.No = i + 2
-		if err := w.WriteBytes(imp.Pkg.Sig[:]); err != nil {
+		if err := w.WriteBytes(i.Pkg.Sig[:]); err != nil {
 			return err
 		}
 	}
 
 	// Source files
+	ss := make([]sort.StringKey, len(pkg.Files))
 	ss = ss[:0]
 	for _, f := range pkg.Files {
 		ss = append(ss, sort.StringKey{Key: f.Name, Value: f})
@@ -327,9 +320,9 @@ func (w *Writer) findImportNo(pkg *ast.Package, imp *ast.Package) int {
 	if pkg == imp {
 		return 1
 	}
-	for _, i := range pkg.Deps {
-		if i.Pkg == imp {
-			return i.No
+	for i := range pkg.Deps {
+		if pkg.Deps[i].Pkg == imp {
+			return i + 2
 		}
 	}
 	panic("not reached")
