@@ -21,6 +21,7 @@ var (
 
 type Reader struct {
 	Decoder
+	fwd int
 }
 
 func Read(r io.Reader, loc ast.PackageLocator) (*ast.Package, error) {
@@ -93,6 +94,12 @@ func (r *Reader) readPkg(loc ast.PackageLocator) (*ast.Package, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	// Check that each "forward" type name has a corresponding type
+	// declaration.
+	if r.fwd != 0 {
+		return nil, BadFile
 	}
 
 	// FIXME: read signature
@@ -192,6 +199,7 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 		} else if td, ok := sym.(*ast.TypeDecl); !ok {
 			return false, BadFile
 		} else {
+			r.fwd--
 			t = td
 		}
 		*t = ast.TypeDecl{Off: off, File: file, Name: name, Type: typ}
@@ -338,6 +346,7 @@ func (r *Reader) readTypename(pkg *ast.Package) (*ast.TypeDecl, error) {
 		// that is not yet read.
 		dcl := &ast.TypeDecl{Name: name}
 		pkg.Decls[name] = dcl
+		r.fwd++
 		return dcl, nil
 	} else if dcl, ok := sym.(*ast.TypeDecl); !ok {
 		return nil, BadFile

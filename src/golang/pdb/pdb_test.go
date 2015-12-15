@@ -616,6 +616,79 @@ func TestWriteTypeDecl3(t *testing.T) {
 	}
 }
 
+func TestWriteTypeDecl4(t *testing.T) {
+	pkg := &ast.Package{
+		Name:  "pkg",
+		Decls: make(map[string]ast.Symbol),
+	}
+	file := &ast.File{
+		Pkg:   pkg,
+		Name:  "pkg.go",
+		Decls: make(map[string]ast.Symbol),
+	}
+	pkg.Files = append(pkg.Files, file)
+
+	x := &ast.TypeDecl{
+		File: file,
+		Name: "X",
+		Type: ast.BuiltinInt,
+	}
+	pkg.Declare(x.Name, x)
+
+	str := &ast.StructType{
+		Fields: []ast.Field{
+			{Name: "x"},
+		},
+	}
+
+	S := &ast.TypeDecl{File: file, Name: "S", Type: str}
+	str.Fields[0].Type = x
+	pkg.Declare(S.Name, S)
+
+	buf := bytes.Buffer{}
+	if err := Write(&buf, pkg); err != nil {
+		t.Fatal(err)
+	}
+	expect_eq(t, "writing typename",
+		buf.Bytes(),
+		[]byte{
+			// version
+			1,
+			// name
+			3, 'p', 'k', 'g',
+			// num deps
+			0,
+			// num files
+			1,
+			// file name
+			6, 'p', 'k', 'g', '.', 'g', 'o',
+			// src map
+			0,
+			// declarations
+			_TYPE_DECL, 1, 0, 1, 'S',
+			_STRUCT,
+			// num fiels
+			1,
+			// field name
+			1, 'x',
+			// field type
+			_TYPENAME, 1, 1, 'X',
+			// tag
+			0,
+
+			_TYPE_DECL, 1, 0, 1, 'X',
+			15, // "int"
+			_END,
+		},
+	)
+
+	buf.Bytes()[33] = 'x'
+	_, err := Read(bytes.NewReader(buf.Bytes()), nil)
+	if err == nil || err != BadFile {
+		t.Error("forward typename: expecting BadFile")
+	}
+}
+
 func TestWriteVarDecl(t *testing.T) {
 	v := &ast.Var{}
 	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, v) })
