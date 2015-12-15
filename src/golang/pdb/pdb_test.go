@@ -689,6 +689,54 @@ func TestWriteTypeDecl4(t *testing.T) {
 	}
 }
 
+func TestWriteTypeDecl5(t *testing.T) {
+	pkg := &ast.Package{
+		Name:  "pkg",
+		Decls: make(map[string]ast.Symbol),
+	}
+	file := &ast.File{
+		Pkg:   pkg,
+		Name:  "pkg.go",
+		Decls: make(map[string]ast.Symbol),
+	}
+	pkg.Files = append(pkg.Files, file)
+
+	x := &ast.TypeDecl{
+		File: file,
+		Name: "x",
+		Type: ast.BuiltinInt,
+	}
+	pkg.Declare(x.Name, x)
+
+	str := &ast.StructType{
+		Fields: []ast.Field{
+			{Name: "x"},
+		},
+	}
+
+	S := &ast.TypeDecl{File: file, Name: "S", Type: str}
+	str.Fields[0].Type = x
+	pkg.Declare(S.Name, S)
+
+	buf := bytes.Buffer{}
+	if err := Write(&buf, pkg); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Read(bytes.NewReader(buf.Bytes()), nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	dx := p.Find("x").(*ast.TypeDecl)
+	if !reflect.DeepEqual(x, dx) {
+		t.Error("declarations not equal")
+	}
+	dS := p.Find("S").(*ast.TypeDecl)
+	if !reflect.DeepEqual(S, dS) {
+		t.Error("declarations not equal")
+	}
+}
+
 func TestWriteVarDecl(t *testing.T) {
 	v := &ast.Var{}
 	buf := keepEncoding(t, func(e *Writer) error { return e.writeDecl(nil, v) })

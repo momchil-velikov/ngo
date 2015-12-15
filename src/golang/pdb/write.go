@@ -10,11 +10,13 @@ const VERSION = 1
 
 type Writer struct {
 	Encoder
+	extra map[string]*ast.TypeDecl
 }
 
 func Write(w io.Writer, pkg *ast.Package) error {
 	wr := &Writer{}
 	wr.Encoder.Init(w)
+	wr.extra = make(map[string]*ast.TypeDecl)
 	return wr.writePkg(pkg)
 }
 
@@ -52,7 +54,7 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 		}
 	}
 
-	// Declarations
+	// Exported declarations
 	ss := make([]sort.StringKey, len(pkg.Decls))
 	ss = ss[:0]
 	for n, d := range pkg.Decls {
@@ -65,6 +67,21 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 	for i := range ss {
 		if err := w.writeDecl(pkg, ss[i].Value.(ast.Symbol)); err != nil {
 			return err
+		}
+	}
+
+	// Non-exported typenames, which nevertheless must be output.
+	for len(w.extra) > 0 {
+		ss = ss[:0]
+		for _, t := range w.extra {
+			ss = append(ss, sort.StringKey{Key: t.Name, Value: t})
+		}
+		w.extra = make(map[string]*ast.TypeDecl)
+		sort.StringKeySlice(ss).Quicksort()
+		for i := range ss {
+			if err := w.writeDecl(pkg, ss[i].Value.(ast.Symbol)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -326,6 +343,14 @@ func (w *Writer) writeTypename(pkg *ast.Package, t *ast.TypeDecl) error {
 	pno := 0
 	if f := t.File; f != nil {
 		pno = w.findImportNo(pkg, f.Pkg)
+	}
+	if pno == 1 {
+		// If we happen to output a non-exported type name (because it was
+		// mentioned by some exported declaration, e.g. it is the return type
+		// of an exported function) force output of this type declaration.
+		if !t.IsExported() {
+			w.extra[t.Name] = t
+		}
 	}
 	if err := w.WriteByte(_TYPENAME); err != nil {
 		return err
