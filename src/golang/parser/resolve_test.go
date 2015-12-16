@@ -2421,10 +2421,15 @@ func TestResolveMethodDecl(t *testing.T) {
 	}
 	A := p.Find("A").(*ast.TypeDecl)
 	if len(A.Methods) != 1 || A.Methods[0].Name != "F" {
-		t.Error("`F` must be in the methiods set of `A`")
+		t.Error("`F` must be in the method set of `A`")
 	}
 	if len(A.PMethods) != 1 || A.PMethods[0].Name != "G" {
-		t.Error("`G` must be in the methiods set of `*A`")
+		t.Error("`G` must be in the method set of `*A`")
+	}
+
+	F := A.Methods[0]
+	if F.Func.Blk.Find("a") == nil {
+		t.Error("receiver `a` must be declared at function block scope")
 	}
 
 	_, err = compilePackage("_test/methods/src/ok", []string{"uniq-1.go"}, nil)
@@ -2469,4 +2474,6 @@ func TestResolveMethodDecl(t *testing.T) {
 		"both field and method named")
 	expectError(t, "_test/methods/src/err", []string{"uniq-7.go"},
 		"both field and method named")
+	expectError(t, "_test/methods/src/err", []string{"dup-recv.go"},
+		"redeclared")
 }

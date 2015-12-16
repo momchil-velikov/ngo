@@ -369,14 +369,17 @@ func (r *resolver) declareFunc(fn *ast.FuncDecl, file *ast.File) error {
 	return r.scope.Declare(fn.Name, fn)
 }
 
+func (r *resolver) declareParam(p *ast.Param) error {
+	if p.Name == "_" || len(p.Name) == 0 {
+		return nil
+	}
+	v := &ast.Var{Off: p.Off, File: r.scope.File(), Name: p.Name, Type: p.Type}
+	return r.scope.Declare(v.Name, v)
+}
+
 func (r *resolver) declareParams(ps []ast.Param) error {
 	for i := range ps {
-		p := &ps[i]
-		if p.Name == "_" || len(p.Name) == 0 {
-			continue
-		}
-		v := &ast.Var{Off: p.Off, File: r.scope.File(), Name: p.Name, Type: p.Type}
-		if err := r.scope.Declare(v.Name, v); err != nil {
+		if err := r.declareParam(&ps[i]); err != nil {
 			return err
 		}
 	}
@@ -482,6 +485,11 @@ func (r *resolver) resolveFunc(fn *ast.Func) error {
 	}
 	if err := r.declareParams(fn.Sig.Returns); err != nil {
 		return err
+	}
+	if fn.Recv != nil {
+		if err := r.declareParam(fn.Recv); err != nil {
+			return err
+		}
 	}
 	r.exitScope()
 	blk, err := r.resolveBlock(fn.Blk)
