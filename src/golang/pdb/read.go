@@ -125,6 +125,16 @@ func (r *Reader) readFile() (*ast.File, error) {
 
 }
 
+func receiverBaseType(typ ast.Type) (*ast.TypeDecl, error) {
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		typ = ptr.Base
+	}
+	if dcl, ok := typ.(*ast.TypeDecl); ok {
+		return dcl, nil
+	}
+	return nil, BadFile
+}
+
 func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 	kind, err := r.ReadByte()
 	if err != nil {
@@ -189,6 +199,17 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 		}
 		f.Func.Decl = f
 		pkg.Decls[name] = f
+		if rcv != nil {
+			base, err := receiverBaseType(rcv.Type)
+			if err != nil {
+				return false, err
+			}
+			if base == rcv.Type {
+				base.Methods = append(base.Methods, f)
+			} else {
+				base.PMethods = append(base.PMethods, f)
+			}
+		}
 	case _TYPE_DECL:
 		var t *ast.TypeDecl
 		// Check if the type declaration was created by an earlier encounter

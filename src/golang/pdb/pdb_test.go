@@ -955,6 +955,62 @@ func TestWriteFuncDecl(t *testing.T) {
 	}
 }
 
+func TestWriteMethodDecl(t *testing.T) {
+	pkg := &ast.Package{
+		Path:  "x/y/a",
+		Name:  "a",
+		Decls: make(map[string]ast.Symbol),
+	}
+	files := []*ast.File{{Name: "a.go", Pkg: pkg}, {Name: "b.go", Pkg: pkg}}
+	pkg.Files = files
+
+	typA := &ast.TypeDecl{
+		Name: "A",
+		File: pkg.Files[0],
+		Type: &ast.PtrType{Base: ast.BuiltinFloat32},
+	}
+	pkg.Decls["A"] = typA
+
+	F := &ast.FuncDecl{
+		Off:  42,
+		Name: "F",
+		File: pkg.Files[1],
+		Func: ast.Func{
+			Recv: &ast.Param{Type: typA},
+			Sig:  &ast.FuncType{},
+		},
+	}
+	pkg.Decls[F.Name] = F
+
+	G := &ast.FuncDecl{
+		Off:  52,
+		Name: "G",
+		File: pkg.Files[0],
+		Func: ast.Func{
+			Recv: &ast.Param{Type: &ast.PtrType{Base: typA}},
+			Sig:  &ast.FuncType{},
+		},
+	}
+	pkg.Decls[G.Name] = G
+
+	buf, err := encode(t, func(w *Writer) error {
+		return w.writePkg(pkg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dpkg, err := Read(bytes.NewReader(buf), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dA := dpkg.Find("A").(*ast.TypeDecl)
+	if len(dA.Methods) != 1 || len(dA.PMethods) != 1 {
+		t.Error("incorrec method set")
+	}
+}
+
 func TestWriteFile1(t *testing.T) {
 	pkg := &ast.Package{}
 	file := &ast.File{
