@@ -3,7 +3,7 @@ package ast
 var UniverseScope *_UniverseScope
 
 var (
-	BuiltinNil        Type
+	BuiltinNilType    Type
 	BuiltinBool       Type
 	BuiltinUint8      Type
 	BuiltinUint16     Type
@@ -21,10 +21,31 @@ var (
 	BuiltinInt        Type
 	BuiltinUintptr    Type
 	BuiltinString     Type
+
+	BuiltinNil   Expr
+	BuiltinTrue  Expr
+	BuiltinFalse Expr
+	BuiltinIota  Expr
+
+	BuiltinAppend  Expr
+	BuiltinCap     Expr
+	BuiltinClose   Expr
+	BuiltinComplex Expr
+	BuiltinCopy    Expr
+	BuiltinDelete  Expr
+	BuiltinImag    Expr
+	BuiltinLen     Expr
+	BuiltinMake    Expr
+	BuiltinNew     Expr
+	BuiltinPanic   Expr
+	BuiltinPrint   Expr
+	BuiltinPrintln Expr
+	BuiltinReal    Expr
+	BuiltinRecover Expr
 )
 
 func init() {
-	BuiltinNil = &BuiltinType{BUILTIN_NIL}
+	BuiltinNilType = &BuiltinType{BUILTIN_NIL_TYPE}
 	BuiltinBool = &BuiltinType{BUILTIN_BOOL}
 	BuiltinUint8 = &BuiltinType{BUILTIN_UINT8}
 	BuiltinUint16 = &BuiltinType{BUILTIN_UINT16}
@@ -48,7 +69,7 @@ func init() {
 		name string
 		typ  Type
 	}{
-		{"#nil", BuiltinNil},
+		{"#nil", BuiltinNilType},
 		{"bool", BuiltinBool},
 		{"byte", BuiltinUint8},
 		{"uint8", BuiltinUint8},
@@ -70,6 +91,54 @@ func init() {
 		{"string", BuiltinString},
 	} {
 		UniverseScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
+	}
+
+	BuiltinNil = &BuiltinConst{BUILTIN_NIL}
+	BuiltinTrue = &BuiltinConst{BUILTIN_TRUE}
+	BuiltinFalse = &BuiltinConst{BUILTIN_FALSE}
+	BuiltinIota = &BuiltinConst{BUILTIN_IOTA}
+
+	BuiltinAppend = &BuiltinFunc{BUILTIN_APPEND}
+	BuiltinCap = &BuiltinFunc{BUILTIN_CAP}
+	BuiltinClose = &BuiltinFunc{BUILTIN_CLOSE}
+	BuiltinComplex = &BuiltinFunc{BUILTIN_COMPLEX}
+	BuiltinCopy = &BuiltinFunc{BUILTIN_COPY}
+	BuiltinDelete = &BuiltinFunc{BUILTIN_DELETE}
+	BuiltinImag = &BuiltinFunc{BUILTIN_IMAG}
+	BuiltinLen = &BuiltinFunc{BUILTIN_LEN}
+	BuiltinMake = &BuiltinFunc{BUILTIN_MAKE}
+	BuiltinNew = &BuiltinFunc{BUILTIN_NEW}
+	BuiltinPanic = &BuiltinFunc{BUILTIN_PANIC}
+	BuiltinPrint = &BuiltinFunc{BUILTIN_PRINT}
+	BuiltinPrintln = &BuiltinFunc{BUILTIN_PRINTLN}
+	BuiltinReal = &BuiltinFunc{BUILTIN_REAL}
+	BuiltinRecover = &BuiltinFunc{BUILTIN_RECOVER}
+	for _, c := range []struct {
+		name string
+		x    Expr
+	}{
+		{"nil", BuiltinNil},
+		{"true", BuiltinTrue},
+		{"false", BuiltinFalse},
+		{"iota", BuiltinIota},
+
+		{"append", BuiltinAppend},
+		{"cap", BuiltinCap},
+		{"close", BuiltinClose},
+		{"complex", BuiltinComplex},
+		{"copy", BuiltinCopy},
+		{"delete", BuiltinDelete},
+		{"imag", BuiltinImag},
+		{"len", BuiltinLen},
+		{"make", BuiltinMake},
+		{"new", BuiltinNew},
+		{"panic", BuiltinPanic},
+		{"print", BuiltinPrint},
+		{"println", BuiltinPrintln},
+		{"real", BuiltinReal},
+		{"recover", BuiltinRecover},
+	} {
+		UniverseScope.dcl[c.name] = &Const{Name: c.name, Init: c.x}
 	}
 }
 

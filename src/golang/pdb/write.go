@@ -285,7 +285,7 @@ func (w *Writer) writeType(pkg *ast.Package, t ast.Type) error {
 func (w *Writer) writeBuiltinType(k int) error {
 	var b byte
 	switch k {
-	case ast.BUILTIN_NIL:
+	case ast.BUILTIN_NIL_TYPE:
 		b = _NIL
 	case ast.BUILTIN_BOOL:
 		b = _BOOL

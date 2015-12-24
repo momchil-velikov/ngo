@@ -22,6 +22,8 @@ type ExprVisitor interface {
 
 	VisitOperandName(*QualifiedId) (Expr, error)
 
+	VisitBuiltinConst(*BuiltinConst) (Expr, error)
+	VisitBuiltinFunc(*BuiltinFunc) (Expr, error)
 	VisitLiteral(*Literal) (Expr, error)
 	VisitCompLiteral(*CompLiteral) (Expr, error)
 	VisitCall(*Call) (Expr, error)
@@ -129,8 +131,17 @@ func (t *InterfaceType) TraverseType(v TypeVisitor) (Type, error) {
 func (e *Error) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitError(e)
 }
+
 func (x *QualifiedId) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitOperandName(x)
+}
+
+func (x *BuiltinConst) TraverseExpr(v ExprVisitor) (Expr, error) {
+	return v.VisitBuiltinConst(x)
+}
+
+func (x *BuiltinFunc) TraverseExpr(v ExprVisitor) (Expr, error) {
+	return v.VisitBuiltinFunc(x)
 }
 
 func (x *Literal) TraverseExpr(v ExprVisitor) (Expr, error) {

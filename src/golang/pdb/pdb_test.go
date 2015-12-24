@@ -70,7 +70,7 @@ func decodeType(t *testing.T, buf []byte) ast.Type {
 
 func TestWriteBuiltinType(t *testing.T) {
 	ts := []ast.Type{
-		ast.BuiltinNil,
+		ast.BuiltinNilType,
 		ast.BuiltinBool,
 		ast.BuiltinUint8,
 		ast.BuiltinUint16,

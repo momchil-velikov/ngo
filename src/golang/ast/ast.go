@@ -47,6 +47,8 @@ type Expr interface {
 
 func (Error) expr()         {}
 func (QualifiedId) expr()   {}
+func (BuiltinConst) expr()  {}
+func (BuiltinFunc) expr()   {}
 func (Literal) expr()       {}
 func (CompLiteral) expr()   {}
 func (Call) expr()          {}
@@ -278,6 +280,41 @@ var opPrec = map[uint]uint{
 	scanner.OR:   1,
 }
 
+// Constants
+const (
+	BUILTIN_NIL = iota
+	BUILTIN_FALSE
+	BUILTIN_TRUE
+	BUILTIN_IOTA
+)
+
+type BuiltinConst struct {
+	Kind uint
+}
+
+// Functions
+const (
+	BUILTIN_APPEND = iota
+	BUILTIN_CAP
+	BUILTIN_CLOSE
+	BUILTIN_COMPLEX
+	BUILTIN_COPY
+	BUILTIN_DELETE
+	BUILTIN_IMAG
+	BUILTIN_LEN
+	BUILTIN_MAKE
+	BUILTIN_NEW
+	BUILTIN_PANIC
+	BUILTIN_PRINT
+	BUILTIN_PRINTLN
+	BUILTIN_REAL
+	BUILTIN_RECOVER
+)
+
+type BuiltinFunc struct {
+	Kind uint
+}
+
 type Literal struct {
 	Off   int
 	Kind  uint
@@ -355,7 +392,7 @@ type QualifiedId struct {
 }
 
 const (
-	BUILTIN_NIL = iota
+	BUILTIN_NIL_TYPE = iota
 	BUILTIN_BOOL
 	BUILTIN_UINT8
 	BUILTIN_UINT16
