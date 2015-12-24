@@ -871,11 +871,7 @@ func (r *resolver) resolveExpr(x ast.Expr) (ast.Expr, error) {
 	return x.TraverseExpr(r)
 }
 
-func (*resolver) VisitBuiltinConst(*ast.BuiltinConst) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (*resolver) VisitBuiltinFunc(*ast.BuiltinFunc) (ast.Expr, error) {
+func (*resolver) VisitConstValue(*ast.ConstValue) (ast.Expr, error) {
 	panic("not reached")
 }
 

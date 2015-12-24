@@ -484,26 +484,14 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 //
 // Format expressions.
 //
-func (c *BuiltinConst) Format(ctx *FormatContext, _ uint) {
+
+func (v BuiltinValue) formatValue(ctx *FormatContext) {
 	var name string
-	switch c.Kind {
+	switch v {
 	case BUILTIN_NIL:
 		name = "nil"
-	case BUILTIN_FALSE:
-		name = "false"
-	case BUILTIN_TRUE:
-		name = "true"
 	case BUILTIN_IOTA:
 		name = "iota"
-	default:
-		panic("not reached")
-	}
-	ctx.WriteString(name)
-}
-
-func (f *BuiltinFunc) Format(ctx *FormatContext, _ uint) {
-	var name string
-	switch f.Kind {
 	case BUILTIN_APPEND:
 		name = "append"
 	case BUILTIN_CAP:
@@ -538,6 +526,32 @@ func (f *BuiltinFunc) Format(ctx *FormatContext, _ uint) {
 		panic("not reached")
 	}
 	ctx.WriteString(name)
+}
+
+// FIXME: consider escaping string/rune literals
+func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
+	switch v := c.Value.(type) {
+	case BuiltinValue:
+		v.formatValue(ctx)
+	case UntypedBool:
+		if v {
+			ctx.WriteString("true")
+		} else {
+			ctx.WriteString("false")
+		}
+	case UntypedRune:
+		ctx.WriteString(fmt.Sprintf("%d", v))
+	case UntypedInt:
+		ctx.WriteString(v.String())
+	case UntypedFloat:
+		ctx.WriteString(v.Text('p', 0))
+	case UntypedComplex:
+		ctx.WriteV(0, v.Re.Text('p', 0), "+", v.Im.Text('p', 0), "i")
+	case UntypedString:
+		ctx.WriteV(0, "\"", v, "\"")
+	default:
+		panic("not reached")
+	}
 }
 
 func (e *Literal) Format(ctx *FormatContext, _ uint) {

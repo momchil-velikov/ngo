@@ -1,6 +1,9 @@
 package ast
 
-import "golang/scanner"
+import (
+	"golang/scanner"
+	"math/big"
+)
 
 type Node interface {
 	Format(*FormatContext, uint)
@@ -47,8 +50,7 @@ type Expr interface {
 
 func (Error) expr()         {}
 func (QualifiedId) expr()   {}
-func (BuiltinConst) expr()  {}
-func (BuiltinFunc) expr()   {}
+func (ConstValue) expr()    {}
 func (Literal) expr()       {}
 func (CompLiteral) expr()   {}
 func (Call) expr()          {}
@@ -100,6 +102,19 @@ func (DeferStmt) stmt()       {}
 func (ExprSwitchStmt) stmt()  {}
 func (TypeSwitchStmt) stmt()  {}
 func (SelectStmt) stmt()      {}
+
+// Constant value
+type Value interface {
+	value()
+}
+
+func (BuiltinValue) value()   {}
+func (UntypedBool) value()    {}
+func (UntypedRune) value()    {}
+func (UntypedInt) value()     {}
+func (UntypedFloat) value()   {}
+func (UntypedComplex) value() {}
+func (UntypedString) value()  {}
 
 // Source comment.
 type Comment struct {
@@ -280,21 +295,16 @@ var opPrec = map[uint]uint{
 	scanner.OR:   1,
 }
 
-// Constants
-const (
-	BUILTIN_NIL = iota
-	BUILTIN_FALSE
-	BUILTIN_TRUE
-	BUILTIN_IOTA
-)
-
-type BuiltinConst struct {
-	Kind uint
+type ConstValue struct {
+	Type  Type
+	Value Value
 }
 
-// Functions
+// Builtin values
 const (
-	BUILTIN_APPEND = iota
+	BUILTIN_NIL = iota
+	BUILTIN_IOTA
+	BUILTIN_APPEND
 	BUILTIN_CAP
 	BUILTIN_CLOSE
 	BUILTIN_COMPLEX
@@ -311,9 +321,26 @@ const (
 	BUILTIN_RECOVER
 )
 
-type BuiltinFunc struct {
-	Kind uint
+type BuiltinValue uint
+
+type UntypedBool bool
+
+type UntypedRune rune
+
+type UntypedInt struct {
+	*big.Int
 }
+
+type UntypedFloat struct {
+	*big.Float
+}
+
+type UntypedComplex struct {
+	Re *big.Float
+	Im *big.Float
+}
+
+type UntypedString string
 
 type Literal struct {
 	Off   int

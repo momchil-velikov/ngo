@@ -93,26 +93,26 @@ func init() {
 		UniverseScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
 	}
 
-	BuiltinNil = &BuiltinConst{BUILTIN_NIL}
-	BuiltinTrue = &BuiltinConst{BUILTIN_TRUE}
-	BuiltinFalse = &BuiltinConst{BUILTIN_FALSE}
-	BuiltinIota = &BuiltinConst{BUILTIN_IOTA}
+	BuiltinNil = &ConstValue{Value: BuiltinValue(BUILTIN_NIL)}
+	BuiltinTrue = &ConstValue{Value: UntypedBool(true)}
+	BuiltinFalse = &ConstValue{Value: UntypedBool(false)}
+	BuiltinIota = &ConstValue{Value: BuiltinValue(BUILTIN_IOTA)}
 
-	BuiltinAppend = &BuiltinFunc{BUILTIN_APPEND}
-	BuiltinCap = &BuiltinFunc{BUILTIN_CAP}
-	BuiltinClose = &BuiltinFunc{BUILTIN_CLOSE}
-	BuiltinComplex = &BuiltinFunc{BUILTIN_COMPLEX}
-	BuiltinCopy = &BuiltinFunc{BUILTIN_COPY}
-	BuiltinDelete = &BuiltinFunc{BUILTIN_DELETE}
-	BuiltinImag = &BuiltinFunc{BUILTIN_IMAG}
-	BuiltinLen = &BuiltinFunc{BUILTIN_LEN}
-	BuiltinMake = &BuiltinFunc{BUILTIN_MAKE}
-	BuiltinNew = &BuiltinFunc{BUILTIN_NEW}
-	BuiltinPanic = &BuiltinFunc{BUILTIN_PANIC}
-	BuiltinPrint = &BuiltinFunc{BUILTIN_PRINT}
-	BuiltinPrintln = &BuiltinFunc{BUILTIN_PRINTLN}
-	BuiltinReal = &BuiltinFunc{BUILTIN_REAL}
-	BuiltinRecover = &BuiltinFunc{BUILTIN_RECOVER}
+	BuiltinAppend = &ConstValue{Value: BuiltinValue(BUILTIN_APPEND)}
+	BuiltinCap = &ConstValue{Value: BuiltinValue(BUILTIN_CAP)}
+	BuiltinClose = &ConstValue{Value: BuiltinValue(BUILTIN_CLOSE)}
+	BuiltinComplex = &ConstValue{Value: BuiltinValue(BUILTIN_COMPLEX)}
+	BuiltinCopy = &ConstValue{Value: BuiltinValue(BUILTIN_COPY)}
+	BuiltinDelete = &ConstValue{Value: BuiltinValue(BUILTIN_DELETE)}
+	BuiltinImag = &ConstValue{Value: BuiltinValue(BUILTIN_IMAG)}
+	BuiltinLen = &ConstValue{Value: BuiltinValue(BUILTIN_LEN)}
+	BuiltinMake = &ConstValue{Value: BuiltinValue(BUILTIN_MAKE)}
+	BuiltinNew = &ConstValue{Value: BuiltinValue(BUILTIN_NEW)}
+	BuiltinPanic = &ConstValue{Value: BuiltinValue(BUILTIN_PANIC)}
+	BuiltinPrint = &ConstValue{Value: BuiltinValue(BUILTIN_PRINT)}
+	BuiltinPrintln = &ConstValue{Value: BuiltinValue(BUILTIN_PRINTLN)}
+	BuiltinReal = &ConstValue{Value: BuiltinValue(BUILTIN_REAL)}
+	BuiltinRecover = &ConstValue{Value: BuiltinValue(BUILTIN_RECOVER)}
 	for _, c := range []struct {
 		name string
 		x    Expr
