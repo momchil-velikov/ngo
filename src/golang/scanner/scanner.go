@@ -338,8 +338,8 @@ func (s *Scanner) scanEscape(str bool) bool {
 	return ok
 }
 
-// Scan a rune literal, including the apostrophes. Return a string, containing a
-// single rune.
+// Scan a rune literal, including the apostrophes. Returns raw source bytes,
+// comprising a single rune.
 func (s *Scanner) scanRune() (uint, []byte) {
 	s.nextChar() // skip leading apostrophe
 	start := s.off
@@ -359,8 +359,8 @@ func (s *Scanner) scanRune() (uint, []byte) {
 		if ok := s.scanEscape(false); !ok {
 			return ERROR, nil
 		}
-	} else {
-		s.next()
+	} else if s.next() == utf8.RuneError {
+		return s.error("Invalid rune literal encoding"), nil
 	}
 
 	ch = s.peekChar()

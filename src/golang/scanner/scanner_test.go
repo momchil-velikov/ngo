@@ -332,6 +332,15 @@ func TestRuneEscapeErrors(t *testing.T) {
 	}
 }
 
+func TestRuneEncodeError(t *testing.T) {
+	input := []byte{'\'', 0x81, '\''}
+	s := New("rune escape errors", string(input))
+	tok := s.Get()
+	if expectToken(t, tok, ERROR) {
+		t.Log(s.Err)
+	}
+}
+
 func TestIntLiterals1(t *testing.T) {
 	input := "0x0 0x0123456789abcdefABCDEF 0xy 0x"
 	values := [...]string{"0x0", "0x0123456789abcdefABCDEF"}
