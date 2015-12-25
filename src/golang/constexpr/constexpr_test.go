@@ -32,8 +32,65 @@ func TestString(t *testing.T) {
 
 	for i := range in {
 		s := String(in[i])
-		if s != out[i] {
+		if string(s) != out[i] {
 			t.Errorf("error converting input %v: %v", in[i], []byte(s))
 		}
 	}
+}
+
+func TestRune(t *testing.T) {
+	r := Rune([]byte("め"))
+	if rune(r) != 'め' {
+		t.Error("rune decode error")
+	}
+}
+
+func TestInt(t *testing.T) {
+	for _, e := range []struct {
+		in  string
+		out string
+	}{
+		{"12", "12"},
+		{"012", "10"},
+		{"0x12", "18"},
+		{"0x1234567890abcdef12", "335812727627494321938"},
+		{"4865125723542547825342548254127854", "4865125723542547825342548254127854"},
+	} {
+		x := Int([]byte(e.in))
+		if x.String() != e.out {
+			t.Errorf("unexpected value `%s`, should be `%s`", x.String(), e.out)
+		}
+	}
+}
+
+func TestFloat(t *testing.T) {
+	for _, e := range []struct {
+		in  string
+		out string
+	}{
+		{"1.125", "1.125"},
+		{"012", "12"},
+		{"0x12", "18"},
+		{
+			"0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abc.def0p+16",
+			"8234104123542484900769178205574010627627573691361805720124810878238590820080",
+		},
+		{"0x1234567890abcdef12", "335812727627494321938"},
+		{"4865125723542547825342548254127854", "4865125723542547825342548254127854"},
+
+		{
+			"3.1415926535897932384626433832795028841971693993751058209749445923078164062862",
+
+			"3.1415926535897932384626433832795028841971693993751058209749445923078164062862"},
+	} {
+		x, err := Float([]byte(e.in))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := x.Text('g', 78)
+		if out != e.out {
+			t.Errorf("unexpected value `%s`, should be `%s`", out, e.out)
+		}
+	}
+
 }

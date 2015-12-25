@@ -545,7 +545,7 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 func (p *parser) parseTagOpt() string {
 	if p.token == scanner.STRING {
 		tag, _ := p.matchRaw(scanner.STRING)
-		return constexpr.String(tag)
+		return string(constexpr.String(tag))
 	} else {
 		return ""
 	}

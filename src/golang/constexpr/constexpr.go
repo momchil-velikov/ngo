@@ -4,18 +4,22 @@
 package constexpr
 
 import (
+	"golang/ast"
+	"math/big"
 	"unicode/utf8"
 )
 
 // Converts the bytes of a (perhap raw) string literal to a Go string. The
 // literal value must have been obtained from and checked for correctness by
 // the scanner and contains double or single quotation marks.
-func String(lit []byte) string {
+func String(lit []byte) ast.UntypedString {
+	s := ""
 	if lit[0] == '"' {
-		return readString(lit)
+		s = readString(lit)
 	} else {
-		return readRawString(lit)
+		s = readRawString(lit)
 	}
+	return ast.UntypedString(s)
 }
 
 func isOctDigit(ch byte) bool {
@@ -138,4 +142,59 @@ func readRawString(lit []byte) string {
 		}
 	}
 	return string(buf)
+}
+
+// Converts the bytes of a rune literal to a Go `rune` value. The
+// literal value must have been obtained from and checked for correctness by
+// the scanner.
+func Rune(b []byte) ast.UntypedRune {
+	r, _ := utf8.DecodeRune(b)
+	return ast.UntypedRune(r)
+}
+
+var bigDigit = [...]*big.Int{
+	big.NewInt(0), big.NewInt(1), big.NewInt(2), big.NewInt(3),
+	big.NewInt(4), big.NewInt(5), big.NewInt(6), big.NewInt(7),
+	big.NewInt(8), big.NewInt(9), big.NewInt(10), big.NewInt(11),
+	big.NewInt(12), big.NewInt(13), big.NewInt(14), big.NewInt(15),
+}
+
+// Converts the bytes of an integer literal to an untyped Go integer
+// constant. The literal value must have been obtained from and checked for
+// correctness by the scanner.
+func Int(b []byte) ast.UntypedInt {
+	if b[0] == '0' && len(b) > 1 {
+		if b[1] == 'x' || b[1] == 'X' {
+			return ast.UntypedInt{Int: readInt(b[2:], 4)}
+		} else {
+			return ast.UntypedInt{Int: readInt(b[1:], 3)}
+		}
+	}
+	return ast.UntypedInt{Int: readDecInt(b)}
+}
+
+func readInt(b []byte, n uint) *big.Int {
+	x := big.NewInt(0)
+	for _, d := range b {
+		x.Lsh(x, n)
+		x.Add(x, bigDigit[hexValue(d)])
+	}
+	return x
+}
+
+func readDecInt(b []byte) *big.Int {
+	x := big.NewInt(0)
+	for _, d := range b {
+		x.Mul(x, bigDigit[10])
+		x.Add(x, bigDigit[hexValue(d)])
+	}
+	return x
+}
+
+// Converts the bytes of a float literal to an untyped Go floating point
+// constant. The literal value must have been obtained from and checked for
+// correctness by the scanner.
+func Float(b []byte) (ast.UntypedFloat, error) {
+	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
+	return ast.UntypedFloat{Float: x}, err
 }

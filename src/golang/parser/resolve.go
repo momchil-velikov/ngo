@@ -93,7 +93,7 @@ func (r *resolver) declareTopLevel(
 
 	// Declare imported package names.
 	for _, i := range file.Imports {
-		path := constexpr.String(i.Path)
+		path := string(constexpr.String(i.Path))
 		dep, pos := findImport(path, pkg.Deps)
 		if dep == nil {
 			p, err := loc.FindPackage(path)
