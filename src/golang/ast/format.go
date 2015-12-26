@@ -824,12 +824,16 @@ func (s *SendStmt) Format(ctx *FormatContext, n uint) {
 }
 
 func (s *RecvStmt) Format(ctx *FormatContext, n uint) {
-	if s.Op == '=' || s.Op == scanner.DEFINE {
+	if s.X != nil {
 		s.X.Format(ctx, n)
 		if s.Y != nil {
 			ctx.WriteV(0, ", ", s.Y.Format)
 		}
-		ctx.WriteV(0, " ", scanner.TokenNames[s.Op], " ")
+		if s.Op == NOP {
+			ctx.WriteString(" = ")
+		} else {
+			ctx.WriteString(" := ")
+		}
 	}
 	s.Rcv.Format(ctx, n)
 }
@@ -853,7 +857,13 @@ func (a *AssignStmt) Format(ctx *FormatContext, n uint) {
 			a.LHS[i].Format(ctx, n)
 		}
 	}
-	ctx.WriteV(0, " ", scanner.TokenNames[a.Op], " ")
+	if a.Op == DCL {
+		ctx.WriteString(" := ")
+	} else if a.Op == NOP {
+		ctx.WriteString(" = ")
+	} else {
+		ctx.WriteV(0, " ", scanner.TokenNames[a.Op], "= ")
+	}
 	m = len(a.RHS)
 	if m > 0 {
 		a.RHS[0].Format(ctx, n)
@@ -927,7 +937,11 @@ func (f *ForRangeStmt) Format(ctx *FormatContext, n uint) {
 			ctx.WriteString(", ")
 			f.LHS[i].Format(ctx, n)
 		}
-		ctx.WriteV(0, " ", scanner.TokenNames[f.Op], " ")
+		if f.Op == NOP {
+			ctx.WriteString(" = ")
+		} else {
+			ctx.WriteString(" := ")
+		}
 	}
 	ctx.WriteV(n, "range ", f.Range.Format, " ", f.Blk.Format)
 }

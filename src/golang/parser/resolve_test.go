@@ -850,7 +850,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 		t.Error("`C` and `D` must have the same initialization statement")
 	}
 	// Check initialization statement is an assignment
-	if x.Op != '=' || len(x.LHS) != 2 || len(x.RHS) != 2 {
+	if x.Op != ast.NOP || len(x.LHS) != 2 || len(x.RHS) != 2 {
 		t.Error("unexpected initialization statement for `C, D`")
 	}
 	// Check C and D are initialized with A and B, respectively
@@ -871,7 +871,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 	}
 	// Check initialization statement is an assignment
 	x = v["E"].Init
-	if x.Op != '=' || len(x.LHS) != 2 || len(x.RHS) != 1 {
+	if x.Op != ast.NOP || len(x.LHS) != 2 || len(x.RHS) != 1 {
 		t.Error("unexpected initialization statement for `E, F`")
 	}
 	// Check E and F are initialized with a call to Fn.

@@ -272,6 +272,35 @@ type FuncDecl struct {
 // Expressions
 //
 
+// Operations; Must be the same as scanner token codes.
+const (
+	NOP = 0
+	DCL = 1
+
+	PLUS   = '+'
+	MINUS  = '-'
+	MUL    = '*'
+	DIV    = '/'
+	REM    = '%'
+	BITAND = '&'
+	BITOR  = '|'
+	BITXOR = '^'
+	LT     = '<'
+	GT     = '>'
+	NOT    = '!'
+
+	SHL  = scanner.SHL
+	SHR  = scanner.SHL
+	ANDN = scanner.ANDN
+	AND  = scanner.AND
+	OR   = scanner.OR
+	RECV = scanner.RECV
+	EQ   = scanner.EQ
+	NE   = scanner.NE
+	LE   = scanner.LE
+	GE   = scanner.GE
+)
+
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
 	'*':          5,

@@ -1061,14 +1061,34 @@ func isMulOp(t uint) bool {
 }
 
 // assign_op = [ add_op | mul_op ] "=" .
-func isAssignOp(t uint) bool {
+func isAssignOp(t uint) (uint, bool) {
 	switch t {
-	case '=', scanner.PLUS_ASSIGN, scanner.MINUS_ASSIGN, scanner.MUL_ASSIGN,
-		scanner.DIV_ASSIGN, scanner.REM_ASSIGN, scanner.AND_ASSIGN, scanner.OR_ASSIGN,
-		scanner.XOR_ASSIGN, scanner.SHL_ASSIGN, scanner.SHR_ASSIGN, scanner.ANDN_ASSIGN:
-		return true
+	case '=':
+		return ast.NOP, true
+	case scanner.PLUS_ASSIGN:
+		return '+', true
+	case scanner.MINUS_ASSIGN:
+		return '-', true
+	case scanner.MUL_ASSIGN:
+		return '*', true
+	case scanner.DIV_ASSIGN:
+		return '/', true
+	case scanner.REM_ASSIGN:
+		return '%', true
+	case scanner.AND_ASSIGN:
+		return '&', true
+	case scanner.OR_ASSIGN:
+		return '|', true
+	case scanner.XOR_ASSIGN:
+		return '^', true
+	case scanner.SHL_ASSIGN:
+		return ast.SHL, true
+	case scanner.SHR_ASSIGN:
+		return ast.SHR, true
+	case scanner.ANDN_ASSIGN:
+		return ast.ANDN, true
 	default:
-		return false
+		return ast.NOP, false
 	}
 }
 
@@ -1644,7 +1664,7 @@ func (p *parser) isTypeSwitchGuardStmt(x ast.Stmt) (string, ast.Expr, bool) {
 			} else {
 				id = z.Id
 			}
-			if a.Op != scanner.DEFINE {
+			if a.Op != ast.DCL {
 				p.error("type switch guard must use := instead of =")
 			}
 			return id, y, true
@@ -1795,34 +1815,33 @@ func (p *parser) parseSendOrRecv() ast.Stmt {
 		p.next()
 		y := p.parseExpr()
 		return &ast.SendStmt{Ch: x, X: y}
-	} else {
-		// Receive statement.
-		op := uint(0)
-		var y, rcv ast.Expr
-		if p.token == ',' {
-			p.next()
-			y = p.parseExpr()
-			op = p.token
-			if op != '=' && op != scanner.DEFINE {
-				p.error("expected = or := in a receive statement")
-				op = '='
-			} else {
-				p.next()
-			}
-			rcv = p.parseExpr()
-		} else if p.token == '=' || p.token == scanner.DEFINE {
-			op = p.token
-			p.next()
-			rcv = p.parseExpr()
-		} else {
-			rcv = x
-			x = nil
-		}
-		if !isReceiveExpr(rcv) {
-			p.error("receive statement must contain a receive expression")
-		}
-		return &ast.RecvStmt{Op: op, X: x, Y: y, Rcv: rcv}
 	}
+
+	// Receive statement.
+	op := uint(ast.NOP)
+	var y, rcv ast.Expr
+	if t := p.token; t == ',' || t == '=' || t == scanner.DEFINE {
+		p.next()
+		if t == ',' {
+			y = p.parseExpr()
+			if t = p.token; t == '=' || t == scanner.DEFINE {
+				p.next()
+			} else {
+				p.error("expected = or := in a receive statement")
+			}
+		}
+		if t == scanner.DEFINE {
+			op = ast.DCL
+		}
+		rcv = p.parseExpr()
+	} else {
+		rcv = x
+		x = nil
+	}
+	if !isReceiveExpr(rcv) {
+		p.error("receive statement must contain a receive expression")
+	}
+	return &ast.RecvStmt{Op: op, X: x, Y: y, Rcv: rcv}
 }
 
 // SelectStmt = "select" "{" { CommClause } "}" .
@@ -1873,7 +1892,7 @@ func (p *parser) parseForStmt() ast.Stmt {
 		p.next()
 		return &ast.ForRangeStmt{
 			Off:   off,
-			Op:    '=',
+			Op:    ast.NOP,
 			Range: p.parseExpr(),
 			Blk:   p.parseBlock(),
 		}
@@ -1954,9 +1973,9 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	if t == scanner.DEFINE {
 		p.next()
 		return p.parseShortVarDecl(es)
-	} else if isAssignOp(t) {
+	} else if op, ok := isAssignOp(t); ok {
 		p.next()
-		return p.parseAssignment(t, es)
+		return p.parseAssignment(op, es)
 	}
 
 	p.error("Invalid statement")
@@ -1986,13 +2005,17 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 	if t == scanner.DEFINE || t == '=' {
 		p.next()
 		if p.token == scanner.RANGE {
-			return p.parseRangeClause(t, es)
+			op := uint(ast.NOP)
+			if t == scanner.DEFINE {
+				op = ast.DCL
+			}
+			return p.parseRangeClause(op, es)
 		}
 	}
 	if t == scanner.DEFINE {
 		return p.parseShortVarDecl(es)
-	} else if isAssignOp(t) {
-		return p.parseAssignment(t, es)
+	} else if op, ok := isAssignOp(t); ok {
+		return p.parseAssignment(op, es)
 	}
 	p.error("Invalid statement")
 	return &ast.Error{p.scan.TOff}
@@ -2026,7 +2049,7 @@ func (p *parser) parseAssignment(op uint, lhs []ast.Expr) ast.Stmt {
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
 	rhs := p.parseExprList(nil)
-	return &ast.AssignStmt{scanner.DEFINE, lhs, rhs}
+	return &ast.AssignStmt{ast.DCL, lhs, rhs}
 }
 
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .

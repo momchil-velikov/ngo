@@ -4,7 +4,6 @@ import (
 	"errors"
 	"golang/ast"
 	"golang/constexpr"
-	"golang/scanner"
 	"unicode"
 	"unicode/utf8"
 )
@@ -327,7 +326,7 @@ func (r *resolver) declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 		// values of the package-level variables. Make every variable refer to
 		// its initialization statement.
 		lhs := make([]ast.Expr, len(vr.Names))
-		init := &ast.AssignStmt{Op: '=', LHS: lhs, RHS: vr.Init}
+		init := &ast.AssignStmt{Op: ast.NOP, LHS: lhs, RHS: vr.Init}
 		vr.Init = nil
 		for i, v := range vr.Names {
 			lhs[i] = v
@@ -1190,7 +1189,7 @@ func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
 	// Even if there are not initialization expressions, create the assignment
 	// statement. The RHS side being empty means zero-initialization of the
 	// variables.
-	init := &ast.AssignStmt{Op: '=', LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
+	init := &ast.AssignStmt{Op: ast.NOP, LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
 	s.Init = nil
 	for i, v := range s.Names {
 		init.LHS[i] = v
@@ -1302,7 +1301,7 @@ func (r *resolver) VisitRecvStmt(s *ast.RecvStmt) (ast.Stmt, error) {
 		return nil, err
 	}
 	s.Rcv = x
-	if s.Op == scanner.DEFINE {
+	if s.Op == ast.DCL {
 		var err error
 		if s.Y == nil {
 			err = r.declareLHS(s.X)
@@ -1354,7 +1353,7 @@ func (r *resolver) VisitAssignStmt(s *ast.AssignStmt) (ast.Stmt, error) {
 		s.RHS[i] = x
 
 	}
-	if s.Op == scanner.DEFINE {
+	if s.Op == ast.DCL {
 		if err := r.declareLHS(s.LHS...); err != nil {
 			return nil, err
 		}
@@ -1368,7 +1367,7 @@ func (r *resolver) VisitAssignStmt(s *ast.AssignStmt) (ast.Stmt, error) {
 		s.LHS[i] = x
 	}
 	// The statement becomes an ordinary assignment.
-	s.Op = '='
+	s.Op = ast.NOP
 	return s, nil
 }
 
@@ -1430,7 +1429,7 @@ func (r *resolver) VisitForStmt(s *ast.ForStmt) (ast.Stmt, error) {
 	s.Cond = x
 
 	// The Post statement cannot be a declaration.
-	if d, ok := s.Post.(*ast.AssignStmt); ok && d.Op == scanner.DEFINE {
+	if d, ok := s.Post.(*ast.AssignStmt); ok && d.Op == ast.DCL {
 		return nil, errors.New("cannot declare in for post-statement")
 	}
 
@@ -1462,7 +1461,7 @@ func (r *resolver) VisitForRangeStmt(s *ast.ForRangeStmt) (ast.Stmt, error) {
 	s.Range = x
 
 	// Declare the LHS variables.
-	if s.Op == scanner.DEFINE {
+	if s.Op == ast.DCL {
 		if err := r.declareLHS(s.LHS...); err != nil {
 			return nil, err
 		}
