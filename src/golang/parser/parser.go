@@ -1983,16 +1983,16 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 		es = append(es, e)
 	}
 	t := p.token
-	if t == scanner.DEFINE || isAssignOp(t) {
+	if t == scanner.DEFINE || t == '=' {
 		p.next()
 		if p.token == scanner.RANGE {
 			return p.parseRangeClause(t, es)
 		}
-		if t == scanner.DEFINE {
-			return p.parseShortVarDecl(es)
-		} else {
-			return p.parseAssignment(t, es)
-		}
+	}
+	if t == scanner.DEFINE {
+		return p.parseShortVarDecl(es)
+	} else if isAssignOp(t) {
+		return p.parseAssignment(t, es)
 	}
 	p.error("Invalid statement")
 	return &ast.Error{p.scan.TOff}

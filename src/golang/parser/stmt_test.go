@@ -626,6 +626,20 @@ func foo() {
 	}
 }
 
+func TestForRange_Issue_44_2015_12_26T12_31(tst *testing.T) {
+	src := `package p
+func f(a []int) int {
+    x := 1
+    for x *= range a {}
+    return x
+}`
+
+	_, e := Parse("for-range-err.go", src)
+	if e == nil {
+		tst.Error("expecting invalid statement error")
+	}
+}
+
 func TestDeferStmt(tst *testing.T) {
 	src := `package main
 func foo(i int) int {
