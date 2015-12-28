@@ -939,11 +939,11 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 		if x.Type != nil || len(x.Xs) != 1 || x.Ell {
 			return nil, errors.New("invalid conversion argument")
 		}
-		x, err := r.resolveExpr(x.Xs[0])
+		y, err := r.resolveExpr(x.Xs[0])
 		if err != nil {
 			return nil, err
 		}
-		return &ast.Conversion{Type: typ, X: x}, nil
+		return &ast.Conversion{Off: x.Off, Type: typ, X: y}, nil
 	}
 }
 
@@ -990,7 +990,7 @@ func (r *resolver) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 		return nil, err
 	}
 	if typ != nil {
-		return &ast.MethodExpr{Type: typ, Id: x.Id}, nil
+		return &ast.MethodExpr{Off: x.X.Position(), Type: typ, Id: x.Id}, nil
 	}
 	y, err := r.resolveExpr(x.X)
 	if err != nil {
@@ -1096,9 +1096,9 @@ func (r *resolver) VisitOperandName(x *ast.QualifiedId) (ast.Expr, error) {
 				return operandName(d), nil
 			}
 		} else if t, ok := d.(*ast.TypeDecl); ok {
-			return &ast.MethodExpr{Type: t, Id: x.Id}, nil
+			return &ast.MethodExpr{Off: x.Off, Type: t, Id: x.Id}, nil
 		} else {
-			return &ast.Selector{X: operandName(d), Id: x.Id}, nil
+			return &ast.Selector{Off: x.Off, X: operandName(d), Id: x.Id}, nil
 		}
 	} else {
 		// A single identifier must be simply a valid operand.
@@ -1217,7 +1217,7 @@ func (r *resolver) VisitVarDeclGroup(s *ast.VarDeclGroup) (ast.Stmt, error) {
 		ss = append(ss, st)
 	}
 
-	b := &ast.Block{Body: ss}
+	b := &ast.Block{Off: s.Off, Body: ss}
 	b.Up = r.scope
 	return b, nil
 }

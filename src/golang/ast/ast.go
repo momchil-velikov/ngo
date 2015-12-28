@@ -7,6 +7,7 @@ import (
 
 type Node interface {
 	Format(*FormatContext, uint)
+	Position() int
 }
 
 type Decl interface {
@@ -191,12 +192,14 @@ type Error struct {
 	Off int
 }
 
+func (e Error) Position() int { return e.Off }
+
 //
 // Declarations
 //
 
 type TypeDecl struct {
-	Off      int
+	Off      int // position of the identifier
 	File     *File
 	Name     string
 	Type     Type
@@ -204,12 +207,17 @@ type TypeDecl struct {
 	PMethods []*FuncDecl
 }
 
+func (t *TypeDecl) Position() int { return t.Off }
+
 type TypeDeclGroup struct {
+	Off   int // position of the opening parenthesis
 	Types []*TypeDecl
 }
 
+func (t *TypeDeclGroup) Position() int { return t.Off }
+
 type Const struct {
-	Off  int
+	Off  int // position of the identifier
 	File *File
 	Name string
 	Type Type
@@ -217,23 +225,32 @@ type Const struct {
 	Iota int
 }
 
+func (c *Const) Position() int { return c.Off }
+
 type ConstDecl struct {
 	Names  []*Const
 	Type   Type
 	Values []Expr
 }
 
+func (c *ConstDecl) Position() int { return c.Names[0].Position() }
+
 type ConstDeclGroup struct {
+	Off    int // position of the opening parenthesis
 	Consts []*ConstDecl
 }
 
+func (c *ConstDeclGroup) Position() int { return c.Off }
+
 type Var struct {
-	Off  int
+	Off  int // position of the identifier
 	File *File
 	Name string
 	Type Type
 	Init *AssignStmt
 }
+
+func (v *Var) Position() int { return v.Off }
 
 type VarDecl struct {
 	Names []*Var
@@ -241,12 +258,17 @@ type VarDecl struct {
 	Init  []Expr
 }
 
+func (v *VarDecl) Position() int { return v.Names[0].Position() }
+
 type VarDeclGroup struct {
+	Off  int // position of the opening parenthesis
 	Vars []*VarDecl
 }
 
+func (v *VarDeclGroup) Position() int { return v.Off }
+
 type Func struct {
-	Off    int
+	Off    int // position of the `func` keyword
 	Decl   *FuncDecl
 	Recv   *Param
 	Sig    *FuncType
@@ -255,12 +277,16 @@ type Func struct {
 	Labels map[string]*Label
 }
 
+func (f *Func) Position() int { return f.Off }
+
 type FuncDecl struct {
-	Off  int
+	Off  int // position of the identifier
 	File *File
 	Name string
 	Func Func
 }
+
+func (f *FuncDecl) Position() int { return f.Off }
 
 //
 // Expressions
@@ -319,9 +345,12 @@ var opPrec = map[uint]uint{
 }
 
 type ConstValue struct {
+	Off   int // position of the leftmost subexpression, or literal of the value
 	Type  Type
 	Value Value
 }
+
+func (c *ConstValue) Position() int { return c.Off }
 
 // Builtin values
 const (
@@ -371,67 +400,100 @@ type Literal struct {
 	Value []byte
 }
 
+func (x *Literal) Position() int { return x.Off }
+
 type KeyedElement struct {
 	Key Expr
 	Elt Expr
 }
 
 type CompLiteral struct {
+	Off  int // position of the type, or the opening brace
 	Type Type
 	Elts []*KeyedElement
 }
 
+func (x *CompLiteral) Position() int { return x.Off }
+
 type Call struct {
+	Off  int // position of the func expression
 	Func Expr
 	Type Type
 	Xs   []Expr
 	Ell  bool
 }
 
+func (x *Call) Position() int { return x.Off }
+
 type Conversion struct {
+	Off  int // position of the type
 	Type Type
 	X    Expr
 }
 
+func (x *Conversion) Position() int { return x.Off }
+
 type MethodExpr struct {
+	Off  int
 	Type Type
 	Id   string
 }
 
+func (x *MethodExpr) Position() int { return x.Off }
+
 type ParensExpr struct {
-	Off int
+	Off int // position of the opening parenthesis
 	X   Expr
 }
 
+func (x *ParensExpr) Position() int { return x.Off }
+
 type TypeAssertion struct {
+	Off  int // position of the expression
 	Type Type
 	X    Expr
 }
 
+func (x *TypeAssertion) Position() int { return x.Off }
+
 type Selector struct {
-	X  Expr
-	Id string
+	Off int // position of the struct expression
+	X   Expr
+	Id  string
 }
 
+func (x *Selector) Position() int { return x.Off }
+
 type IndexExpr struct {
+	Off  int // position of the indexed expression
 	X, I Expr
 }
 
+func (x *IndexExpr) Position() int { return x.Off }
+
 type SliceExpr struct {
+	Off         int // position of the sliced expression
 	X           Expr
 	Lo, Hi, Cap Expr
 }
 
+func (x *SliceExpr) Position() int { return x.Off }
+
 type UnaryExpr struct {
-	Off int
+	Off int // position of the unary operator
 	Op  uint
 	X   Expr
 }
 
+func (x *UnaryExpr) Position() int { return x.Off }
+
 type BinaryExpr struct {
+	Off  int // position of the left operand
 	Op   uint
 	X, Y Expr
 }
+
+func (x *BinaryExpr) Position() int { return x.Off }
 
 //
 // Types
@@ -440,6 +502,8 @@ type QualifiedId struct {
 	Off     int
 	Pkg, Id string
 }
+
+func (t *QualifiedId) Position() int { return t.Off }
 
 const (
 	BUILTIN_NIL_TYPE = iota
@@ -466,181 +530,254 @@ type BuiltinType struct {
 	Kind int
 }
 
+func (t *BuiltinType) Position() int { return -1 }
+
 type ArrayType struct {
-	Off int
+	Off int // position of the opening bracket
 	Dim Expr
 	Elt Type
 }
 
+func (t *ArrayType) Position() int { return t.Off }
+
 type SliceType struct {
-	Off int
+	Off int // position of the opening bracket
 	Elt Type
 }
 
+func (t *SliceType) Position() int { return t.Off }
+
 type PtrType struct {
-	Off  int
+	Off  int // positio of the asterisk
 	Base Type
 }
 
+func (t *PtrType) Position() int { return t.Off }
+
 type MapType struct {
-	Off      int
+	Off      int // position of the `map` keyword
 	Key, Elt Type
 }
 
+func (t *MapType) Position() int { return t.Off }
+
 type ChanType struct {
-	Off        int
+	Off        int // position of the `chan` keyword or the `<-` token
 	Send, Recv bool
 	Elt        Type
 }
 
+func (t *ChanType) Position() int { return t.Off }
+
 type Field struct {
-	Off  int
+	Off  int // position of the identifier, or type, for anonymous fields
 	Name string
 	Type Type
 	Tag  string
 }
 
+func (f *Field) Position() int { return f.Off }
+
 type StructType struct {
-	Off    int
+	Off    int // position of the `struct` keyword
 	Fields []Field
 }
 
+func (t *StructType) Position() int { return t.Off }
+
 type Param struct {
-	Off  int
+	Off  int // position of the identifier
 	Name string
 	Type Type
 }
 
+func (p *Param) Position() int { return p.Off }
+
 type FuncType struct {
-	Off     int
+	Off     int // position of the `func` keyword
 	Params  []Param
 	Returns []Param
 	Var     bool
 }
 
+func (t *FuncType) Position() int { return t.Off }
+
 type MethodSpec struct {
-	Off  int
+	Off  int // position of the identifier
 	Name string
 	Type Type
 }
 
+func (m *MethodSpec) Position() int { return m.Off }
+
 type InterfaceType struct {
-	Off     int
+	Off     int // position of the `interface` keyword
 	Methods []MethodSpec
 }
+
+func (t *InterfaceType) Position() int { return t.Off }
 
 //
 // Statements
 //
 type EmptyStmt struct {
+	// position of the semilocon, or the closing brace following an empty
+	// statement
 	Off int
 }
 
+func (s *EmptyStmt) Position() int { return s.Off }
+
 type Block struct {
 	blockScope
+	// position of the opening brace, or the colon preceding a statement list
+	// in a swicth or a select case
+	Off  int
 	Body []Stmt
 }
 
+func (s *Block) Position() int { return s.Off }
+
 type Label struct {
-	Off   int
+	Off   int // position of the label
 	Label string
 	Stmt  Stmt
 	Blk   Scope
 }
 
+func (s *Label) Position() int { return s.Off }
+
 type GoStmt struct {
-	Off int
+	Off int // position of the `go` keyword
 	X   Expr
 }
 
+func (s *GoStmt) Position() int { return s.Off }
+
 type ReturnStmt struct {
-	Off int
+	Off int // position of the `return` keyword
 	Xs  []Expr
 }
 
+func (s *ReturnStmt) Position() int { return s.Off }
+
 type BreakStmt struct {
-	Off   int
+	Off   int // position of the `break` keyword
 	Label string
 	Dst   Stmt
 }
+
+func (s *BreakStmt) Position() int { return s.Off }
 
 type ContinueStmt struct {
-	Off   int
+	Off   int // position of the `continue` keyword
 	Label string
 	Dst   Stmt
 }
+
+func (s *ContinueStmt) Position() int { return s.Off }
 
 type GotoStmt struct {
-	Off   int
+	Off   int // position of the `goto` keyword
 	Label string
 	Dst   Stmt
 }
 
+func (s *GotoStmt) Position() int { return s.Off }
+
 type FallthroughStmt struct {
-	Off int
+	Off int // position of the `fallthrough` keyword
 	Dst Stmt
 }
 
+func (s *FallthroughStmt) Position() int { return s.Off }
+
 type SendStmt struct {
-	Ch Expr
-	X  Expr
+	Off int // position of the channel expression
+	Ch  Expr
+	X   Expr
 }
 
+func (s *SendStmt) Position() int { return s.Off }
+
 type RecvStmt struct {
+	Off  int // position of the leftmost identifier, or position of the receive expression
 	Op   uint
 	X, Y Expr
 	Rcv  Expr
 }
 
+func (s *RecvStmt) Position() int { return s.Off }
+
 type IncStmt struct {
-	X Expr
+	Off int // position of the expression
+	X   Expr
 }
+
+func (s *IncStmt) Position() int { return s.Off }
 
 type DecStmt struct {
-	X Expr
+	Off int // position of the expression
+	X   Expr
 }
 
+func (s *DecStmt) Position() int { return s.Off }
+
 type AssignStmt struct {
+	Off int // position of the first element on the LHS
 	Op  uint
 	LHS []Expr
 	RHS []Expr
 }
 
+func (s *AssignStmt) Position() int { return s.Off }
+
 type ExprStmt struct {
-	X Expr
+	Off int // position of the expression
+	X   Expr
 }
+
+func (s *ExprStmt) Position() int { return s.Off }
 
 type IfStmt struct {
 	blockScope
-	Off  int
+	Off  int // position of the `if` keyword
 	Init Stmt
 	Cond Expr
 	Then *Block
 	Else Stmt
 }
 
+func (s *IfStmt) Position() int { return s.Off }
+
 type ForStmt struct {
 	blockScope
-	Off  int
+	Off  int // position of the `for`  keyword
 	Init Stmt
 	Cond Expr
 	Post Stmt
 	Blk  *Block
 }
 
+func (s *ForStmt) Position() int { return s.Off }
+
 type ForRangeStmt struct {
 	blockScope
-	Off   int
+	Off   int // position of the `for` keyword
 	Op    uint
 	LHS   []Expr
 	Range Expr
 	Blk   *Block
 }
 
+func (s *ForRangeStmt) Position() int { return s.Off }
+
 type DeferStmt struct {
-	Off int
+	Off int // position of the `defer` keyword
 	X   Expr
 }
+
+func (s *DeferStmt) Position() int { return s.Off }
 
 type ExprCaseClause struct {
 	Xs  []Expr
@@ -654,6 +791,8 @@ type ExprSwitchStmt struct {
 	X     Expr
 	Cases []ExprCaseClause
 }
+
+func (s *ExprSwitchStmt) Position() int { return s.Off }
 
 type TypeCaseClause struct {
 	Types []Type
@@ -669,6 +808,8 @@ type TypeSwitchStmt struct {
 	Cases []TypeCaseClause
 }
 
+func (s *TypeSwitchStmt) Position() int { return s.Off }
+
 type CommClause struct {
 	Comm Stmt
 	Blk  *Block
@@ -676,7 +817,8 @@ type CommClause struct {
 
 type SelectStmt struct {
 	blockScope
-	Off     int // position of the `select` keyword
-	in, End int // positions of the opening and the closing braces
-	Comms   []CommClause
+	Off   int // position of the `select` keyword
+	Comms []CommClause
 }
+
+func (s *SelectStmt) Position() int { return s.Off }

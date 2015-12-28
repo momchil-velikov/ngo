@@ -359,8 +359,8 @@ func (p *parser) parseToplevelDecls() (dcls []ast.Decl) {
 //
 // TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 func (p *parser) parseTypeDeclGroup() *ast.TypeDeclGroup {
-	p.match('(')
-	grp := &ast.TypeDeclGroup{}
+	off := p.match('(')
+	grp := &ast.TypeDeclGroup{Off: off}
 	for p.token != scanner.EOF && p.token != ')' {
 		grp.Types = append(grp.Types, p.parseTypeSpec())
 		if p.token != ')' {
@@ -510,26 +510,39 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 		// Anonymous field.
 		off := p.next()
 		pt := &ast.PtrType{Off: off, Base: p.parseQualifiedId()}
-		return append(fs, ast.Field{Type: pt, Tag: p.parseTagOpt()})
+		return append(fs, ast.Field{Off: off, Type: pt, Tag: p.parseTagOpt()})
 	}
 
 	if p.token == scanner.ID {
 		name, off := p.matchString(scanner.ID)
-		id := &ast.QualifiedId{Off: off, Id: name}
 
 		// If the field decl begins with a qualified-id, it's parsed as an
 		// anonymous field.
 		if p.token == '.' {
 			p.next()
-			id.Pkg = id.Id
-			id.Id, _ = p.matchString(scanner.ID)
-			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
+			pkg := name
+			name, _ = p.matchString(scanner.ID)
+			return append(
+				fs,
+				ast.Field{
+					Off:  off,
+					Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: name},
+					Tag:  p.parseTagOpt(),
+				},
+			)
 		}
 
 		// If it's only a single identifier, with no separate type
 		// declaration, it's also an anonymous filed.
 		if p.token == scanner.STRING || p.token == ';' || p.token == '}' {
-			return append(fs, ast.Field{Type: id, Tag: p.parseTagOpt()})
+			return append(
+				fs,
+				ast.Field{
+					Off:  off,
+					Type: &ast.QualifiedId{Off: off, Id: name},
+					Tag:  p.parseTagOpt(),
+				},
+			)
 		}
 
 		fs = p.parseFieldIdList(off, name, fs)
@@ -539,7 +552,7 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 		return fs
 	}
 	p.error("Invalid field declaration")
-	return append(fs, ast.Field{Type: &ast.Error{Off: p.scan.TOff}})
+	return append(fs, ast.Field{Off: p.scan.TOff, Type: &ast.Error{Off: p.scan.TOff}})
 }
 
 func (p *parser) parseTagOpt() string {
@@ -617,8 +630,8 @@ func (p *parser) parseSignature() *ast.FuncType {
 			p.error("output parameters cannot be variadic")
 		}
 	} else if isTypeLookahead(p.token) {
-		off := p.scan.TOff
-		rs = []ast.Param{ast.Param{Off: off, Type: p.parseType()}}
+		t := p.parseType()
+		rs = []ast.Param{ast.Param{Off: t.Position(), Type: t}}
 	}
 	return &ast.FuncType{Params: ps, Returns: rs, Var: v}
 }
@@ -694,7 +707,10 @@ func (p *parser) parseIdOrType() (ast.Param, bool) {
 				p.error("incomplete qualified id")
 				id = ""
 			}
-			return ast.Param{Off: off, Type: &ast.QualifiedId{Pkg: pkg, Id: id}}, false
+			return ast.Param{
+				Off:  off,
+				Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id},
+			}, false
 		}
 		return ast.Param{Off: off, Name: id}, false
 	}
@@ -704,7 +720,7 @@ func (p *parser) parseIdOrType() (ast.Param, bool) {
 		v = true
 	}
 	t := p.parseType() // FIXME: parenthesized types not allowed
-	return ast.Param{Type: t}, v
+	return ast.Param{Off: t.Position(), Type: t}, v
 }
 
 // Converts an identifier list to a list of parameter declarations, taking
@@ -739,7 +755,10 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 				pkg = id
 				id, _ = p.matchString(scanner.ID)
 			}
-			m = ast.MethodSpec{Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id}}
+			m = ast.MethodSpec{
+				Off:  off,
+				Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id},
+			}
 		}
 		ms = append(ms, m)
 		if p.token != '}' {
@@ -752,8 +771,8 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 func (p *parser) parseConstDeclGroup() *ast.ConstDeclGroup {
-	p.match('(')
-	grp := &ast.ConstDeclGroup{}
+	off := p.match('(')
+	grp := &ast.ConstDeclGroup{Off: off}
 	for p.token != scanner.EOF && p.token != ')' {
 		grp.Consts = append(grp.Consts, p.parseConstSpec(true))
 		if p.token != ')' {
@@ -790,8 +809,8 @@ func (p *parser) parseConstSpec(grp bool) *ast.ConstDecl {
 
 // VarDecl = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 func (p *parser) parseVarDeclGroup() *ast.VarDeclGroup {
-	p.match('(')
-	grp := &ast.VarDeclGroup{}
+	off := p.match('(')
+	grp := &ast.VarDeclGroup{Off: off}
 	for p.token != scanner.EOF && p.token != ')' {
 		grp.Vars = append(grp.Vars, p.parseVarSpec())
 		if p.token != ')' {
@@ -868,9 +887,9 @@ func (p *parser) parseReceiver() *ast.Param {
 		p.match(')')
 		if name == nil {
 			p.error("missing receiver type")
-			return &ast.Param{Type: &ast.Error{Off: off}}
+			return &ast.Param{Off: off, Type: &ast.Error{Off: off}}
 		}
-		return &ast.Param{Type: name}
+		return &ast.Param{Off: name.Off, Type: name}
 	}
 	var id string
 	if name != nil {
@@ -940,7 +959,7 @@ func (p *parser) parseOrExprOrType() (ast.Expr, ast.Type) {
 	for p.token == scanner.OR {
 		p.next()
 		y, _ := p.parseAndExprOrType()
-		x = &ast.BinaryExpr{Op: scanner.OR, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: scanner.OR, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -956,7 +975,7 @@ func (p *parser) parseAndExprOrType() (ast.Expr, ast.Type) {
 	for p.token == scanner.AND {
 		p.next()
 		y, _ := p.parseCompareExprOrType()
-		x = &ast.BinaryExpr{Op: scanner.AND, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: scanner.AND, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -973,7 +992,7 @@ func (p *parser) parseCompareExprOrType() (ast.Expr, ast.Type) {
 		op := p.token
 		p.next()
 		y, _ := p.parseAddExprOrType()
-		x = &ast.BinaryExpr{Op: op, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -990,7 +1009,7 @@ func (p *parser) parseAddExprOrType() (ast.Expr, ast.Type) {
 		op := p.token
 		p.next()
 		y, _ := p.parseMulExprOrType()
-		x = &ast.BinaryExpr{Op: op, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -1007,7 +1026,7 @@ func (p *parser) parseMulExprOrType() (ast.Expr, ast.Type) {
 		op := p.token
 		p.next()
 		y, _ := p.parseUnaryExprOrType()
-		x = &ast.BinaryExpr{Op: op, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -1134,7 +1153,7 @@ func (p *parser) parseTypeAssertion(x ast.Expr) ast.Expr {
 		t = p.parseType()
 	}
 	p.match(')')
-	return &ast.TypeAssertion{Type: t, X: x}
+	return &ast.TypeAssertion{Off: x.Position(), Type: t, X: x}
 }
 
 // PrimaryExpr =
@@ -1186,7 +1205,12 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		p.match(')')
 		if x == nil {
 			if p.token == '(' {
-				x = p.parseConversion(t)
+				// If the type in the conversion was parenthesized, record the
+				// position of the opening parenthesis as the position of the
+				// whole conversion expression.
+				c := p.parseConversion(t)
+				c.Off = off
+				x = c
 			} else {
 				return nil, t
 			}
@@ -1245,7 +1269,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 				// PrimaryExpr Selector
 				// Selector = "." identifier .
 				id, _ := p.matchString(scanner.ID)
-				x = &ast.Selector{X: x, Id: id}
+				x = &ast.Selector{Off: x.Position(), X: x, Id: id}
 			}
 		case '[':
 			// PrimaryExpr Index
@@ -1282,24 +1306,29 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 // LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
 //                 SliceType | MapType | TypeName .
 func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
-	elts := p.parseLiteralValue()
-	return &ast.CompLiteral{Type: typ, Elts: elts}
+	lit := p.parseLiteralValue()
+	lit.Type = typ
+	if typ != nil {
+		lit.Off = typ.Position()
+	}
+	return lit
 }
 
 // LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
 // ElementList   = KeyedElement { "," KeyedElement } .
-func (p *parser) parseLiteralValue() (elts []*ast.KeyedElement) {
-	p.match('{')
+func (p *parser) parseLiteralValue() *ast.CompLiteral {
+	off := p.match('{')
+	lit := &ast.CompLiteral{Off: off}
 	p.beginBrackets()
 	for p.token != scanner.EOF && p.token != '}' {
-		elts = append(elts, p.parseKeyedElement())
+		lit.Elts = append(lit.Elts, p.parseKeyedElement())
 		if p.token != '}' {
 			p.sync2(',', '}')
 		}
 	}
 	p.endBrackets()
 	p.match('}')
-	return elts
+	return lit
 }
 
 // KeyedElement  = [ Key ":" ] Element .
@@ -1309,7 +1338,7 @@ func (p *parser) parseLiteralValue() (elts []*ast.KeyedElement) {
 func (p *parser) parseKeyedElement() *ast.KeyedElement {
 	var k ast.Expr
 	if p.token == '{' {
-		k = &ast.CompLiteral{Elts: p.parseLiteralValue()}
+		k = p.parseLiteralValue()
 	} else {
 		k = p.parseExpr()
 	}
@@ -1320,7 +1349,7 @@ func (p *parser) parseKeyedElement() *ast.KeyedElement {
 	if p.token == '{' {
 		return &ast.KeyedElement{
 			Key: k,
-			Elt: &ast.CompLiteral{Elts: p.parseLiteralValue()},
+			Elt: p.parseLiteralValue(),
 		}
 	} else {
 		return &ast.KeyedElement{Key: k, Elt: p.parseExpr()}
@@ -1328,7 +1357,7 @@ func (p *parser) parseKeyedElement() *ast.KeyedElement {
 }
 
 // Conversion = Type "(" Expression [ "," ] ")" .
-func (p *parser) parseConversion(t ast.Type) ast.Expr {
+func (p *parser) parseConversion(t ast.Type) *ast.Conversion {
 	p.match('(')
 	p.beginBrackets()
 	x := p.parseExpr()
@@ -1337,7 +1366,7 @@ func (p *parser) parseConversion(t ast.Type) ast.Expr {
 	}
 	p.endBrackets()
 	p.match(')')
-	return &ast.Conversion{Type: t, X: x}
+	return &ast.Conversion{Off: t.Position(), Type: t, X: x}
 }
 
 // Arguments =
@@ -1348,7 +1377,7 @@ func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 	defer p.endBrackets()
 	if p.token == ')' {
 		p.next()
-		return &ast.Call{Func: f}
+		return &ast.Call{Off: f.Position(), Func: f}
 	}
 	var xs []ast.Expr
 	x, t := p.parseExprOrType()
@@ -1374,14 +1403,14 @@ func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 		}
 	}
 	p.match(')')
-	return &ast.Call{Func: f, Type: t, Xs: xs, Ell: dots}
+	return &ast.Call{Off: f.Position(), Func: f, Type: t, Xs: xs, Ell: dots}
 }
 
 // FunctionLit = "func" Function .
 func (p *parser) parseFuncLiteral(typ ast.Type) ast.Expr {
 	sig := typ.(*ast.FuncType)
 	b := p.parseBlock()
-	return &ast.Func{Sig: sig, Blk: b}
+	return &ast.Func{Off: sig.Off, Sig: sig, Blk: b}
 }
 
 // Index          = "[" Expression "]" .
@@ -1389,6 +1418,7 @@ func (p *parser) parseFuncLiteral(typ ast.Type) ast.Expr {
 //                      ( [ Expression ] ":" Expression ":" Expression )
 //                  "]" .
 func (p *parser) parseIndexOrSlice(x ast.Expr) ast.Expr {
+	off := x.Position()
 	p.match('[')
 	p.beginBrackets()
 	defer p.endBrackets()
@@ -1396,51 +1426,51 @@ func (p *parser) parseIndexOrSlice(x ast.Expr) ast.Expr {
 		p.next()
 		if p.token == ']' {
 			p.next()
-			return &ast.SliceExpr{X: x}
+			return &ast.SliceExpr{Off: off, X: x}
 		}
 		h := p.parseExpr()
 		if p.token == ']' {
 			p.next()
-			return &ast.SliceExpr{X: x, Hi: h}
+			return &ast.SliceExpr{Off: off, X: x, Hi: h}
 		}
 		p.match(':')
 		c := p.parseExpr()
 		p.match(']')
-		return &ast.SliceExpr{X: x, Hi: h, Cap: c}
+		return &ast.SliceExpr{Off: off, X: x, Hi: h, Cap: c}
 	} else {
 		i := p.parseExpr()
 		if p.token == ']' {
 			p.next()
-			return &ast.IndexExpr{X: x, I: i}
+			return &ast.IndexExpr{Off: off, X: x, I: i}
 		}
 		p.match(':')
 		if p.token == ']' {
 			p.next()
-			return &ast.SliceExpr{X: x, Lo: i}
+			return &ast.SliceExpr{Off: off, X: x, Lo: i}
 		}
 		h := p.parseExpr()
 		if p.token == ']' {
 			p.next()
-			return &ast.SliceExpr{X: x, Lo: i, Hi: h}
+			return &ast.SliceExpr{Off: off, X: x, Lo: i, Hi: h}
 		}
 		p.match(':')
 		c := p.parseExpr()
 		p.match(']')
-		return &ast.SliceExpr{X: x, Lo: i, Hi: h, Cap: c}
+		return &ast.SliceExpr{Off: off, X: x, Lo: i, Hi: h, Cap: c}
 	}
 }
 
 // Block = "{" StatementList "}" .
 func (p *parser) parseBlock() *ast.Block {
 	//	defer p.trace("Block")()
-	p.match('{')
-	blk := p.parseStatementList()
+	off := p.match('{')
+	blk := p.parseStatementList(off)
 	p.match('}')
 	return blk
 }
 
 // StatementList = { Statement ";" } .
-func (p *parser) parseStatementList() *ast.Block {
+func (p *parser) parseStatementList(off int) *ast.Block {
 	var st []ast.Stmt
 	b := p.setBrackets(1)
 	for p.token != scanner.EOF && p.token != '}' &&
@@ -1449,7 +1479,7 @@ func (p *parser) parseStatementList() *ast.Block {
 		p.syncEndStatement()
 	}
 	p.setBrackets(b)
-	return &ast.Block{Body: st}
+	return &ast.Block{Off: off, Body: st}
 }
 
 func (p *parser) syncEndStatement() {
@@ -1524,7 +1554,7 @@ func (p *parser) parseStmt() ast.Stmt {
 	case scanner.DEFER:
 		return p.parseDeferStmt()
 	case ';', '}':
-		return &ast.EmptyStmt{p.scan.TOff}
+		return &ast.EmptyStmt{Off: p.scan.TOff}
 	}
 
 	e := p.parseExpr()
@@ -1731,8 +1761,8 @@ func (p *parser) parseExprSwitchStmt(off int, init ast.Stmt, x ast.Expr) ast.Stm
 			}
 			def = true
 		}
-		p.match(':')
-		cs = append(cs, ast.ExprCaseClause{Xs: xs, Blk: p.parseStatementList()})
+		off := p.match(':')
+		cs = append(cs, ast.ExprCaseClause{Xs: xs, Blk: p.parseStatementList(off)})
 	}
 	p.match('}')
 	return &ast.ExprSwitchStmt{Off: off, Init: init, X: x, Cases: cs}
@@ -1756,8 +1786,8 @@ func (p *parser) parseTypeSwitchStmt(off int, init ast.Stmt, id string, x ast.Ex
 			}
 			def = true
 		}
-		p.match(':')
-		cs = append(cs, ast.TypeCaseClause{Types: ts, Blk: p.parseStatementList()})
+		off := p.match(':')
+		cs = append(cs, ast.TypeCaseClause{Types: ts, Blk: p.parseStatementList(off)})
 	}
 	p.match('}')
 	return &ast.TypeSwitchStmt{Off: off, Init: init, Id: id, X: x, Cases: cs}
@@ -1794,11 +1824,12 @@ func isReceiveExpr(x ast.Expr) bool {
 // RecvExpr   = Expression .
 func (p *parser) parseSendOrRecv() ast.Stmt {
 	x := p.parseExpr()
+	off := x.Position()
 	if p.token == scanner.RECV {
 		// Send statement.
 		p.next()
 		y := p.parseExpr()
-		return &ast.SendStmt{Ch: x, X: y}
+		return &ast.SendStmt{Off: off, Ch: x, X: y}
 	}
 
 	// Receive statement.
@@ -1825,7 +1856,7 @@ func (p *parser) parseSendOrRecv() ast.Stmt {
 	if !isReceiveExpr(rcv) {
 		p.error("receive statement must contain a receive expression")
 	}
-	return &ast.RecvStmt{Op: op, X: x, Y: y, Rcv: rcv}
+	return &ast.RecvStmt{Off: off, Op: op, X: x, Y: y, Rcv: rcv}
 }
 
 // SelectStmt = "select" "{" { CommClause } "}" .
@@ -1848,8 +1879,8 @@ func (p *parser) parseSelectStmt() ast.Stmt {
 			}
 			def = true
 		}
-		p.match(':')
-		cs = append(cs, ast.CommClause{Comm: c, Blk: p.parseStatementList()})
+		off := p.match(':')
+		cs = append(cs, ast.CommClause{Comm: c, Blk: p.parseStatementList(off)})
 	}
 	p.match('}')
 	return &ast.SelectStmt{Off: off, Comms: cs}
@@ -1944,7 +1975,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 		return p.parseIncDecStmt(e)
 	}
 	if p.token == ';' || p.token == ':' || p.token == '}' || p.token == '{' {
-		return &ast.ExprStmt{e}
+		return &ast.ExprStmt{Off: e.Position(), X: e}
 	}
 	var es []ast.Expr
 	if p.token == ',' {
@@ -1976,7 +2007,7 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 		return p.parseIncDecStmt(e)
 	}
 	if p.token == ';' || p.token == '{' {
-		return &ast.ExprStmt{e}
+		return &ast.ExprStmt{Off: e.Position(), X: e}
 	}
 	var es []ast.Expr
 	if p.token == ',' {
@@ -2009,17 +2040,17 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 // Channel  = Expression .
 func (p *parser) parseSendStmt(ch ast.Expr) ast.Stmt {
 	p.match(scanner.RECV)
-	return &ast.SendStmt{Ch: ch, X: p.parseExpr()}
+	return &ast.SendStmt{Off: ch.Position(), Ch: ch, X: p.parseExpr()}
 }
 
 // IncDecStmt = Expression ( "++" | "--" ) .
 func (p *parser) parseIncDecStmt(e ast.Expr) ast.Stmt {
 	if p.token == scanner.INC {
 		p.match(scanner.INC)
-		return &ast.IncStmt{e}
+		return &ast.IncStmt{Off: e.Position(), X: e}
 	} else {
 		p.match(scanner.DEC)
-		return &ast.DecStmt{e}
+		return &ast.DecStmt{Off: e.Position(), X: e}
 	}
 }
 
@@ -2027,13 +2058,13 @@ func (p *parser) parseIncDecStmt(e ast.Expr) ast.Stmt {
 // assign_op = [ add_op | mul_op ] "=" .
 func (p *parser) parseAssignment(op uint, lhs []ast.Expr) ast.Stmt {
 	rhs := p.parseExprList(nil)
-	return &ast.AssignStmt{op, lhs, rhs}
+	return &ast.AssignStmt{Off: lhs[0].Position(), Op: op, LHS: lhs, RHS: rhs}
 }
 
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 func (p *parser) parseShortVarDecl(lhs []ast.Expr) ast.Stmt {
 	rhs := p.parseExprList(nil)
-	return &ast.AssignStmt{ast.DCL, lhs, rhs}
+	return &ast.AssignStmt{Off: lhs[0].Position(), Op: ast.DCL, LHS: lhs, RHS: rhs}
 }
 
 // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
