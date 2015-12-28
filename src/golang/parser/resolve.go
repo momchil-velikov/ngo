@@ -82,7 +82,6 @@ func (r *resolver) declareTopLevel(
 	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
 
 	file := &ast.File{
-		Off:     f.Off,
 		Pkg:     pkg,
 		Imports: f.Imports,
 		Name:    f.Name,

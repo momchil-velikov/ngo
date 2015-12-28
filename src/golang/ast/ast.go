@@ -157,7 +157,6 @@ type UnresolvedPackage struct {
 
 // Source file
 type File struct {
-	Off     int               // Position of the "package" keyword
 	No      int               // Sequence number
 	Pkg     *Package          // Owner package
 	Imports []*ImportDecl     // Import declarations
