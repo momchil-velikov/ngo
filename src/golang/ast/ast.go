@@ -195,11 +195,6 @@ type Error struct {
 // Declarations
 //
 
-type Ident struct {
-	Off int
-	Id  string
-}
-
 type TypeDecl struct {
 	Off      int
 	File     *File

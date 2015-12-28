@@ -552,22 +552,6 @@ func (p *parser) parseTagOpt() string {
 }
 
 // IdentifierList = identifier { "," identifier } .
-func (p *parser) parseIdList(id *ast.Ident) (ids []*ast.Ident) {
-	if id == nil {
-		name, off := p.matchString(scanner.ID)
-		id = &ast.Ident{Off: off, Id: name}
-	}
-	ids = append(ids, id)
-	for p.token == ',' {
-		p.next()
-		name, off := p.matchString(scanner.ID)
-		if len(name) > 0 {
-			ids = append(ids, &ast.Ident{Off: off, Id: name})
-		}
-	}
-	return ids
-}
-
 // Parse an IdentifierList in the context of a ConstSpec.
 func (p *parser) parseConstIdList() (id []*ast.Const) {
 	name, off := p.matchString(scanner.ID)
