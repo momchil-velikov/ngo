@@ -441,19 +441,19 @@ func TestResolveExprComposite(t *testing.T) {
 	if elt != ast.UniverseScope.Find("int") {
 		t.Error("`C`s initializer type must be `[]int`")
 	}
-	if x.Elts[0].Elt.(*ast.Var) != A {
+	if op, ok := x.Elts[0].Elt.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("first element in the slice literal must be `A`")
 	}
-	if x.Elts[1].Elt.(*ast.Var) != B {
+	if op, ok := x.Elts[1].Elt.(*ast.OperandName); !ok || op.Decl != B {
 		t.Error("first element in the slice literal must be `B`")
 	}
 
 	D := p.Find("D").(*ast.Var)
 	x = D.Init.RHS[0].(*ast.CompLiteral)
-	if x.Elts[0].Key.(*ast.Var) != A {
+	if op, ok := x.Elts[0].Key.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("key in the map literal must be `A`")
 	}
-	if x.Elts[0].Elt.(*ast.Var) != B {
+	if op, ok := x.Elts[0].Elt.(*ast.OperandName); !ok || op.Decl != B {
 		t.Error("value in the map literal must be `B`")
 	}
 
@@ -464,7 +464,7 @@ func TestResolveExprComposite(t *testing.T) {
 	} else if id.Id != "A" {
 		t.Errorf("unexpected fied name `%s`, must be `A`\n", id.Id)
 	}
-	if x.Elts[0].Elt.(*ast.Var) != A {
+	if op, ok := x.Elts[0].Elt.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("initializer of fieeld `A` must be variable `A`")
 	}
 	if id, ok := x.Elts[1].Key.(*ast.QualifiedId); !ok {
@@ -472,7 +472,7 @@ func TestResolveExprComposite(t *testing.T) {
 	} else if id.Id != "B" {
 		t.Errorf("unexpected fied name `%s`, must be `B`\n", id.Id)
 	}
-	if x.Elts[1].Elt.(*ast.Var) != B {
+	if op, ok := x.Elts[1].Elt.(*ast.OperandName); !ok || op.Decl != B {
 		t.Error("initializer of fieeld `B` must be variable `B`")
 	}
 }
@@ -490,7 +490,7 @@ func TestResolveExprConversion(t *testing.T) {
 	if x.Type.(*ast.SliceType).Elt != T {
 		t.Error("type in the conversion must be a `[]T`")
 	}
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("the converted value must be `A`")
 	}
 
@@ -503,7 +503,7 @@ func TestResolveExprConversion(t *testing.T) {
 	if x.Type != T {
 		t.Error("in initializer of `D` the conversion type must be `T`")
 	}
-	if x.X != C {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != C {
 		t.Error("in initializer of `D` the converted value must be `C`")
 	}
 }
@@ -520,15 +520,15 @@ func TestResolveExprCall(t *testing.T) {
 		t.Error("`A` must have an initializer statement")
 	}
 	x := A.Init.RHS[0].(*ast.Call)
-	if x.Func != &F.Func {
+	if x.Func.(*ast.OperandName).Decl != F {
 		t.Error("in the initializer of `A` the called function must be `F`")
 	}
 	X := p.Find("X").(*ast.Var)
 	Y := p.Find("Y").(*ast.Var)
-	if x.Xs[0] != X {
+	if op, ok := x.Xs[0].(*ast.OperandName); !ok || op.Decl != X {
 		t.Error("first argument to the call of `F` must be `X`")
 	}
-	if x.Xs[1] != Y {
+	if op, ok := x.Xs[1].(*ast.OperandName); !ok || op.Decl != Y {
 		t.Error("second argument to the call of `F` must be `Y`")
 	}
 }
@@ -545,7 +545,7 @@ func TestResolveExprParens(t *testing.T) {
 	if _, ok := x.(*ast.ParensExpr); ok {
 		t.Error("ParensExpr must be removed by the resolver")
 	}
-	if x != X {
+	if op, ok := x.(*ast.OperandName); !ok || op.Decl != X {
 		t.Error("initializer or `Y` must be `X`")
 	}
 }
@@ -598,7 +598,7 @@ func TestResolveTypeAssertion(t *testing.T) {
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
 	x := B.Init.RHS[0].(*ast.TypeAssertion)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("type assertion expression must be `A`")
 	}
 	if x.Type != T {
@@ -615,7 +615,7 @@ func TestResolveExprSelector(t *testing.T) {
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
 	x := B.Init.RHS[0].(*ast.Selector)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("expression in selector must be `A`")
 	}
 	if x.Id != "X" {
@@ -626,7 +626,7 @@ func TestResolveExprSelector(t *testing.T) {
 	D := p.Find("D").(*ast.Var)
 	x = D.Init.RHS[0].(*ast.Selector)
 	y := x.X.(*ast.Selector)
-	if y.X != C {
+	if op, ok := y.X.(*ast.OperandName); !ok || op.Decl != C {
 		t.Error("in initializer of `D` expression in the first selector must be `C`")
 	}
 	if y.Id != "A" {
@@ -660,10 +660,10 @@ func TestResolveExprIndex(t *testing.T) {
 	B := p.Find("B").(*ast.Const)
 	C := p.Find("C").(*ast.Var)
 	x := C.Init.RHS[0].(*ast.IndexExpr)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("indexed obejct must be `A`")
 	}
-	if x.I != B {
+	if op, ok := x.I.(*ast.OperandName); !ok || op.Decl != B {
 		t.Error("index expression must be `A`")
 	}
 }
@@ -680,16 +680,16 @@ func TestResolveExprSlice(t *testing.T) {
 	H := p.Find("H").(*ast.Var)
 	C := p.Find("C").(*ast.Var)
 	x := B.Init.RHS[0].(*ast.SliceExpr)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("sliced object must be `A`")
 	}
-	if x.Lo != L {
+	if op, ok := x.Lo.(*ast.OperandName); !ok || op.Decl != L {
 		t.Error("slice expression low index must be `L`")
 	}
-	if x.Hi != H {
+	if op, ok := x.Hi.(*ast.OperandName); !ok || op.Decl != H {
 		t.Error("slice expression high index must be `H`")
 	}
-	if x.Cap != C {
+	if op, ok := x.Cap.(*ast.OperandName); !ok || op.Decl != C {
 		t.Error("slice expression capacity be `C`")
 	}
 }
@@ -703,7 +703,7 @@ func TestResolveExprUnary(t *testing.T) {
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
 	x := B.Init.RHS[0].(*ast.UnaryExpr)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("unary expression operand must be `A`")
 	}
 }
@@ -718,10 +718,10 @@ func TestResolveExprBinary(t *testing.T) {
 	B := p.Find("B").(*ast.Var)
 	C := p.Find("C").(*ast.Var)
 	x := C.Init.RHS[0].(*ast.BinaryExpr)
-	if x.X != A {
+	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("left operand must be `A`")
 	}
-	if x.Y != B {
+	if op, ok := x.Y.(*ast.OperandName); !ok || op.Decl != B {
 		t.Error("right operand must be `B`")
 	}
 }
@@ -854,10 +854,14 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 		t.Error("unexpected initialization statement for `C, D`")
 	}
 	// Check C and D are initialized with A and B, respectively
-	if x.LHS[0] != v["C"] || x.LHS[1] != v["D"] {
+	op0, ok0 := x.LHS[0].(*ast.OperandName)
+	op1, ok1 := x.LHS[1].(*ast.OperandName)
+	if !ok0 || !ok1 || op0.Decl != v["C"] || op1.Decl != v["D"] {
 		t.Error("LHS of the initialization assignment must be `C, D`")
 	}
-	if x.RHS[0] != v["A"] || x.RHS[1] != v["B"] {
+	op0, ok0 = x.RHS[0].(*ast.OperandName)
+	op1, ok1 = x.RHS[1].(*ast.OperandName)
+	if !ok0 || !ok1 || op0.Decl != v["A"] || op1.Decl != v["B"] {
 		t.Error("RHS of the initialization assignment must be `A, B`")
 	}
 
@@ -875,11 +879,12 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 		t.Error("unexpected initialization statement for `E, F`")
 	}
 	// Check E and F are initialized with a call to Fn.
-	if x.LHS[0] != v["E"] || x.LHS[1] != v["F"] {
+	if x.LHS[0].(*ast.OperandName).Decl != v["E"] ||
+		x.LHS[1].(*ast.OperandName).Decl != v["F"] {
 		t.Error("LHS of the initialization assignment must be E, F`")
 	}
 	call, ok := x.RHS[0].(*ast.Call)
-	if !ok || call.Func != &Fn.Func {
+	if !ok || call.Func.(*ast.OperandName).Decl != Fn {
 		t.Error("RHS of the initialization assignment must be a call to `Fn`")
 	}
 	// Check `G` has initialization statement.
@@ -889,7 +894,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 	}
 	// Check initialization statement is a call to Fn.
 	call, ok = x.RHS[0].(*ast.Call)
-	if !ok || call.Func != &Fn.Func {
+	if !ok || call.Func.(*ast.OperandName).Decl != Fn {
 		t.Error("RHS of the initialization assignment must be a call to `Fn`")
 	}
 }
@@ -987,7 +992,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`B` missing initializer expression")
 	}
-	if x != c["A"] {
+	if x.(*ast.OperandName).Decl != c["A"] {
 		t.Error("`B` initializer is not `A`")
 	}
 	typ := c["B"].Type
@@ -1002,7 +1007,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`C` missing initializer expression")
 	}
-	if x != c["A"] {
+	if x.(*ast.OperandName).Decl != c["A"] {
 		t.Error("`C` initializer is not `A`")
 	}
 	typ = c["C"].Type
@@ -1014,7 +1019,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`D` missing initializer expression")
 	}
-	if x != c["B"] {
+	if x.(*ast.OperandName).Decl != c["B"] {
 		t.Error("`D` initializer is not `B`")
 	}
 	typ = c["D"].Type
@@ -1110,7 +1115,7 @@ func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`C` missing initializer expression")
 	}
-	if x != c["A"] {
+	if x.(*ast.OperandName).Decl != c["A"] {
 		t.Error("`C` initializer is not `A`")
 	}
 	typ = c["C"].Type
@@ -1128,7 +1133,7 @@ func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`D` missing initializer expression")
 	}
-	if x != c["B"] {
+	if x.(*ast.OperandName).Decl != c["B"] {
 		t.Error("`D` initializer is not `B`")
 	}
 	typ = c["D"].Type
@@ -1284,7 +1289,7 @@ func TestResolveStmtGo(t *testing.T) {
 	F := p.Find("F").(*ast.FuncDecl)
 	G := p.Find("G").(*ast.FuncDecl)
 	g := G.Func.Blk.Body[0].(*ast.GoStmt)
-	if x, ok := g.X.(*ast.Call); !ok || x.Func != &F.Func {
+	if x, ok := g.X.(*ast.Call); !ok || x.Func.(*ast.OperandName).Decl != F {
 		t.Error("the go statememt must be a call to `F`")
 	}
 }
@@ -1308,10 +1313,10 @@ func TestResolveStmtReturn(t *testing.T) {
 	}
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
-	if r.Xs[0] != A {
+	if r.Xs[0].(*ast.OperandName).Decl != A {
 		t.Error("the first return expression must be `A`")
 	}
-	if r.Xs[1] != B {
+	if r.Xs[1].(*ast.OperandName).Decl != B {
 		t.Error("the second return expression must be `B`")
 	}
 }
@@ -1326,10 +1331,10 @@ func TestResolveStmtSend(t *testing.T) {
 	s := F.Func.Blk.Body[0].(*ast.SendStmt)
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
-	if s.Ch != A {
+	if s.Ch.(*ast.OperandName).Decl != A {
 		t.Error("the channel in the send stmt must be `A`")
 	}
-	if s.X != B {
+	if s.X.(*ast.OperandName).Decl != B {
 		t.Error("the value in the send stmt must be `B`")
 	}
 }
@@ -1344,11 +1349,11 @@ func TestResolveStmtIncDec(t *testing.T) {
 	B := p.Find("B").(*ast.Var)
 	F := p.Find("F").(*ast.FuncDecl)
 	i := F.Func.Blk.Body[0].(*ast.IncStmt)
-	if i.X != A {
+	if i.X.(*ast.OperandName).Decl != A {
 		t.Error("the incremented location must be `A`")
 	}
 	d := F.Func.Blk.Body[1].(*ast.DecStmt)
-	if d.X != B {
+	if d.X.(*ast.OperandName).Decl != B {
 		t.Error("the decremented location must be `B`")
 	}
 }
@@ -1364,21 +1369,21 @@ func TestResolveStmtAssign(t *testing.T) {
 	F := p.Find("F").(*ast.FuncDecl)
 
 	s := F.Func.Blk.Body[0].(*ast.AssignStmt)
-	if s.LHS[0] != A {
+	if s.LHS[0].(*ast.OperandName).Decl != A {
 		t.Error("st#0: LHS#0 must resolve to `A`")
 	}
 
 	s = F.Func.Blk.Body[1].(*ast.AssignStmt)
-	if s.LHS[0] != A {
+	if s.LHS[0].(*ast.OperandName).Decl != A {
 		t.Error("st#1: LHS#0 must resolve to `A`")
 	}
-	if s.LHS[1] != B {
+	if s.LHS[1].(*ast.OperandName).Decl != B {
 		t.Error("st#1: LHS#1 must resolve to `B`")
 	}
-	if s.RHS[0] != B {
+	if s.RHS[0].(*ast.OperandName).Decl != B {
 		t.Error("st#1: RHS#0 must resolve to `B`")
 	}
-	if s.RHS[1] != A {
+	if s.RHS[1].(*ast.OperandName).Decl != A {
 		t.Error("st#1: RHS#1 must resolve to `A`")
 	}
 }
@@ -1411,24 +1416,24 @@ func TestResolveStmtShortVarDecl(t *testing.T) {
 	}
 
 	s := F.Func.Blk.Body[0].(*ast.AssignStmt)
-	if s.LHS[0] != a {
+	if s.LHS[0].(*ast.OperandName).Decl != a {
 		t.Error("st#0: LHS #0 must resolve to local `A`")
 	}
-	if s.RHS[0] != A {
+	if s.RHS[0].(*ast.OperandName).Decl != A {
 		t.Error("st#0: RHS #0 must resolve to global `A`")
 	}
 
 	s = F.Func.Blk.Body[1].(*ast.AssignStmt)
-	if s.LHS[0] != a {
+	if s.LHS[0].(*ast.OperandName).Decl != a {
 		t.Error("st#1: LHS #0 must resolve to local `A`")
 	}
-	if s.LHS[1] != b {
+	if s.LHS[1].(*ast.OperandName).Decl != b {
 		t.Error("st#1: LHS #1 must resolve to local `B`")
 	}
-	if s.RHS[0] != B {
+	if s.RHS[0].(*ast.OperandName).Decl != B {
 		t.Error("st#1: RHS #0 must resolve to global `B`")
 	}
-	if s.RHS[1] != a {
+	if s.RHS[1].(*ast.OperandName).Decl != a {
 		t.Error("st#1: RHS #1 must resolve to local `A`")
 	}
 
@@ -1436,7 +1441,7 @@ func TestResolveStmtShortVarDecl(t *testing.T) {
 	if F.Func.Blk.Find("_") != nil {
 		t.Error("blank identifier must not be declared")
 	}
-	if s.LHS[0] != c {
+	if s.LHS[0].(*ast.OperandName).Decl != c {
 		t.Error("st#2: LHS #0 must resolve to local `C`")
 	}
 	if s.LHS[1] != ast.Blank {
@@ -1474,18 +1479,18 @@ func TestResolveStmtIf(t *testing.T) {
 	// If #1
 	s := G.Func.Blk.Body[1].(*ast.IfStmt)
 	c := s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#1: condition operands must refer to function local `x` and `y`")
 	}
 
 	// If #2
 	s = G.Func.Blk.Body[2].(*ast.IfStmt)
 	i := s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#2: condition operands must refer to function local `x` and `y`")
 	}
 
@@ -1497,11 +1502,11 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#3: missing declarations of `u` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != u || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != u || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != u || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != u || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#3: condition operands must refer to block local `u` and `v`")
 	}
 
@@ -1513,11 +1518,11 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#4: missing declarations of `x` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#4: condition operands must refer to block local `x` and `v`")
 	}
 
@@ -1529,16 +1534,16 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#5: missing declarations of `x` and `y`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#5: LHS of the init stmt must refer to block local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#5: condition operands must refer to block local `x` and `y`")
 	}
 	s = s.Else.(*ast.IfStmt)
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#5: second condition operands must refer to block local `x` and `y`")
 	}
 
@@ -1550,20 +1555,20 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#6: missing declarations of `x` and `y`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#6: LHS of the init stmt must refer to block local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#6: condition operands must refer to block local `x` and `y`")
 	}
 	s = s.Else.(*ast.IfStmt)
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#6: LHS of the init stmt must refer to block local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#6: second condition operands must refer to block local `x` and `y`")
 	}
 
@@ -1575,11 +1580,11 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#7/1: missing declarations of `x` and `y`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#7/1: LHS of the init stmt must refer to block local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#7/1: condition operands must refer to block local `x` and `y`")
 	}
 	s = s.Else.(*ast.IfStmt)
@@ -1589,11 +1594,11 @@ func TestResolveStmtIf(t *testing.T) {
 		t.Error("st#7/2: missing declarations of `x` and `y`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#7/2: LHS of the init stmt must refer to block local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#7/2: second condition operands must refer to block local `x` and `y`")
 	}
 	if _, ok := s.Else.(*ast.Block); !ok {
@@ -1614,18 +1619,18 @@ func TestResolveStmtFor(t *testing.T) {
 	// For #1
 	s := G.Func.Blk.Body[1].(*ast.ForStmt)
 	c := s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#1: condition operands must refer to function local `x` and `y`")
 	}
 
 	// For #2
 	s = G.Func.Blk.Body[2].(*ast.ForStmt)
 	i := s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#2: condition operands must refer to function local `x` and `y`")
 	}
 
@@ -1637,11 +1642,11 @@ func TestResolveStmtFor(t *testing.T) {
 		t.Error("st#3: missing declarations of `u` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != u || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != u || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != u || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != u || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#3: condition operands must refer to block local `u` and `v`")
 	}
 
@@ -1653,11 +1658,11 @@ func TestResolveStmtFor(t *testing.T) {
 		t.Error("st#4: missing declarations of `x` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
 	}
 	c = s.Cond.(*ast.BinaryExpr)
-	if c.X != x || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#4: condition operands must refer to block local `x` and `v`")
 	}
 }
@@ -1674,7 +1679,7 @@ func TestResolveStmtForRange(t *testing.T) {
 
 	// Range For #1
 	s := G.Func.Blk.Body[1].(*ast.ForRangeStmt)
-	if s.LHS[0] != x || s.LHS[1] != y {
+	if s.LHS[0].(*ast.OperandName).Decl != x || s.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#1: LHS in range-for must refer to function local `x` and `y`")
 	}
 
@@ -1685,7 +1690,7 @@ func TestResolveStmtForRange(t *testing.T) {
 	if u == nil || v == nil {
 		t.Error("st#2: missing declarations of `u` and `v`")
 	}
-	if s.LHS[0] != u || s.LHS[1] != v {
+	if s.LHS[0].(*ast.OperandName).Decl != u || s.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#2: LHS in range-for must refer to block local `u` and `v`")
 	}
 
@@ -1696,7 +1701,7 @@ func TestResolveStmtForRange(t *testing.T) {
 	if x == nil || v == nil {
 		t.Error("st#3: missing declarations of `x` and `v`")
 	}
-	if s.LHS[0] != x || s.LHS[1] != v {
+	if s.LHS[0].(*ast.OperandName).Decl != x || s.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#2: LHS in range-for must refer to block local `x` and `v`")
 	}
 }
@@ -1711,7 +1716,7 @@ func TestResolveStmtDefer(t *testing.T) {
 	G := p.Find("G").(*ast.FuncDecl)
 	s := G.Func.Blk.Body[0].(*ast.DeferStmt)
 	x := s.X.(*ast.Call)
-	if x.Func != &F.Func {
+	if x.Func.(*ast.OperandName).Decl != F {
 		t.Error("the expression in defer stmt must be a call to `F`")
 	}
 }
@@ -1729,14 +1734,14 @@ func TestResolveStmtExprSwitch(t *testing.T) {
 	// Expr switch #1
 	s := G.Func.Blk.Body[1].(*ast.ExprSwitchStmt)
 	c := s.Cases[0].Xs[0].(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#1: expr in case clause must refer to function local `x` and `y`")
 	}
 
 	// Expr switch #2
 	s = G.Func.Blk.Body[2].(*ast.ExprSwitchStmt)
 	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
-	if c.X != x || c.Y != y {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#2: expr in case clause must refer to function local `x` and `y`")
 	}
 
@@ -1748,11 +1753,11 @@ func TestResolveStmtExprSwitch(t *testing.T) {
 		t.Error("st#3: missing declarations of `u` and `v`")
 	}
 	i := s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != u || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != u || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
 	}
 	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
-	if c.X != u || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != u || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#2: expr in case clause must refer to block local `u` and `v`")
 	}
 
@@ -1764,11 +1769,11 @@ func TestResolveStmtExprSwitch(t *testing.T) {
 		t.Error("st#4: missing declarations of `x` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
 	}
 	c = s.Cases[0].Xs[0].(*ast.BinaryExpr)
-	if c.X != x || c.Y != v {
+	if c.X.(*ast.OperandName).Decl != x || c.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#4: expr in case clause must refer to block local `x` and `v`")
 	}
 }
@@ -1785,7 +1790,7 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 
 	// Type switch #1
 	s := G.Func.Blk.Body[1].(*ast.TypeSwitchStmt)
-	if s.X != x {
+	if s.X.(*ast.OperandName).Decl != x {
 		t.Error("st#1: expression in type switch refer to function local `x`")
 	}
 	typ := s.Cases[0].Types[0].(*ast.TypeDecl)
@@ -1793,18 +1798,18 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 		t.Error("st#1: type in case clause must resolve to builtin `int`")
 	}
 	a := s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
-	if a.X != x || a.Y != y {
+	if a.X.(*ast.OperandName).Decl != x || a.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#2: expr in case clause must refer to function local `x` and `y`")
 	}
 
 	// Type switch #2
 	s = G.Func.Blk.Body[2].(*ast.TypeSwitchStmt)
 	i := s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != y {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != y {
 		t.Error("st#2: LHS of the init stmt must refer to function local `x` and `y`")
 	}
 	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
-	if a.X != x || a.Y != y {
+	if a.X.(*ast.OperandName).Decl != x || a.Y.(*ast.OperandName).Decl != y {
 		t.Error("st#2: expr in case body must refer to function local `x` and `y`")
 	}
 
@@ -1816,11 +1821,11 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 		t.Error("st#3: missing declarations of `u` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != u || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != u || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#3: LHS of the init stmt must refer to block local `u` and `v`")
 	}
 	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
-	if a.X != u || a.Y != v {
+	if a.X.(*ast.OperandName).Decl != u || a.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#3: expr in case body must refer to block local `u` and `v`")
 	}
 
@@ -1832,11 +1837,11 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 		t.Error("st#4: missing declarations of `x` and `v`")
 	}
 	i = s.Init.(*ast.AssignStmt)
-	if i.LHS[0] != x || i.LHS[1] != v {
+	if i.LHS[0].(*ast.OperandName).Decl != x || i.LHS[1].(*ast.OperandName).Decl != v {
 		t.Error("st#4: LHS of the init stmt must refer to block local `x` and `v`")
 	}
 	a = s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
-	if a.X != x || a.Y != v {
+	if a.X.(*ast.OperandName).Decl != x || a.Y.(*ast.OperandName).Decl != v {
 		t.Error("st#4: expr in case body must refer to block local `x` and `v`")
 	}
 
@@ -1873,16 +1878,16 @@ func TestResolveStmtSelect(t *testing.T) {
 	// Select case #0
 	s := G.Func.Blk.Body[1].(*ast.SelectStmt)
 	snd := s.Comms[0].Comm.(*ast.SendStmt)
-	if snd.Ch != x || snd.X != y {
+	if snd.Ch.(*ast.OperandName).Decl != x || snd.X.(*ast.OperandName).Decl != y {
 		t.Error("comm#0: send stmt must refer to function local `x` and `y`")
 	}
 
 	// Select case #1
 	rcv := s.Comms[1].Comm.(*ast.RecvStmt)
-	if rcv.X != y {
+	if rcv.X.(*ast.OperandName).Decl != y {
 		t.Error("comm#1: recv stmt must receive into function local `y`")
 	}
-	if rcv.Rcv.(*ast.UnaryExpr).X != x {
+	if rcv.Rcv.(*ast.UnaryExpr).X.(*ast.OperandName).Decl != x {
 		t.Error("comm#1: recv stmt must receive from function local `x`")
 	}
 
@@ -1893,16 +1898,16 @@ func TestResolveStmtSelect(t *testing.T) {
 		t.Error("new `x` must be declared in comm clause block")
 	}
 	rcv = s.Comms[2].Comm.(*ast.RecvStmt)
-	if rcv.X != xx {
+	if rcv.X.(*ast.OperandName).Decl != xx {
 		t.Error("comm#2: recv stmt must receive into block local `x`")
 	}
 	if rcv.Y != ast.Blank {
 		t.Error("comm#2: recv stmt must receive into singletone 'ast.Blank'")
 	}
-	if rcv.Rcv.(*ast.UnaryExpr).X != x {
+	if rcv.Rcv.(*ast.UnaryExpr).X.(*ast.OperandName).Decl != x {
 		t.Error("comm#2: recv stmt must receive from function local `x`")
 	}
-	if b.Body[0].(*ast.ExprStmt).X != xx {
+	if b.Body[0].(*ast.ExprStmt).X.(*ast.OperandName).Decl != xx {
 		t.Error("comm#2: expr in case block must refer to block local `x`")
 	}
 }
@@ -2113,7 +2118,7 @@ func TestResolveTypeMultiPackage(t *testing.T) {
 	if d.Init == nil || d.Init.RHS == nil {
 		t.Error("`d` missing an initialization statement")
 	}
-	if d.Init.RHS[0] != B {
+	if d.Init.RHS[0].(*ast.OperandName).Decl != B {
 		t.Error("`d` must be initialized by `a.B`")
 	}
 
@@ -2160,7 +2165,7 @@ func TestResolveExprMultiPackage(t *testing.T) {
 
 	F := pkg.Find("F").(*ast.FuncDecl)
 	s := F.Func.Blk.Body[0].(*ast.ReturnStmt)
-	if s.Xs[0] != B {
+	if s.Xs[0].(*ast.OperandName).Decl != B {
 		t.Error("the return expression is not `a.B`")
 	}
 

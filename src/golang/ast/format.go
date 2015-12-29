@@ -572,12 +572,19 @@ func (e *Literal) Format(ctx *FormatContext, _ uint) {
 	}
 }
 
-func (v *Var) Format(ctx *FormatContext, _ uint) {
-	ctx.WriteString(v.Name) // FIXME: package name
-}
-
-func (c *Const) Format(ctx *FormatContext, _ uint) {
-	ctx.WriteString(c.Name) // FIXME: package name
+func (x *OperandName) Format(ctx *FormatContext, _ uint) {
+	var name string
+	switch s := x.Decl.(type) {
+	case *Const:
+		name = s.Name
+	case *Var:
+		name = s.Name
+	case *FuncDecl:
+		name = s.Name
+	default:
+		panic("not reached")
+	}
+	ctx.WriteString(name)
 }
 
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {

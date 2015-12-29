@@ -142,4 +142,5 @@ func init() {
 	}
 }
 
-var Blank = &Var{Name: "_"}
+var blank = &Var{Name: "_"}
+var Blank = &OperandName{Decl: blank}

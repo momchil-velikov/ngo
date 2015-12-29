@@ -50,6 +50,7 @@ type Expr interface {
 }
 
 func (Error) expr()         {}
+func (OperandName) expr()   {}
 func (QualifiedId) expr()   {}
 func (ConstValue) expr()    {}
 func (Literal) expr()       {}
@@ -65,8 +66,6 @@ func (IndexExpr) expr()     {}
 func (SliceExpr) expr()     {}
 func (UnaryExpr) expr()     {}
 func (BinaryExpr) expr()    {}
-func (Var) expr()           {}
-func (Const) expr()         {}
 
 type Stmt interface {
 	Node
@@ -401,6 +400,13 @@ type Literal struct {
 }
 
 func (x *Literal) Position() int { return x.Off }
+
+type OperandName struct {
+	Off  int
+	Decl Symbol
+}
+
+func (x *OperandName) Position() int { return x.Off }
 
 type KeyedElement struct {
 	Key Expr

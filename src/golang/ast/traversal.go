@@ -20,11 +20,12 @@ type TypeVisitor interface {
 type ExprVisitor interface {
 	VisitError(*Error) (*Error, error)
 
-	VisitOperandName(*QualifiedId) (Expr, error)
+	VisitQualifiedId(*QualifiedId) (Expr, error)
 
 	VisitConstValue(*ConstValue) (Expr, error)
 	VisitLiteral(*Literal) (Expr, error)
 	VisitCompLiteral(*CompLiteral) (Expr, error)
+	VisitOperandName(*OperandName) (Expr, error)
 	VisitCall(*Call) (Expr, error)
 	VisitConversion(*Conversion) (Expr, error)
 	VisitMethodExpr(*MethodExpr) (Expr, error)
@@ -36,8 +37,6 @@ type ExprVisitor interface {
 	VisitSliceExpr(*SliceExpr) (Expr, error)
 	VisitUnaryExpr(*UnaryExpr) (Expr, error)
 	VisitBinaryExpr(*BinaryExpr) (Expr, error)
-	VisitVar(*Var) (Expr, error)
-	VisitConst(*Const) (Expr, error)
 }
 
 type StmtVisitor interface {
@@ -132,7 +131,7 @@ func (e *Error) TraverseExpr(v ExprVisitor) (Expr, error) {
 }
 
 func (x *QualifiedId) TraverseExpr(v ExprVisitor) (Expr, error) {
-	return v.VisitOperandName(x)
+	return v.VisitQualifiedId(x)
 }
 
 func (x *ConstValue) TraverseExpr(v ExprVisitor) (Expr, error) {
@@ -141,6 +140,10 @@ func (x *ConstValue) TraverseExpr(v ExprVisitor) (Expr, error) {
 
 func (x *Literal) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitLiteral(x)
+}
+
+func (x *OperandName) TraverseExpr(v ExprVisitor) (Expr, error) {
+	return v.VisitOperandName(x)
 }
 
 func (x *CompLiteral) TraverseExpr(v ExprVisitor) (Expr, error) {
@@ -189,14 +192,6 @@ func (x *UnaryExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 
 func (x *BinaryExpr) TraverseExpr(v ExprVisitor) (Expr, error) {
 	return v.VisitBinaryExpr(x)
-}
-
-func (x *Var) TraverseExpr(v ExprVisitor) (Expr, error) {
-	return v.VisitVar(x)
-}
-
-func (x *Const) TraverseExpr(v ExprVisitor) (Expr, error) {
-	return v.VisitConst(x)
 }
 
 // Statements

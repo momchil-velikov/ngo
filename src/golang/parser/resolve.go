@@ -328,7 +328,7 @@ func (r *resolver) declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 		init := &ast.AssignStmt{Op: ast.NOP, LHS: lhs, RHS: vr.Init}
 		vr.Init = nil
 		for i, v := range vr.Names {
-			lhs[i] = v
+			lhs[i] = &ast.OperandName{Decl: v}
 			v.Init = init
 		}
 		file.Init = append(file.Init, init)
@@ -785,21 +785,6 @@ func (r *resolver) isType(x ast.Expr) (ast.Type, error) {
 	return nil, nil
 }
 
-// Converts a symbol declaration to an expression to fill the place of an
-// OperandName in the AST.
-func operandName(d ast.Symbol) ast.Expr {
-	switch op := d.(type) {
-	case *ast.Var:
-		return op
-	case *ast.Const:
-		return op
-	case *ast.FuncDecl:
-		return &op.Func
-	default:
-		panic("not reached")
-	}
-}
-
 // Declares in SCOPE a sequence of identifiers, which are on the left-hand
 // side of the ":=" token and only the identifiers, not already declared in
 // SCOPE.  Checks there is at least one such identifier.
@@ -875,6 +860,10 @@ func (*resolver) VisitConstValue(*ast.ConstValue) (ast.Expr, error) {
 
 func (r *resolver) VisitLiteral(x *ast.Literal) (ast.Expr, error) {
 	return x, nil // FIXME
+}
+
+func (*resolver) VisitOperandName(*ast.OperandName) (ast.Expr, error) {
+	panic("not reached")
 }
 
 func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
@@ -1061,15 +1050,7 @@ func (r *resolver) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*resolver) VisitVar(*ast.Var) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (*resolver) VisitConst(*ast.Const) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (r *resolver) VisitOperandName(x *ast.QualifiedId) (ast.Expr, error) {
+func (r *resolver) VisitQualifiedId(x *ast.QualifiedId) (ast.Expr, error) {
 	if x.Id == "_" {
 		return nil, errors.New("`_` is not a valid operand")
 	}
@@ -1093,12 +1074,16 @@ func (r *resolver) VisitOperandName(x *ast.QualifiedId) (ast.Expr, error) {
 			} else if !isExported(x.Id) {
 				return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
 			} else {
-				return operandName(d), nil
+				return &ast.OperandName{Off: x.Off, Decl: d}, nil
 			}
 		} else if t, ok := d.(*ast.TypeDecl); ok {
 			return &ast.MethodExpr{Off: x.Off, Type: t, Id: x.Id}, nil
 		} else {
-			return &ast.Selector{Off: x.Off, X: operandName(d), Id: x.Id}, nil
+			return &ast.Selector{
+				Off: x.Off,
+				X:   &ast.OperandName{Off: x.Off, Decl: d},
+				Id:  x.Id,
+			}, nil
 		}
 	} else {
 		// A single identifier must be simply a valid operand.
@@ -1107,7 +1092,7 @@ func (r *resolver) VisitOperandName(x *ast.QualifiedId) (ast.Expr, error) {
 		} else if _, ok := d.(*ast.TypeDecl); ok {
 			return nil, errors.New("invalid operand " + x.Id)
 		} else {
-			return operandName(d), nil
+			return &ast.OperandName{Off: x.Off, Decl: d}, nil
 		}
 	}
 }
@@ -1191,7 +1176,7 @@ func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
 	init := &ast.AssignStmt{Op: ast.NOP, LHS: make([]ast.Expr, len(s.Names)), RHS: s.Init}
 	s.Init = nil
 	for i, v := range s.Names {
-		init.LHS[i] = v
+		init.LHS[i] = &ast.OperandName{Decl: v}
 		v.Init = init
 	}
 
