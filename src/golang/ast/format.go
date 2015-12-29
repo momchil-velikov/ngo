@@ -485,7 +485,7 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 // Format expressions.
 //
 
-func (v BuiltinValue) formatValue(ctx *FormatContext) {
+func (v BuiltinValue) formatBuiltinValue(ctx *FormatContext) {
 	var name string
 	switch v {
 	case BUILTIN_NIL:
@@ -528,26 +528,90 @@ func (v BuiltinValue) formatValue(ctx *FormatContext) {
 	ctx.WriteString(name)
 }
 
+func formatInt(typ *BuiltinType, v uint64) string {
+	switch typ.Kind {
+	case BUILTIN_UINT8:
+		return fmt.Sprintf("%d", uint8(v))
+	case BUILTIN_UINT16:
+		return fmt.Sprintf("%d", uint16(v))
+	case BUILTIN_UINT32:
+		return fmt.Sprintf("%d", uint32(v))
+	case BUILTIN_UINT64:
+		return fmt.Sprintf("%d", v)
+	case BUILTIN_INT8:
+		return fmt.Sprintf("%d", int8(v))
+	case BUILTIN_INT16:
+		return fmt.Sprintf("%d", int16(v))
+	case BUILTIN_INT32:
+		return fmt.Sprintf("%d", int32(v))
+	case BUILTIN_INT64:
+		return fmt.Sprintf("%d", int64(v))
+	case BUILTIN_UINT:
+		return fmt.Sprintf("%d", uint64(v)) // XXX: assumes uint is 64-bit
+	case BUILTIN_INT:
+		return fmt.Sprintf("%d", int64(v)) // XXX: assumes int is 64-bit
+	case BUILTIN_UINTPTR:
+		return fmt.Sprintf("%d", v) // XXX: assumes uintptr is 64-bit
+	default:
+		panic("not reached")
+	}
+}
+
+func formatFloat(typ *BuiltinType, v float64) string {
+	if typ.Kind == BUILTIN_FLOAT64 {
+		return fmt.Sprintf("%f", v)
+	} else {
+		return fmt.Sprintf("%f", float32(v))
+	}
+}
+
+func formatComplex(typ *BuiltinType, v complex128) string {
+	if typ.Kind == BUILTIN_COMPLEX128 {
+		return fmt.Sprintf("(%f+%fi)", real(v), imag(v))
+	} else {
+		return fmt.Sprintf("(%f+%fi)", float32(real(v)), float32(imag(v)))
+	}
+}
+
+func builtinType(typ Type) *BuiltinType {
+	for {
+		switch t := typ.(type) {
+		case *BuiltinType:
+			return t
+		case *TypeDecl:
+			typ = t.Type
+		default:
+			panic("not reached")
+		}
+	}
+}
+
 // FIXME: consider escaping string/rune literals
 func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 	switch v := c.Value.(type) {
 	case BuiltinValue:
-		v.formatValue(ctx)
-	case UntypedBool:
-		if v {
+		v.formatBuiltinValue(ctx)
+	case Bool:
+		if bool(v) {
 			ctx.WriteString("true")
 		} else {
 			ctx.WriteString("false")
 		}
-	case UntypedRune:
-		ctx.WriteString(fmt.Sprintf("%d", v))
+	case Rune:
+		ctx.WriteString(fmt.Sprintf("%d", rune(v)))
 	case UntypedInt:
 		ctx.WriteString(v.String())
+	case Int:
+		ctx.WriteString(formatInt(builtinType(c.Type), uint64(v)))
 	case UntypedFloat:
 		ctx.WriteString(v.Text('p', 0))
+	case Float:
+		ctx.WriteString(formatFloat(builtinType(c.Type), float64(v)))
 	case UntypedComplex:
-		ctx.WriteV(0, v.Re.Text('p', 0), "+", v.Im.Text('p', 0), "i")
-	case UntypedString:
+		ctx.WriteV(0, "(", v.Re.Text('p', 0), "+", v.Im.Text('p', 0), "i)")
+	case Complex:
+		ctx.WriteString(formatComplex(builtinType(c.Type), complex128(v)))
+	case String:
 		ctx.WriteV(0, "\"", v, "\"")
 	default:
 		panic("not reached")

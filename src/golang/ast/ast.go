@@ -109,12 +109,15 @@ type Value interface {
 }
 
 func (BuiltinValue) value()   {}
-func (UntypedBool) value()    {}
-func (UntypedRune) value()    {}
+func (Bool) value()           {}
+func (Rune) value()           {}
 func (UntypedInt) value()     {}
+func (Int) value()            {}
 func (UntypedFloat) value()   {}
+func (Float) value()          {}
 func (UntypedComplex) value() {}
-func (UntypedString) value()  {}
+func (Complex) value()        {}
+func (String) value()         {}
 
 // Source comment.
 type Comment struct {
@@ -374,24 +377,38 @@ const (
 
 type BuiltinValue uint
 
-type UntypedBool bool
+type Bool bool
 
-type UntypedRune rune
+type Rune rune
 
 type UntypedInt struct {
 	*big.Int
 }
 
+type Int uint64
+
 type UntypedFloat struct {
 	*big.Float
 }
+type Float float64
 
 type UntypedComplex struct {
 	Re *big.Float
 	Im *big.Float
 }
 
-type UntypedString string
+type Complex complex128
+
+type String string
+
+// Kind of basic literals
+const (
+	INTEGER   uint = scanner.INTEGER
+	FLOAT          = scanner.FLOAT
+	IMAGINARY      = scanner.IMAGINARY
+	RUNE           = scanner.RUNE
+	STRING         = scanner.STRING
+)
 
 type Literal struct {
 	Off   int

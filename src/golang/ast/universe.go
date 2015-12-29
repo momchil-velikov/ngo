@@ -94,8 +94,8 @@ func init() {
 	}
 
 	BuiltinNil = &ConstValue{Value: BuiltinValue(BUILTIN_NIL)}
-	BuiltinTrue = &ConstValue{Value: UntypedBool(true)}
-	BuiltinFalse = &ConstValue{Value: UntypedBool(false)}
+	BuiltinTrue = &ConstValue{Value: Bool(true)}
+	BuiltinFalse = &ConstValue{Value: Bool(false)}
 	BuiltinIota = &ConstValue{Value: BuiltinValue(BUILTIN_IOTA)}
 
 	BuiltinAppend = &ConstValue{Value: BuiltinValue(BUILTIN_APPEND)}

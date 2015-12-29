@@ -12,14 +12,14 @@ import (
 // Converts the bytes of a (perhap raw) string literal to a Go string. The
 // literal value must have been obtained from and checked for correctness by
 // the scanner and contains double or single quotation marks.
-func String(lit []byte) ast.UntypedString {
+func String(lit []byte) ast.String {
 	s := ""
 	if lit[0] == '"' {
 		s = readString(lit)
 	} else {
 		s = readRawString(lit)
 	}
-	return ast.UntypedString(s)
+	return ast.String(s)
 }
 
 func isOctDigit(ch byte) bool {
@@ -147,9 +147,9 @@ func readRawString(lit []byte) string {
 // Converts the bytes of a rune literal to a Go `rune` value. The
 // literal value must have been obtained from and checked for correctness by
 // the scanner.
-func Rune(b []byte) ast.UntypedRune {
+func Rune(b []byte) ast.Rune {
 	r, _ := utf8.DecodeRune(b)
-	return ast.UntypedRune(r)
+	return ast.Rune(r)
 }
 
 var bigDigit = [...]*big.Int{
@@ -197,4 +197,12 @@ func readDecInt(b []byte) *big.Int {
 func Float(b []byte) (ast.UntypedFloat, error) {
 	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
 	return ast.UntypedFloat{Float: x}, err
+}
+
+// Converts the bytes of a imaginary literal to an untyped Go complex floating
+// point constant. The literal value must have been obtained from and checked
+// for correctness by the scanner.
+func Imaginary(b []byte) (ast.UntypedComplex, error) {
+	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
+	return ast.UntypedComplex{Im: x}, err
 }
