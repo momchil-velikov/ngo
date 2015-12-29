@@ -959,7 +959,7 @@ func (p *parser) parseOrExprOrType() (ast.Expr, ast.Type) {
 	for p.token == scanner.OR {
 		p.next()
 		y, _ := p.parseAndExprOrType()
-		x = &ast.BinaryExpr{Off: x.Position(), Op: scanner.OR, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: ast.OR, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -975,7 +975,7 @@ func (p *parser) parseAndExprOrType() (ast.Expr, ast.Type) {
 	for p.token == scanner.AND {
 		p.next()
 		y, _ := p.parseCompareExprOrType()
-		x = &ast.BinaryExpr{Off: x.Position(), Op: scanner.AND, X: x, Y: y}
+		x = &ast.BinaryExpr{Off: x.Position(), Op: ast.AND, X: x, Y: y}
 	}
 	return x, nil
 }
@@ -1116,7 +1116,7 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 	case scanner.RECV:
 		off := p.next()
 		if x, t := p.parseUnaryExprOrType(); t == nil {
-			return &ast.UnaryExpr{Off: off, Op: scanner.RECV, X: x}, nil
+			return &ast.UnaryExpr{Off: off, Op: ast.RECV, X: x}, nil
 		} else if ch, ok := t.(*ast.ChanType); ok {
 			ch.Recv, ch.Send = true, false
 			ch.Off = off
@@ -1812,7 +1812,7 @@ func isReceiveExpr(x ast.Expr) bool {
 		case *ast.ParensExpr:
 			x = y.X
 		case *ast.UnaryExpr:
-			return y.Op == scanner.RECV
+			return y.Op == ast.RECV
 		default:
 			return false
 		}

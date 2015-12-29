@@ -310,7 +310,7 @@ const (
 	NOT    = '!'
 
 	SHL  = scanner.SHL
-	SHR  = scanner.SHL
+	SHR  = scanner.SHR
 	ANDN = scanner.ANDN
 	AND  = scanner.AND
 	OR   = scanner.OR
@@ -323,25 +323,25 @@ const (
 
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
-	'*':          5,
-	'/':          5,
-	'%':          5,
-	scanner.SHL:  5,
-	scanner.SHR:  5,
-	'&':          5,
-	scanner.ANDN: 5,
-	'+':          4,
-	'-':          4,
-	'|':          4,
-	'^':          4,
-	scanner.EQ:   3,
-	scanner.NE:   3,
-	scanner.LT:   3,
-	scanner.LE:   3,
-	scanner.GT:   3,
-	scanner.GE:   3,
-	scanner.AND:  2,
-	scanner.OR:   1,
+	'*':  5,
+	'/':  5,
+	'%':  5,
+	SHL:  5,
+	SHR:  5,
+	'&':  5,
+	ANDN: 5,
+	'+':  4,
+	'-':  4,
+	'|':  4,
+	'^':  4,
+	EQ:   3,
+	NE:   3,
+	LT:   3,
+	LE:   3,
+	GT:   3,
+	GE:   3,
+	AND:  2,
+	OR:   1,
 }
 
 type ConstValue struct {
