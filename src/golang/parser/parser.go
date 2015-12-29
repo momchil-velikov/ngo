@@ -470,7 +470,7 @@ func (p *parser) parseType() ast.Type {
 
 	default:
 		p.error("expected typespec")
-		return &ast.Error{p.scan.TOff}
+		return &ast.Error{Off: p.scan.TOff}
 	}
 }
 
@@ -941,7 +941,7 @@ func (p *parser) parseExpr() ast.Expr {
 		return e
 	}
 	p.error("Type not allowed in this context")
-	return &ast.Error{p.scan.TOff}
+	return &ast.Error{Off: p.scan.TOff}
 }
 
 // Expression = UnaryExpr | Expression binary_op Expression.
@@ -1123,7 +1123,7 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 			return nil, ch
 		} else {
 			p.error("invalid receive operation")
-			return &ast.Error{p.scan.TOff}, nil
+			return &ast.Error{Off: p.scan.TOff}, nil
 		}
 	default:
 		return p.parsePrimaryExprOrType()
@@ -1253,7 +1253,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		x = &ast.Literal{Off: off, Kind: scanner.STRING, Value: v}
 	default:
 		p.error("token cannot start neither expression nor type")
-		x = &ast.Error{p.scan.TOff}
+		x = &ast.Error{Off: p.scan.TOff}
 	}
 	// Parse the left-recursive alternatives for PrimaryExpr, folding the
 	// left-hand parts in the variable `X`.
@@ -1994,7 +1994,7 @@ func (p *parser) parseSimpleStmt(e ast.Expr) ast.Stmt {
 	}
 
 	p.error("Invalid statement")
-	return &ast.Error{p.scan.TOff}
+	return &ast.Error{Off: p.scan.TOff}
 }
 
 // Parses a SimpleStmt or a RangeClause. Used by `parseForStmt` to
@@ -2033,7 +2033,7 @@ func (p *parser) parseSimpleStmtOrRange(e ast.Expr) ast.Stmt {
 		return p.parseAssignment(op, es)
 	}
 	p.error("Invalid statement")
-	return &ast.Error{p.scan.TOff}
+	return &ast.Error{Off: p.scan.TOff}
 }
 
 // SendStmt = Channel "<-" Expression .
