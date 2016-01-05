@@ -78,7 +78,7 @@ func (ctx *FormatContext) WriteString(s string) (int, error) {
 	return ctx.buf.WriteString(s)
 }
 
-// Append bytes to the internal buffer ina variety of methods.
+// Append bytes to the internal buffer in a variety of methods.
 func (ctx *FormatContext) WriteV(n uint, args ...interface{}) {
 	for _, a := range args {
 		switch v := a.(type) {
@@ -588,6 +588,9 @@ func builtinType(typ Type) *BuiltinType {
 
 // FIXME: consider escaping string/rune literals
 func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
+	if ctx.exprPositions() {
+		ctx.WriteV(0, "/* #", c.Off, " */")
+	}
 	switch v := c.Value.(type) {
 	case BuiltinValue:
 		v.formatBuiltinValue(ctx)
@@ -598,41 +601,27 @@ func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 			ctx.WriteString("false")
 		}
 	case Rune:
-		ctx.WriteString(fmt.Sprintf("%d", rune(v)))
+		ctx.WriteString(fmt.Sprintf("'%c'", rune(v)))
 	case UntypedInt:
 		ctx.WriteString(v.String())
 	case Int:
 		ctx.WriteString(formatInt(builtinType(c.Type), uint64(v)))
 	case UntypedFloat:
-		ctx.WriteString(v.Text('p', 0))
+		ctx.WriteString(v.String())
 	case Float:
 		ctx.WriteString(formatFloat(builtinType(c.Type), float64(v)))
 	case UntypedComplex:
-		ctx.WriteV(0, "(", v.Re.Text('p', 0), "+", v.Im.Text('p', 0), "i)")
+		if v.Re.String() == "0" {
+			ctx.WriteV(0, v.Im.String(), "i")
+		} else {
+			ctx.WriteV(0, "(", v.Re.String(), "+", v.Im.String(), "i)")
+		}
 	case Complex:
 		ctx.WriteString(formatComplex(builtinType(c.Type), complex128(v)))
 	case String:
-		ctx.WriteV(0, "\"", v, "\"")
+		ctx.WriteV(0, "\"", string(v), "\"")
 	default:
 		panic("not reached")
-	}
-}
-
-func (e *Literal) Format(ctx *FormatContext, _ uint) {
-	if ctx.exprPositions() {
-		ctx.WriteV(0, "/* #", e.Off, " */")
-	}
-	switch e.Kind {
-	case scanner.INTEGER, scanner.FLOAT:
-		ctx.Write(e.Value)
-	case scanner.RUNE:
-		ctx.WriteV(0, "'", e.Value, "'")
-	case scanner.IMAGINARY:
-		ctx.WriteV(0, e.Value, "i")
-	case scanner.STRING:
-		ctx.Write(e.Value)
-	default:
-		panic("invalid literal")
 	}
 }
 

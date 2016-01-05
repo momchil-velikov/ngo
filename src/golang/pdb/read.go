@@ -2,7 +2,6 @@ package pdb
 
 import (
 	"golang/ast"
-	"golang/scanner"
 	"io"
 )
 
@@ -282,7 +281,7 @@ func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
 			return nil, err
 		}
 		return &ast.ArrayType{
-			Dim: &ast.Literal{Kind: scanner.INTEGER, Value: []byte("10")},
+			Dim: &ast.ConstValue{Type: ast.BuiltinInt, Value: ast.Int(10)},
 			Elt: t,
 		}, nil
 	case _SLICE:

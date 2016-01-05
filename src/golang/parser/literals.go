@@ -1,7 +1,4 @@
-// Package constexpr provides representations for Go constants (typed and
-// untyped) and the corresponding operations for evaluation of constant
-// expressions at compile time.
-package constexpr
+package parser
 
 import (
 	"golang/ast"
@@ -204,5 +201,5 @@ func Float(b []byte) (ast.UntypedFloat, error) {
 // for correctness by the scanner.
 func Imaginary(b []byte) (ast.UntypedComplex, error) {
 	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
-	return ast.UntypedComplex{Im: x}, err
+	return ast.UntypedComplex{Re: big.NewFloat(0.0), Im: x}, err
 }

@@ -3,7 +3,6 @@ package parser
 import (
 	"errors"
 	"golang/ast"
-	"golang/constexpr"
 	"unicode"
 	"unicode/utf8"
 )
@@ -91,7 +90,7 @@ func (r *resolver) declareTopLevel(
 
 	// Declare imported package names.
 	for _, i := range file.Imports {
-		path := string(constexpr.String(i.Path))
+		path := string(String(i.Path))
 		dep, pos := findImport(path, pkg.Deps)
 		if dep == nil {
 			p, err := loc.FindPackage(path)
@@ -854,12 +853,8 @@ func (r *resolver) resolveExpr(x ast.Expr) (ast.Expr, error) {
 	return x.TraverseExpr(r)
 }
 
-func (*resolver) VisitConstValue(*ast.ConstValue) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (r *resolver) VisitLiteral(x *ast.Literal) (ast.Expr, error) {
-	return x, nil // FIXME
+func (*resolver) VisitConstValue(c *ast.ConstValue) (ast.Expr, error) {
+	return c, nil
 }
 
 func (*resolver) VisitOperandName(*ast.OperandName) (ast.Expr, error) {

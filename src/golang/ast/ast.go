@@ -53,7 +53,6 @@ func (Error) expr()         {}
 func (OperandName) expr()   {}
 func (QualifiedId) expr()   {}
 func (ConstValue) expr()    {}
-func (Literal) expr()       {}
 func (CompLiteral) expr()   {}
 func (Call) expr()          {}
 func (Conversion) expr()    {}
@@ -400,23 +399,6 @@ type UntypedComplex struct {
 type Complex complex128
 
 type String string
-
-// Kind of basic literals
-const (
-	INTEGER   uint = scanner.INTEGER
-	FLOAT          = scanner.FLOAT
-	IMAGINARY      = scanner.IMAGINARY
-	RUNE           = scanner.RUNE
-	STRING         = scanner.STRING
-)
-
-type Literal struct {
-	Off   int
-	Kind  uint
-	Value []byte
-}
-
-func (x *Literal) Position() int { return x.Off }
 
 type OperandName struct {
 	Off  int

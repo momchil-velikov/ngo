@@ -3,7 +3,6 @@ PKGS="
 lib/sort
 golang/scanner
 golang/parser
-golang/constexpr
 golang/build
 golang/pdb
 "

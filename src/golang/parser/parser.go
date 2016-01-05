@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"golang/ast"
-	"golang/constexpr"
 	"golang/scanner"
 	"io"
 	"io/ioutil"
@@ -558,7 +557,7 @@ func (p *parser) parseFieldDecls(fs []ast.Field) []ast.Field {
 func (p *parser) parseTagOpt() string {
 	if p.token == scanner.STRING {
 		tag, _ := p.matchRaw(scanner.STRING)
-		return string(constexpr.String(tag))
+		return string(String(tag))
 	} else {
 		return ""
 	}
@@ -1244,13 +1243,29 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		} else {
 			return nil, t
 		}
-	case scanner.INTEGER, scanner.FLOAT, scanner.IMAGINARY, scanner.RUNE: // BasicLiteral
-		k := p.token
-		v, off := p.matchRaw(k)
-		return &ast.Literal{Off: off, Kind: k, Value: v}, nil
+	case scanner.INTEGER:
+		b, off := p.matchRaw(scanner.INTEGER)
+		return &ast.ConstValue{Off: off, Value: Int(b)}, nil
+	case scanner.FLOAT:
+		b, off := p.matchRaw(scanner.FLOAT)
+		v, err := Float(b)
+		if err != nil {
+			p.error(err.Error())
+		}
+		return &ast.ConstValue{Off: off, Value: v}, nil
+	case scanner.IMAGINARY:
+		b, off := p.matchRaw(scanner.IMAGINARY)
+		v, err := Imaginary(b)
+		if err != nil {
+			p.error(err.Error())
+		}
+		return &ast.ConstValue{Off: off, Value: v}, nil
+	case scanner.RUNE:
+		b, off := p.matchRaw(scanner.RUNE)
+		return &ast.ConstValue{Off: off, Value: Rune(b)}, nil
 	case scanner.STRING:
-		v, off := p.matchRaw(scanner.STRING)
-		x = &ast.Literal{Off: off, Kind: scanner.STRING, Value: v}
+		b, off := p.matchRaw(scanner.STRING)
+		x = &ast.ConstValue{Off: off, Value: String(b)}
 	default:
 		p.error("token cannot start neither expression nor type")
 		x = &ast.Error{Off: p.scan.TOff}

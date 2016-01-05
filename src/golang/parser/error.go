@@ -22,5 +22,5 @@ type parseError struct {
 }
 
 func (e parseError) Error() string {
-	return fmt.Sprintf("parse error: %s:%d:%d: %s", e.Name, e.Line, e.Pos, e.Msg)
+	return fmt.Sprintf("%s:%d:%d: %s", e.Name, e.Line, e.Pos, e.Msg)
 }

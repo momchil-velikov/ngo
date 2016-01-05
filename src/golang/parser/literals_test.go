@@ -1,4 +1,4 @@
-package constexpr
+package parser
 
 import "testing"
 
@@ -92,5 +92,4 @@ func TestFloat(t *testing.T) {
 			t.Errorf("unexpected value `%s`, should be `%s`", out, e.out)
 		}
 	}
-
 }

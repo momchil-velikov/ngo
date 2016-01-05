@@ -981,7 +981,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`A` missing initializer expression")
 	}
-	if _, ok := x.(*ast.Literal); !ok {
+	if _, ok := x.(*ast.ConstValue); !ok {
 		t.Error("`A` initializer not a literal")
 	}
 	if c["A"].Type != nil {
@@ -1031,7 +1031,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`E` missing initializer expression")
 	}
-	if _, ok := x.(*ast.Literal); !ok {
+	if _, ok := x.(*ast.ConstValue); !ok {
 		t.Error("`E` initializer not a literal")
 	}
 	typ = c["E"].Type
@@ -1046,7 +1046,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`F` missing initializer expression")
 	}
-	if _, ok := x.(*ast.Literal); !ok {
+	if _, ok := x.(*ast.ConstValue); !ok {
 		t.Error("`F` initializer not a literal")
 	}
 	typ = c["F"].Type
@@ -1086,7 +1086,7 @@ func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
 	if x == nil {
 		t.Error("`A` missing initializer expression")
 	}
-	if _, ok := x.(*ast.Literal); !ok {
+	if _, ok := x.(*ast.ConstValue); !ok {
 		t.Error("`A` initializer not a literal")
 	}
 	if c["A"].Type != nil {
