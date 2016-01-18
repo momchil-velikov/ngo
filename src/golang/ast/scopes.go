@@ -16,8 +16,10 @@ func isExported(name string) bool {
 // (symbol tables) and can be looked up by name
 type Symbol interface {
 	symbol()
+	// Returns the name of the declaration
+	Id() string
 	// Returns source position of the declaration
-	DeclaredAt() (string, int, *File)
+	DeclaredAt() (int, *File)
 	// Returns true if the declaration begins with an upper case letter
 	IsExported() bool
 }
@@ -25,38 +27,56 @@ type Symbol interface {
 // The names of the imported packages are inserted into the file scope of the
 // importing source file. Their position refers to the import declaration.
 func (ImportDecl) symbol() {}
-func (i *ImportDecl) DeclaredAt() (string, int, *File) {
-	return i.Name, i.Off, i.File
+func (i *ImportDecl) Id() string {
+	return i.Name
+}
+func (i *ImportDecl) DeclaredAt() (int, *File) {
+	return i.Off, i.File
 }
 func (*ImportDecl) IsExported() bool { return false }
 
 func (TypeDecl) symbol() {}
-func (t *TypeDecl) DeclaredAt() (string, int, *File) {
-	return t.Name, t.Off, t.File
+func (t *TypeDecl) Id() string {
+	return t.Name
+}
+func (t *TypeDecl) DeclaredAt() (int, *File) {
+	return t.Off, t.File
 }
 func (t *TypeDecl) IsExported() bool { return isExported(t.Name) }
 
 func (Const) symbol() {}
-func (c *Const) DeclaredAt() (string, int, *File) {
-	return c.Name, c.Off, c.File
+func (c *Const) Id() string {
+	return c.Name
+}
+func (c *Const) DeclaredAt() (int, *File) {
+	return c.Off, c.File
 }
 func (c *Const) IsExported() bool { return isExported(c.Name) }
 
 func (Var) symbol() {}
-func (v *Var) DeclaredAt() (string, int, *File) {
-	return v.Name, v.Off, v.File
+func (v *Var) Id() string {
+	return v.Name
+}
+func (v *Var) DeclaredAt() (int, *File) {
+	return v.Off, v.File
 }
 func (v *Var) IsExported() bool { return isExported(v.Name) }
 
 func (FuncDecl) symbol() {}
-func (f *FuncDecl) DeclaredAt() (string, int, *File) {
-	return f.Name, f.Off, f.File
+func (f *FuncDecl) Id() string {
+	return f.Name
+}
+func (f *FuncDecl) DeclaredAt() (int, *File) {
+	return f.Off, f.File
 }
 func (f *FuncDecl) IsExported() bool { return isExported(f.Name) }
 
 func (Label) symbol() {}
-func (l *Label) DeclaredAt() (string, int, *File) {
-	return l.Label, l.Off, l.Blk.File()
+func (l *Label) Id() string {
+	return l.Label
+}
+func (l *Label) DeclaredAt() (int, *File) {
+	return l.Off, l.Blk.File()
 }
 func (l *Label) IsExported() bool { return false }
 
@@ -77,10 +97,11 @@ type redeclarationError struct {
 }
 
 func (e *redeclarationError) Error() string {
-	name, off, file := e.new.DeclaredAt()
+	name := e.new.Id()
+	off, file := e.new.DeclaredAt()
 	ln, col := file.SrcMap.Position(off)
 	s0 := fmt.Sprintf("%s:%d:%d: %s redeclared\n", file.Name, ln, col, name)
-	_, off, file = e.old.DeclaredAt()
+	off, file = e.old.DeclaredAt()
 	ln, col = file.SrcMap.Position(off)
 	s1 := fmt.Sprintf("\tprevious declaration at %s:%d:%d", file.Name, ln, col)
 	return s0 + s1
@@ -100,7 +121,7 @@ func (p *Package) Declare(name string, sym Symbol) error {
 	// declared at the scope of file, which contain the declaration of the
 	// said identifier; "no identifier may be declared in both the file and
 	// package block".
-	_, _, file := sym.DeclaredAt()
+	_, file := sym.DeclaredAt()
 	old := file.Find(name)
 	if old == nil {
 		old = p.Decls[name]

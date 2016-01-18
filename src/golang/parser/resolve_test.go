@@ -87,7 +87,8 @@ func TestResolveTypeUniverse(t *testing.T) {
 			t.Fatalf("`%s` must be a TypeDecl\n", cs.decl)
 		}
 		// Test type is registered under its name.
-		name, _, file := sym.DeclaredAt()
+		name := sym.Id()
+		_, file := sym.DeclaredAt()
 		if name != cs.decl {
 			t.Errorf("type `%s` declared as `%s`\n", cs.decl, name)
 		}
@@ -804,12 +805,12 @@ func TestResolveScope(t *testing.T) {
 		t.Error("nested block scope must point to enclosing block scope")
 	}
 	A := blkA.Find("A")
-	_, _, f := A.DeclaredAt()
+	_, f := A.DeclaredAt()
 	if f != file {
 		t.Error("incorrect source file for variable `A`")
 	}
 	B := blkB.Find("B")
-	_, _, f = B.DeclaredAt()
+	_, f = B.DeclaredAt()
 	if f != file {
 		t.Error("incorrect source file for variable `B`")
 	}

@@ -125,7 +125,8 @@ func (w *Writer) writeDecl(pkg *ast.Package, d ast.Symbol) error {
 		t  ast.Type
 		fn int
 	)
-	name, off, file := d.DeclaredAt()
+	name := d.Id()
+	off, file := d.DeclaredAt()
 	if file != nil {
 		fn = file.No
 	}
