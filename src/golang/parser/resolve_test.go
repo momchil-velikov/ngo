@@ -411,18 +411,6 @@ func TestResolveTypeNotATypename(t *testing.T) {
 	}
 }
 
-func TestResolveTypeDuplicateField(t *testing.T) {
-	for _, src := range []string{"dup-1.go", "dup-2.go", "dup-3.go"} {
-		expectError(t, "_test/typedecl/src/errors/dup_field", []string{src},
-			"X is duplicated")
-	}
-	// Check blank ident does not cause a duplicated field error
-	_, err := compilePackage("_test/typedecl/src/correct/", []string{"c.go"}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestResolveExprLiteral(t *testing.T) {
 	_, err := compilePackage("_test/expr/src/ok", []string{"lit.go"}, nil)
 	if err != nil {

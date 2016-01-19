@@ -535,22 +535,6 @@ func fieldName(f *ast.Field) string {
 	}
 }
 
-func checkDuplicateFieldNames(s *ast.StructType) error {
-	for i := range s.Fields {
-		name := fieldName(&s.Fields[i])
-		if name == "_" {
-			continue
-		}
-		for j := i + 1; j < len(s.Fields); j++ {
-			other := fieldName(&s.Fields[j])
-			if name == other {
-				return errors.New("field name " + name + " is duplicated")
-			}
-		}
-	}
-	return nil
-}
-
 // Resolves identifiers in function parameter and return values list.
 func (r *resolver) resolveParams(ps []ast.Param) (err error) {
 	var carry ast.Type
@@ -678,7 +662,7 @@ func (r *resolver) VisitStructType(t *ast.StructType) (ast.Type, error) {
 		}
 		fd.Type = carry
 	}
-	return t, checkDuplicateFieldNames(t)
+	return t, nil
 }
 
 func (*resolver) VisitTupleType(*ast.TupleType) (ast.Type, error) {
