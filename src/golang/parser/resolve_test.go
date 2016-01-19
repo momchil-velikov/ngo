@@ -342,6 +342,9 @@ func TestResolveConstructedType(t *testing.T) {
 	if z.Fields[1].Type != v {
 		t.Error("field `z.Y` is not of type `v`")
 	}
+	if z.Fields[2].Type != v {
+		t.Error("field `z.Z` is not of type `v`")
+	}
 
 	Fn := getTypeDecl(p, "Fn").Type.(*ast.FuncType)
 	if Fn.Params[0].Type != u {
@@ -413,7 +416,7 @@ func TestResolveTypeDuplicateField(t *testing.T) {
 		expectError(t, "_test/typedecl/src/errors/dup_field", []string{src},
 			"X is duplicated")
 	}
-	// Check blank ident does nor cause a duplicated field error
+	// Check blank ident does not cause a duplicated field error
 	_, err := compilePackage("_test/typedecl/src/correct/", []string{"c.go"}, nil)
 	if err != nil {
 		t.Fatal(err)

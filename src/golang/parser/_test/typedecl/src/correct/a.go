@@ -40,8 +40,8 @@ type x map[a]w
 type y chan x
 
 type z struct {
-	X u
-	Y v
+	X    u
+	Y, Z v
 }
 
 type Fn func(u, v) (w, x)

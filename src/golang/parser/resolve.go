@@ -660,13 +660,19 @@ func (r *resolver) VisitChanType(t *ast.ChanType) (ast.Type, error) {
 }
 
 func (r *resolver) VisitStructType(t *ast.StructType) (ast.Type, error) {
-	for i := range t.Fields {
-		fd := &t.Fields[i]
-		typ, err := r.resolveType(fd.Type)
-		if err != nil {
-			return nil, err
+	var (
+		carry ast.Type
+		err   error
+	)
+	for i := len(t.Fields); i > 0; i-- {
+		fd := &t.Fields[i-1]
+		if fd.Type != nil {
+			carry, err = r.resolveType(fd.Type)
+			if err != nil {
+				return nil, err
+			}
 		}
-		fd.Type = typ
+		fd.Type = carry
 	}
 	return t, checkDuplicateFieldNames(t)
 }
