@@ -48,13 +48,14 @@ func (InterfaceType) typ() {}
 type Expr interface {
 	Node
 	TraverseExpr(ExprVisitor) (Expr, error)
+	Type() Type
 	expr()
 }
 
 func (Error) expr()         {}
+func (ConstValue) expr()    {}
 func (OperandName) expr()   {}
 func (QualifiedId) expr()   {}
-func (ConstValue) expr()    {}
 func (CompLiteral) expr()   {}
 func (Call) expr()          {}
 func (Conversion) expr()    {}
@@ -196,6 +197,7 @@ type Error struct {
 }
 
 func (e Error) Position() int { return e.Off }
+func (Error) Type() Type      { return nil }
 
 //
 // Declarations
@@ -281,6 +283,7 @@ type Func struct {
 }
 
 func (f *Func) Position() int { return f.Off }
+func (f *Func) Type() Type    { return f.Sig }
 
 type FuncDecl struct {
 	Off  int // position of the identifier
@@ -349,11 +352,12 @@ var opPrec = map[uint]uint{
 
 type ConstValue struct {
 	Off   int // position of the leftmost subexpression, or literal of the value
-	Type  Type
+	Typ   Type
 	Value Value
 }
 
 func (c *ConstValue) Position() int { return c.Off }
+func (c *ConstValue) Type() Type    { return c.Typ }
 
 // Builtin values
 const (
@@ -390,9 +394,11 @@ type String string
 type OperandName struct {
 	Off  int
 	Decl Symbol
+	Typ  Type
 }
 
 func (x *OperandName) Position() int { return x.Off }
+func (x *OperandName) Type() Type    { return x.Typ }
 
 type KeyedElement struct {
 	Key Expr
@@ -401,37 +407,42 @@ type KeyedElement struct {
 
 type CompLiteral struct {
 	Off  int // position of the type, or the opening brace
-	Type Type
+	Typ  Type
 	Elts []*KeyedElement
 }
 
 func (x *CompLiteral) Position() int { return x.Off }
+func (x *CompLiteral) Type() Type    { return x.Typ }
 
 type Call struct {
 	Off  int // position of the func expression
 	Func Expr
-	Type Type
+	Typ  Type
 	Xs   []Expr
 	Ell  bool
 }
 
 func (x *Call) Position() int { return x.Off }
+func (x *Call) Type() Type    { return x.Typ }
 
 type Conversion struct {
-	Off  int // position of the type
-	Type Type
-	X    Expr
+	Off int // position of the type
+	Typ Type
+	X   Expr
 }
 
 func (x *Conversion) Position() int { return x.Off }
+func (x *Conversion) Type() Type    { return x.Typ }
 
 type MethodExpr struct {
 	Off  int
-	Type Type
+	RTyp Type
 	Id   string
+	Typ  Type
 }
 
 func (x *MethodExpr) Position() int { return x.Off }
+func (x *MethodExpr) Type() Type    { return x.Typ }
 
 type ParensExpr struct {
 	Off int // position of the opening parenthesis
@@ -439,53 +450,65 @@ type ParensExpr struct {
 }
 
 func (x *ParensExpr) Position() int { return x.Off }
+func (*ParensExpr) Type() Type      { panic("not reached") }
 
 type TypeAssertion struct {
-	Off  int // position of the expression
-	Type Type
-	X    Expr
+	Off int // position of the expression
+	Typ Type
+	X   Expr
 }
 
 func (x *TypeAssertion) Position() int { return x.Off }
+func (x *TypeAssertion) Type() Type    { return x.Typ }
 
 type Selector struct {
 	Off int // position of the struct expression
 	X   Expr
 	Id  string
+	Typ Type
 }
 
 func (x *Selector) Position() int { return x.Off }
+func (x *Selector) Type() Type    { return x.Typ }
 
 type IndexExpr struct {
 	Off  int // position of the indexed expression
 	X, I Expr
+	Typ  Type
 }
 
 func (x *IndexExpr) Position() int { return x.Off }
+func (x *IndexExpr) Type() Type    { return x.Typ }
 
 type SliceExpr struct {
 	Off         int // position of the sliced expression
 	X           Expr
 	Lo, Hi, Cap Expr
+	Typ         Type
 }
 
 func (x *SliceExpr) Position() int { return x.Off }
+func (x *SliceExpr) Type() Type    { return x.Typ }
 
 type UnaryExpr struct {
 	Off int // position of the unary operator
 	Op  uint
 	X   Expr
+	Typ Type
 }
 
 func (x *UnaryExpr) Position() int { return x.Off }
+func (x *UnaryExpr) Type() Type    { return x.Typ }
 
 type BinaryExpr struct {
 	Off  int // position of the left operand
 	Op   uint
 	X, Y Expr
+	Typ  Type
 }
 
 func (x *BinaryExpr) Position() int { return x.Off }
+func (x *BinaryExpr) Type() Type    { return x.Typ }
 
 //
 // Types
@@ -508,6 +531,7 @@ type QualifiedId struct {
 }
 
 func (t *QualifiedId) Position() int { return t.Off }
+func (*QualifiedId) Type() Type      { panic("not reached") }
 
 const (
 	BUILTIN_VOID_TYPE = iota

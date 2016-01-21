@@ -1156,7 +1156,7 @@ func (p *parser) parseTypeAssertion(x ast.Expr) ast.Expr {
 		t = p.parseType()
 	}
 	p.match(')')
-	return &ast.TypeAssertion{Off: x.Position(), Type: t, X: x}
+	return &ast.TypeAssertion{Off: x.Position(), Typ: t, X: x}
 }
 
 // PrimaryExpr =
@@ -1326,7 +1326,7 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 //                 SliceType | MapType | TypeName .
 func (p *parser) parseCompositeLiteral(typ ast.Type) ast.Expr {
 	lit := p.parseLiteralValue()
-	lit.Type = typ
+	lit.Typ = typ
 	if typ != nil {
 		lit.Off = typ.Position()
 	}
@@ -1385,7 +1385,7 @@ func (p *parser) parseConversion(t ast.Type) *ast.Conversion {
 	}
 	p.endBrackets()
 	p.match(')')
-	return &ast.Conversion{Off: t.Position(), Type: t, X: x}
+	return &ast.Conversion{Off: t.Position(), Typ: t, X: x}
 }
 
 // Arguments =
@@ -1422,7 +1422,7 @@ func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 		}
 	}
 	p.match(')')
-	return &ast.Call{Off: f.Position(), Func: f, Type: t, Xs: xs, Ell: dots}
+	return &ast.Call{Off: f.Position(), Func: f, Typ: t, Xs: xs, Ell: dots}
 }
 
 // FunctionLit = "func" Function .
@@ -1677,7 +1677,7 @@ func (p *parser) parseIfStmt() ast.Stmt {
 
 // Checks if an Expression is a TypeSwitchGuard.
 func isTypeSwitchGuardExpr(x ast.Expr) (ast.Expr, bool) {
-	if y, ok := x.(*ast.TypeAssertion); ok && y.Type == nil {
+	if y, ok := x.(*ast.TypeAssertion); ok && y.Typ == nil {
 		return y.X, true
 	} else {
 		return nil, false

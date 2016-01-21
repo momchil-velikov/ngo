@@ -123,7 +123,7 @@ func TestWriteBuiltinType(t *testing.T) {
 
 func TestWriteArrayType(t *testing.T) {
 	typ := &ast.ArrayType{
-		Dim: &ast.ConstValue{Type: ast.BuiltinInt, Value: ast.Int(10)},
+		Dim: &ast.ConstValue{Typ: ast.BuiltinInt, Value: ast.Int(10)},
 		Elt: &ast.BuiltinType{Kind: ast.BUILTIN_UINT8},
 	}
 	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })

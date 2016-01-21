@@ -876,11 +876,11 @@ func (*resolver) VisitOperandName(*ast.OperandName) (ast.Expr, error) {
 }
 
 func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
-	typ, err := r.resolveType(x.Type)
+	typ, err := r.resolveType(x.Typ)
 	if err != nil {
 		return nil, err
 	}
-	x.Type = typ
+	x.Typ = typ
 
 	for _, e := range x.Elts {
 		v, err := r.resolveExpr(e.Elt)
@@ -892,7 +892,7 @@ func (r *resolver) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 
 	// For struct types, do not resolve key expressions: they should be field
 	// names.
-	if checkStructType(x.Type) != nil {
+	if checkStructType(x.Typ) != nil {
 		return x, nil
 	}
 
@@ -920,11 +920,11 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 			return nil, err
 		}
 		x.Func = fn
-		typ, err := r.resolveType(x.Type)
+		typ, err := r.resolveType(x.Typ)
 		if err != nil {
 			return nil, err
 		}
-		x.Type = typ
+		x.Typ = typ
 		for i := range x.Xs {
 			y, err := r.resolveExpr(x.Xs[i])
 			if err != nil {
@@ -934,23 +934,23 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 		}
 		return x, nil
 	} else {
-		if x.Type != nil || len(x.Xs) != 1 || x.Ell {
+		if x.Typ != nil || len(x.Xs) != 1 || x.Ell {
 			return nil, errors.New("invalid conversion argument")
 		}
 		y, err := r.resolveExpr(x.Xs[0])
 		if err != nil {
 			return nil, err
 		}
-		return &ast.Conversion{Off: x.Off, Type: typ, X: y}, nil
+		return &ast.Conversion{Off: x.Off, Typ: typ, X: y}, nil
 	}
 }
 
 func (r *resolver) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
-	typ, err := r.resolveType(x.Type)
+	typ, err := r.resolveType(x.Typ)
 	if err != nil {
 		return nil, err
 	}
-	x.Type = typ
+	x.Typ = typ
 	y, err := r.resolveExpr(x.X)
 	if err != nil {
 		return nil, err
@@ -968,11 +968,11 @@ func (r *resolver) VisitFunc(x *ast.Func) (ast.Expr, error) {
 }
 
 func (r *resolver) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
-	typ, err := r.resolveType(x.Type)
+	typ, err := r.resolveType(x.Typ)
 	if err != nil {
 		return nil, err
 	}
-	x.Type = typ
+	x.Typ = typ
 	y, err := r.resolveExpr(x.X)
 	if err != nil {
 		return nil, err
@@ -988,7 +988,7 @@ func (r *resolver) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 		return nil, err
 	}
 	if typ != nil {
-		return &ast.MethodExpr{Off: x.X.Position(), Type: typ, Id: x.Id}, nil
+		return &ast.MethodExpr{Off: x.X.Position(), RTyp: typ, Id: x.Id}, nil
 	}
 	y, err := r.resolveExpr(x.X)
 	if err != nil {
@@ -1086,7 +1086,7 @@ func (r *resolver) VisitQualifiedId(x *ast.QualifiedId) (ast.Expr, error) {
 				return &ast.OperandName{Off: x.Off, Decl: d}, nil
 			}
 		} else if t, ok := d.(*ast.TypeDecl); ok {
-			return &ast.MethodExpr{Off: x.Off, Type: t, Id: x.Id}, nil
+			return &ast.MethodExpr{Off: x.Off, RTyp: t, Id: x.Id}, nil
 		} else {
 			return &ast.Selector{
 				Off: x.Off,

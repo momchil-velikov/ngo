@@ -596,11 +596,11 @@ func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 	case UntypedInt:
 		ctx.WriteString(v.String())
 	case Int:
-		ctx.WriteString(formatInt(builtinType(c.Type), uint64(v)))
+		ctx.WriteString(formatInt(builtinType(c.Typ), uint64(v)))
 	case UntypedFloat:
 		ctx.WriteString(v.String())
 	case Float:
-		ctx.WriteString(formatFloat(builtinType(c.Type), float64(v)))
+		ctx.WriteString(formatFloat(builtinType(c.Typ), float64(v)))
 	case UntypedComplex:
 		if v.Re.String() == "0" {
 			ctx.WriteV(0, v.Im.String(), "i")
@@ -608,7 +608,7 @@ func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 			ctx.WriteV(0, "(", v.Re.String(), "+", v.Im.String(), "i)")
 		}
 	case Complex:
-		ctx.WriteString(formatComplex(builtinType(c.Type), complex128(v)))
+		ctx.WriteString(formatComplex(builtinType(c.Typ), complex128(v)))
 	case String:
 		ctx.WriteV(0, "\"", string(v), "\"")
 	default:
@@ -633,10 +633,10 @@ func (x *OperandName) Format(ctx *FormatContext, _ uint) {
 
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 	e.X.Format(ctx, n)
-	if e.Type == nil {
+	if e.Typ == nil {
 		ctx.WriteString(".(type)")
 	} else {
-		ctx.WriteV(n, ".(", e.Type.Format, ")")
+		ctx.WriteV(n, ".(", e.Typ.Format, ")")
 	}
 }
 
@@ -669,7 +669,7 @@ func (e *SliceExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *MethodExpr) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, "(", e.Type.Format, ").", e.Id)
+	ctx.WriteV(n, "(", e.RTyp.Format, ").", e.Id)
 }
 
 func (x *ParensExpr) Format(ctx *FormatContext, n uint) {
@@ -680,8 +680,8 @@ func (x *ParensExpr) Format(ctx *FormatContext, n uint) {
 }
 
 func (e *CompLiteral) Format(ctx *FormatContext, n uint) {
-	if e.Type != nil {
-		e.Type.Format(ctx, n)
+	if e.Typ != nil {
+		e.Typ.Format(ctx, n)
 	}
 	ctx.WriteString("{")
 	m := len(e.Elts)
@@ -704,30 +704,30 @@ func (e *KeyedElement) format(ctx *FormatContext) {
 }
 
 func (e *Conversion) Format(ctx *FormatContext, n uint) {
-	switch f := e.Type.(type) {
+	switch f := e.Typ.(type) {
 	case *FuncType:
 		if len(f.Returns) == 0 {
-			ctx.WriteV(n, "(", e.Type.Format, ")")
+			ctx.WriteV(n, "(", e.Typ.Format, ")")
 		} else {
-			e.Type.Format(ctx, n)
+			e.Typ.Format(ctx, n)
 		}
 	case *PtrType, *ChanType:
-		ctx.WriteV(n, "(", e.Type.Format, ")")
+		ctx.WriteV(n, "(", e.Typ.Format, ")")
 	default:
-		e.Type.Format(ctx, n)
+		e.Typ.Format(ctx, n)
 	}
 	ctx.WriteV(n, "(", e.X.Format, ")")
 }
 
 func (e *Call) Format(ctx *FormatContext, n uint) {
 	e.Func.Format(ctx, n)
-	if e.Type == nil && len(e.Xs) == 0 {
+	if e.Typ == nil && len(e.Xs) == 0 {
 		ctx.WriteString("()")
 	} else {
 		var nargs = len(e.Xs)
 		ctx.WriteString("(")
-		if e.Type != nil {
-			e.Type.Format(ctx, n)
+		if e.Typ != nil {
+			e.Typ.Format(ctx, n)
 			if nargs > 0 {
 				ctx.WriteString(", ")
 			}

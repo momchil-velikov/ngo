@@ -441,7 +441,7 @@ func TestResolveExprComposite(t *testing.T) {
 
 	C := p.Find("C").(*ast.Var)
 	x := C.Init.RHS[0].(*ast.CompLiteral)
-	elt := x.Type.(*ast.SliceType).Elt.(*ast.TypeDecl)
+	elt := x.Typ.(*ast.SliceType).Elt.(*ast.TypeDecl)
 	if elt != ast.UniverseScope.Find("int") {
 		t.Error("`C`s initializer type must be `[]int`")
 	}
@@ -491,7 +491,7 @@ func TestResolveExprConversion(t *testing.T) {
 	A := p.Find("A").(*ast.Var)
 	B := p.Find("B").(*ast.Var)
 	x := B.Init.RHS[0].(*ast.Conversion)
-	if x.Type.(*ast.SliceType).Elt != T {
+	if x.Typ.(*ast.SliceType).Elt != T {
 		t.Error("type in the conversion must be a `[]T`")
 	}
 	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
@@ -504,7 +504,7 @@ func TestResolveExprConversion(t *testing.T) {
 	if !ok {
 		t.Error("initializer of `D` must be Conversion")
 	}
-	if x.Type != T {
+	if x.Typ != T {
 		t.Error("in initializer of `D` the conversion type must be `T`")
 	}
 	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != C {
@@ -605,7 +605,7 @@ func TestResolveTypeAssertion(t *testing.T) {
 	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("type assertion expression must be `A`")
 	}
-	if x.Type != T {
+	if x.Typ != T {
 		t.Error("type in type assertion expression must be `T`")
 	}
 }
@@ -643,7 +643,7 @@ func TestResolveExprSelector(t *testing.T) {
 	if !ok {
 		t.Error("initializer of `E` must be a MethodExpr")
 	}
-	ptr, ok := z.Type.(*ast.PtrType)
+	ptr, ok := z.RTyp.(*ast.PtrType)
 	if !ok || ptr.Base != S {
 		t.Error("in initializer of `E`: the type in the method expression must be `*S`")
 	}
@@ -2189,7 +2189,7 @@ func TestResolveExprMultiPackage(t *testing.T) {
 	if !ok {
 		t.Error("the return expression is not a Conversion")
 	}
-	if x.Type != A {
+	if x.Typ != A {
 		t.Error("the conversion type is not `a.A`")
 	}
 
@@ -2200,7 +2200,7 @@ func TestResolveExprMultiPackage(t *testing.T) {
 	if !ok {
 		t.Error("the return expression is not a Conversion")
 	}
-	if y.Type != A {
+	if y.RTyp != A {
 		t.Error("the type in the method expression is not `a.A`")
 	}
 

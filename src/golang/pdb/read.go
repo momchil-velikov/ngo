@@ -281,7 +281,7 @@ func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
 			return nil, err
 		}
 		return &ast.ArrayType{
-			Dim: &ast.ConstValue{Type: ast.BuiltinInt, Value: ast.Int(10)},
+			Dim: &ast.ConstValue{Typ: ast.BuiltinInt, Value: ast.Int(10)},
 			Elt: t,
 		}, nil
 	case _SLICE:
