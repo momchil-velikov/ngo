@@ -845,6 +845,15 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 		t.Error("`B` must be zero initialized")
 	}
 
+	// Check A and B have type `int`.
+	int := ast.UniverseScope.Find("int").(*ast.TypeDecl)
+	if v["A"].Type != int {
+		t.Error("`A` type is not the predeclared `int`")
+	}
+	if v["B"].Type != int {
+		t.Error("`B` type is not the predeclared `int`")
+	}
+
 	// Check initializer C and D have the same non-nil initializer.
 	x := v["C"].Init
 	if x == nil {
@@ -920,7 +929,7 @@ func TestResolveVarPkgDecl(t *testing.T) {
 		t.Error("variable with name `_` must not be declared")
 	}
 
-	// Test block-level varuiable declarations.
+	// Test block-level variable declarations.
 	p, err = compilePackage("_test/vardecl/src/ok", []string{"blk-decl.go"}, nil)
 	if err != nil {
 		t.Fatal(err)

@@ -1182,6 +1182,7 @@ func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
 	s.Init = nil
 	for i, v := range s.Names {
 		init.LHS[i] = &ast.OperandName{Decl: v}
+		v.Type = s.Type
 		v.Init = init
 	}
 
