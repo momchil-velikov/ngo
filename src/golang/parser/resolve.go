@@ -677,6 +677,10 @@ func (r *resolver) VisitStructType(t *ast.StructType) (ast.Type, error) {
 	return t, checkDuplicateFieldNames(t)
 }
 
+func (*resolver) VisitTupleType(*ast.TupleType) (ast.Type, error) {
+	panic("not reached")
+}
+
 func (r *resolver) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
 	if err := r.resolveParams(t.Params); err != nil {
 		return nil, err

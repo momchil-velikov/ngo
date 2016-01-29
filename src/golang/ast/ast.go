@@ -40,6 +40,7 @@ func (PtrType) typ()       {}
 func (MapType) typ()       {}
 func (ChanType) typ()      {}
 func (StructType) typ()    {}
+func (TupleType) typ()     {}
 func (FuncType) typ()      {}
 func (InterfaceType) typ() {}
 
@@ -589,6 +590,13 @@ type StructType struct {
 }
 
 func (t *StructType) Position() int { return t.Off }
+
+type TupleType struct {
+	Off  int
+	Type []Type
+}
+
+func (t *TupleType) Position() int { return t.Off }
 
 type Param struct {
 	Off  int // position of the identifier

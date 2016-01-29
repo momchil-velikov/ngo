@@ -13,6 +13,7 @@ type TypeVisitor interface {
 	VisitMapType(*MapType) (Type, error)
 	VisitChanType(*ChanType) (Type, error)
 	VisitStructType(*StructType) (Type, error)
+	VisitTupleType(*TupleType) (Type, error)
 	VisitFuncType(*FuncType) (Type, error)
 	VisitInterfaceType(*InterfaceType) (Type, error)
 }
