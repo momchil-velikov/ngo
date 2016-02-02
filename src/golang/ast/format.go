@@ -407,6 +407,21 @@ func (t *StructType) Format(ctx *FormatContext, n uint) {
 	}
 }
 
+func (t *TupleType) Format(ctx *FormatContext, n uint) {
+	if ctx.typePositions() {
+		ctx.WriteV(n, "/* #", t.Off, " */")
+	}
+	ctx.WriteString("(")
+	m := len(t.Type)
+	for i := 0; i+1 < m; i++ {
+		t.Type[i].Format(ctx, n)
+		ctx.WriteString(", ")
+	}
+	t.Type[m-1].Format(ctx, n)
+	ctx.WriteString(")")
+
+}
+
 func (t *FuncType) Format(ctx *FormatContext, n uint) {
 	if ctx.typePositions() {
 		ctx.WriteV(n, "/* #", t.Off, " */")
