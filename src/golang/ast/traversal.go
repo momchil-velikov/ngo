@@ -116,6 +116,9 @@ func (t *ChanType) TraverseType(v TypeVisitor) (Type, error) {
 func (t *StructType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitStructType(t)
 }
+func (t *TupleType) TraverseType(v TypeVisitor) (Type, error) {
+	return v.VisitTupleType(t)
+}
 
 func (t *FuncType) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitFuncType(t)
