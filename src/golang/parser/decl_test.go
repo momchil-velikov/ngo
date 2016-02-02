@@ -261,12 +261,12 @@ func TestVarDecl(tst *testing.T) {
 var a = 1
 var a, b = 2
 var a float32 = 4; var a, b float64 = 2, 5
-var c
+var c = 1
 var (
     a = 1
     a, b = 2
     a float32 = 4; a, b float64 = 2, 5
-    c; d
+    c int; d = 1
 )
 var()
 `
@@ -276,14 +276,14 @@ var a = 1
 var a, b = 2
 var a float32 = 4
 var a, b float64 = 2, 5
-var c
+var c = 1
 var (
     a = 1
     a, b = 2
     a float32 = 4
     a, b float64 = 2, 5
-    c
-    d
+    c int
+    d = 1
 )
 var (
 )
@@ -319,13 +319,13 @@ var a = <error>
 var a = 2
 var a float32 = 4
 var , b float64 = 2
-var c
+var c <error>
 var (
     a = a, <error>
     a float32 = 4
     , b float64 = 2
-    c
-    d
+    c <error>
+    d <error>
 )
 `
 	t, e := Parse("var-decl-error.go", src)
@@ -414,7 +414,7 @@ func (<error>) i(a, uint) (r0 []*X)
 func TestBug20150730T124314(tst *testing.T) {
 	src := `package p
 var (
-  a = func() { var b = func() { var c } }
+  a = func() { var b = func() { var c = 1} }
 )`
 
 	exp := `package p
@@ -422,7 +422,7 @@ var (
 var (
     a = func() {
             var b = func() {
-                    var c
+                    var c = 1
                 }
         }
 )
@@ -529,5 +529,20 @@ func TestParsePackage(t *testing.T) {
 			t.Log(err)
 		}
 		t.Error("expected syntax error")
+	}
+}
+
+func TestBug20160202T173058(t *testing.T) {
+	src := `package p
+var a
+`
+	_, e := Parse("bug-2016-02-02T17:30:58.go", src)
+	if e == nil || !strings.Contains(e.Error(), "expected typespec") {
+		t.Error("expected error `expected typespec`")
+		if e == nil {
+			t.Error("actual: no error")
+		} else {
+			t.Errorf("actual: %s\n", e.Error())
+		}
 	}
 }

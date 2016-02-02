@@ -827,13 +827,17 @@ func (p *parser) parseVarSpec() *ast.VarDecl {
 		es []ast.Expr
 	)
 	ids := p.parseVarIdList()
-	if isTypeLookahead(p.token) {
-		t = p.parseType()
-	}
 	if p.token == '=' {
 		p.next()
 		es = p.parseExprList(nil)
+	} else {
+		t = p.parseType()
+		if p.token == '=' {
+			p.next()
+			es = p.parseExprList(nil)
+		}
 	}
+
 	return &ast.VarDecl{Names: ids, Type: t, Init: es}
 }
 
