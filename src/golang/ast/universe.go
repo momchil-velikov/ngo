@@ -71,7 +71,6 @@ func init() {
 		name string
 		typ  Type
 	}{
-		{"#nil", BuiltinNilType},
 		{"bool", BuiltinBool},
 		{"byte", BuiltinUint8},
 		{"uint8", BuiltinUint8},
