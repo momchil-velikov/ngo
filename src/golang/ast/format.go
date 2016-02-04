@@ -275,6 +275,8 @@ func (t *QualifiedId) Format(ctx *FormatContext, n uint) {
 func (t *BuiltinType) Format(ctx *FormatContext, _ uint) {
 	var name string
 	switch t.Kind {
+	case BUILTIN_VOID_TYPE:
+		name = "#void"
 	case BUILTIN_NIL_TYPE:
 		name = "#nil"
 	case BUILTIN_BOOL:

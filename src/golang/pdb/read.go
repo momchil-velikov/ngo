@@ -179,7 +179,7 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 		pkg.Decls[name] = c
 	case _FUNC_DECL:
 		var rcv *ast.Param
-		if typ != ast.BuiltinNilType {
+		if typ != nil {
 			rcv = &ast.Param{Type: typ}
 		}
 		typ, err = r.readType(pkg)
@@ -235,8 +235,8 @@ func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
 		return nil, err
 	}
 	switch tag {
-	case _NIL:
-		return ast.BuiltinNilType, nil
+	case _VOID:
+		return nil, nil
 	case _BOOL:
 		return ast.BuiltinBool, nil
 	case _UINT8:

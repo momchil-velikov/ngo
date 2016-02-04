@@ -146,7 +146,7 @@ func (w *Writer) writeDecl(pkg *ast.Package, d ast.Symbol) error {
 		}
 		var err error
 		if d.Func.Recv == nil {
-			err = w.WriteByte(_NIL)
+			err = w.WriteByte(_VOID)
 		} else {
 			err = w.writeType(pkg, d.Func.Recv.Type)
 		}
@@ -188,7 +188,8 @@ func (w *Writer) writedcl(
 }
 
 const (
-	_NIL byte = iota
+	_VOID byte = iota
+	_NIL
 	_BOOL
 	_UINT8
 	_UINT16
@@ -224,7 +225,7 @@ const (
 
 func (w *Writer) writeType(pkg *ast.Package, t ast.Type) error {
 	if t == nil {
-		return w.WriteByte(_NIL)
+		return w.WriteByte(_VOID)
 	}
 	switch t := t.(type) {
 	case *ast.BuiltinType:
@@ -286,8 +287,6 @@ func (w *Writer) writeType(pkg *ast.Package, t ast.Type) error {
 func (w *Writer) writeBuiltinType(k int) error {
 	var b byte
 	switch k {
-	case ast.BUILTIN_NIL_TYPE:
-		b = _NIL
 	case ast.BUILTIN_BOOL:
 		b = _BOOL
 	case ast.BUILTIN_UINT8:

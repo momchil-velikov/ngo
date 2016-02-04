@@ -70,7 +70,6 @@ func decodeType(t *testing.T, buf []byte) ast.Type {
 
 func TestWriteBuiltinType(t *testing.T) {
 	ts := []ast.Type{
-		ast.BuiltinNilType,
 		ast.BuiltinBool,
 		ast.BuiltinUint8,
 		ast.BuiltinUint16,
@@ -91,7 +90,6 @@ func TestWriteBuiltinType(t *testing.T) {
 	}
 
 	tk := []byte{
-		_NIL,
 		_BOOL,
 		_UINT8,
 		_UINT16,
@@ -677,7 +675,7 @@ func TestWriteTypeDecl4(t *testing.T) {
 			0,
 
 			_TYPE_DECL, 1, 0, 1, 'X',
-			15, // "int"
+			_INT, // "int"
 			_END,
 		},
 	)
@@ -745,8 +743,8 @@ func TestWriteVarDecl(t *testing.T) {
 		[]byte{
 			_VAR_DECL,
 			0, 0, // file, off
-			0, // name
-			0, // type
+			0,     // name
+			_VOID, // type
 		},
 	)
 
@@ -887,7 +885,7 @@ func TestWriteFuncDecl(t *testing.T) {
 			_FUNC_DECL,
 			2, 42, // file, off
 			2, 'F', 'n', // name
-			_NIL, // receiver type
+			_VOID, // receiver type
 			_FUNC, 0, 0, 0,
 		},
 	)

@@ -512,7 +512,8 @@ type QualifiedId struct {
 func (t *QualifiedId) Position() int { return t.Off }
 
 const (
-	BUILTIN_NIL_TYPE = iota
+	BUILTIN_VOID_TYPE = iota
+	BUILTIN_NIL_TYPE
 	BUILTIN_BOOL
 	BUILTIN_UINT8
 	BUILTIN_UINT16

@@ -3,6 +3,7 @@ package ast
 var UniverseScope *_UniverseScope
 
 var (
+	BuiltinVoidType   Type
 	BuiltinNilType    Type
 	BuiltinBool       Type
 	BuiltinUint8      Type
@@ -45,6 +46,7 @@ var (
 )
 
 func init() {
+	BuiltinVoidType = &BuiltinType{BUILTIN_VOID_TYPE}
 	BuiltinNilType = &BuiltinType{BUILTIN_NIL_TYPE}
 	BuiltinBool = &BuiltinType{BUILTIN_BOOL}
 	BuiltinUint8 = &BuiltinType{BUILTIN_UINT8}
