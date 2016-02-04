@@ -509,36 +509,6 @@ func (v BuiltinValue) formatBuiltinValue(ctx *FormatContext) {
 		name = "nil"
 	case BUILTIN_IOTA:
 		name = "iota"
-	case BUILTIN_APPEND:
-		name = "append"
-	case BUILTIN_CAP:
-		name = "cap"
-	case BUILTIN_CLOSE:
-		name = "close"
-	case BUILTIN_COMPLEX:
-		name = "complex"
-	case BUILTIN_COPY:
-		name = "copy"
-	case BUILTIN_DELETE:
-		name = "delete"
-	case BUILTIN_IMAG:
-		name = "imag"
-	case BUILTIN_LEN:
-		name = "len"
-	case BUILTIN_MAKE:
-		name = "make"
-	case BUILTIN_NEW:
-		name = "new"
-	case BUILTIN_PANIC:
-		name = "panic"
-	case BUILTIN_PRINT:
-		name = "print"
-	case BUILTIN_PRINTLN:
-		name = "println"
-	case BUILTIN_REAL:
-		name = "real"
-	case BUILTIN_RECOVER:
-		name = "recover"
 	default:
 		panic("not reached")
 	}

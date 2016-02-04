@@ -28,21 +28,21 @@ var (
 	BuiltinFalse Expr
 	BuiltinIota  Expr
 
-	BuiltinAppend  Expr
-	BuiltinCap     Expr
-	BuiltinClose   Expr
-	BuiltinComplex Expr
-	BuiltinCopy    Expr
-	BuiltinDelete  Expr
-	BuiltinImag    Expr
-	BuiltinLen     Expr
-	BuiltinMake    Expr
-	BuiltinNew     Expr
-	BuiltinPanic   Expr
-	BuiltinPrint   Expr
-	BuiltinPrintln Expr
-	BuiltinReal    Expr
-	BuiltinRecover Expr
+	BuiltinAppend  *FuncDecl
+	BuiltinCap     *FuncDecl
+	BuiltinClose   *FuncDecl
+	BuiltinComplex *FuncDecl
+	BuiltinCopy    *FuncDecl
+	BuiltinDelete  *FuncDecl
+	BuiltinImag    *FuncDecl
+	BuiltinLen     *FuncDecl
+	BuiltinMake    *FuncDecl
+	BuiltinNew     *FuncDecl
+	BuiltinPanic   *FuncDecl
+	BuiltinPrint   *FuncDecl
+	BuiltinPrintln *FuncDecl
+	BuiltinReal    *FuncDecl
+	BuiltinRecover *FuncDecl
 )
 
 func init() {
@@ -99,21 +99,6 @@ func init() {
 	BuiltinFalse = &ConstValue{Value: Bool(false)}
 	BuiltinIota = &ConstValue{Value: BuiltinValue(BUILTIN_IOTA)}
 
-	BuiltinAppend = &ConstValue{Value: BuiltinValue(BUILTIN_APPEND)}
-	BuiltinCap = &ConstValue{Value: BuiltinValue(BUILTIN_CAP)}
-	BuiltinClose = &ConstValue{Value: BuiltinValue(BUILTIN_CLOSE)}
-	BuiltinComplex = &ConstValue{Value: BuiltinValue(BUILTIN_COMPLEX)}
-	BuiltinCopy = &ConstValue{Value: BuiltinValue(BUILTIN_COPY)}
-	BuiltinDelete = &ConstValue{Value: BuiltinValue(BUILTIN_DELETE)}
-	BuiltinImag = &ConstValue{Value: BuiltinValue(BUILTIN_IMAG)}
-	BuiltinLen = &ConstValue{Value: BuiltinValue(BUILTIN_LEN)}
-	BuiltinMake = &ConstValue{Value: BuiltinValue(BUILTIN_MAKE)}
-	BuiltinNew = &ConstValue{Value: BuiltinValue(BUILTIN_NEW)}
-	BuiltinPanic = &ConstValue{Value: BuiltinValue(BUILTIN_PANIC)}
-	BuiltinPrint = &ConstValue{Value: BuiltinValue(BUILTIN_PRINT)}
-	BuiltinPrintln = &ConstValue{Value: BuiltinValue(BUILTIN_PRINTLN)}
-	BuiltinReal = &ConstValue{Value: BuiltinValue(BUILTIN_REAL)}
-	BuiltinRecover = &ConstValue{Value: BuiltinValue(BUILTIN_RECOVER)}
 	for _, c := range []struct {
 		name string
 		x    Expr
@@ -122,6 +107,29 @@ func init() {
 		{"true", BuiltinTrue},
 		{"false", BuiltinFalse},
 		{"iota", BuiltinIota},
+	} {
+		UniverseScope.dcl[c.name] = &Const{Name: c.name, Init: c.x}
+	}
+
+	BuiltinAppend = &FuncDecl{Name: "append"}
+	BuiltinCap = &FuncDecl{Name: "cap"}
+	BuiltinClose = &FuncDecl{Name: "close"}
+	BuiltinComplex = &FuncDecl{Name: "complex"}
+	BuiltinCopy = &FuncDecl{Name: "copy"}
+	BuiltinDelete = &FuncDecl{Name: "delete"}
+	BuiltinImag = &FuncDecl{Name: "imag"}
+	BuiltinLen = &FuncDecl{Name: "len"}
+	BuiltinMake = &FuncDecl{Name: "make"}
+	BuiltinNew = &FuncDecl{Name: "new"}
+	BuiltinPanic = &FuncDecl{Name: "panic"}
+	BuiltinPrint = &FuncDecl{Name: "print"}
+	BuiltinPrintln = &FuncDecl{Name: "println"}
+	BuiltinReal = &FuncDecl{Name: "real"}
+	BuiltinRecover = &FuncDecl{Name: "recover"}
+	for _, c := range []struct {
+		name string
+		fn   *FuncDecl
+	}{
 
 		{"append", BuiltinAppend},
 		{"cap", BuiltinCap},
@@ -139,7 +147,7 @@ func init() {
 		{"real", BuiltinReal},
 		{"recover", BuiltinRecover},
 	} {
-		UniverseScope.dcl[c.name] = &Const{Name: c.name, Init: c.x}
+		UniverseScope.dcl[c.name] = c.fn
 	}
 }
 
