@@ -33,6 +33,7 @@ type Type interface {
 func (Error) typ()         {}
 func (QualifiedId) typ()   {}
 func (TypeDecl) typ()      {}
+func (TypeVar) typ()       {}
 func (BuiltinType) typ()   {}
 func (ArrayType) typ()     {}
 func (SliceType) typ()     {}
@@ -489,6 +490,18 @@ func (x *BinaryExpr) Position() int { return x.Off }
 //
 // Types
 //
+
+// The TypeVar type represents type variables, used by the semantic checker
+// during type inference phase.
+type TypeVar struct {
+	Off  int // position of the varible identifier or the expression
+	File *File
+	Name string
+	Type Type
+}
+
+func (t *TypeVar) Position() int { return t.Off }
+
 type QualifiedId struct {
 	Off     int
 	Pkg, Id string
