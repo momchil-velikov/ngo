@@ -5,6 +5,7 @@ golang/scanner
 golang/parser
 golang/build
 golang/pdb
+golang/typecheck
 "
 
 PROGS="
