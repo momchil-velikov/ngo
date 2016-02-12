@@ -144,6 +144,26 @@ func TestIfaceErr(t *testing.T) {
 		"invalid recursive type")
 	expectError(t, "_test/src/typ", []string{"iface-err-1.go"},
 		"invalid type for map key")
+	expectError(t, "_test/src/typ", []string{"method-dup-1.go"},
+		"in declaration of J: duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-2.go"},
+		"in declaration of K: duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-3.go"},
+		"in declaration of K: duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-4.go"},
+		"in declaration of K: duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-5.go"},
+		": duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-6.go"},
+		": duplicate method name F")
+	expectError(t, "_test/src/typ", []string{"method-dup-7.go"},
+		"F conflicts with field name")
+	expectError(t, "_test/src/typ", []string{"method-dup-8.go"},
+		"F conflicts with field name")
+	expectError(t, "_test/src/typ", []string{"method-dup-9.go"},
+		"F conflicts with field name")
+	expectError(t, "_test/src/typ", []string{"method-dup-10.go"},
+		"in declaration of J: duplicate method name F")
 }
 
 func TestConstType(t *testing.T) {

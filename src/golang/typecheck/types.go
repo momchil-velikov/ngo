@@ -56,6 +56,9 @@ func (ck *pkgTypesCheck) checkTypeDecl(d *ast.TypeDecl) error {
 	if err != nil {
 		return err
 	}
+	if err := checkMethodUniqueness(d); err != nil {
+		return err
+	}
 	d.Type = t
 	return nil
 }
@@ -172,6 +175,90 @@ func isEqualityComparable(t ast.Type) bool {
 	default:
 		panic("not reached")
 	}
+}
+
+// Checks for uniqueness of method names in the method set of the typename
+// DCL.
+// IMPORTANT: Callers must have ensured that type is not an invalid recursive
+// type.
+type methodLoc struct {
+	Off  int
+	File *ast.File
+}
+type iMethodSet map[string]methodLoc
+type methodSet map[string]*ast.FuncDecl
+
+func checkMethodUniqueness(dcl *ast.TypeDecl) error {
+	// Check for uniqueness of the method names in an interface type,
+	// including embedded interfaces.
+	if iface, ok := dcl.Type.(*ast.InterfaceType); ok {
+		return checkIfaceMethodUniqueness(make(iMethodSet), dcl, dcl, iface)
+	}
+
+	// For non-interface types, check methods, declared on this typename.
+	set := make(methodSet)
+	for i := range dcl.Methods {
+		f := dcl.Methods[i]
+		g := set[f.Name]
+		if g != nil {
+			return &DupMethodName{M0: f, M1: g}
+		}
+		set[f.Name] = f
+	}
+	for i := range dcl.PMethods {
+		f := dcl.PMethods[i]
+		g := set[f.Name]
+		if g != nil {
+			return &DupMethodName{M0: f, M1: g}
+		}
+		set[f.Name] = f
+	}
+
+	// For struct types, additionally check for conflict with field names.
+	if str, ok := unnamedType(dcl.Type).(*ast.StructType); ok {
+		for i := range str.Fields {
+			name := fieldName(&str.Fields[i])
+			g := set[name]
+			if g != nil {
+				return &DupFieldMethodName{M: g, S: dcl}
+			}
+		}
+	}
+	return nil
+}
+
+// Checks for uniqueness of method names in the method set of the typename
+// TOP. The parameter's DCL and IFACE denote either the top interface type
+// declaration (same as TOP), or an embedded interface type.
+
+// IMPORTANT: Callers must have ensured that type is not an invalid recursive
+// type.
+func checkIfaceMethodUniqueness(
+	set iMethodSet, top *ast.TypeDecl, dcl *ast.TypeDecl, iface *ast.InterfaceType) error {
+
+	for i := range iface.Methods {
+		m := &iface.Methods[i]
+		if len(m.Name) == 0 {
+			d := m.Type.(*ast.TypeDecl)
+			ifc := unnamedType(d.Type).(*ast.InterfaceType)
+			if err := checkIfaceMethodUniqueness(set, top, d, ifc); err != nil {
+				return err
+			}
+		} else {
+			if loc, ok := set[m.Name]; ok {
+				return &DupIfaceMethodName{
+					Decl:  top,
+					Off0:  m.Off,
+					File0: dcl.File,
+					Off1:  loc.Off,
+					File1: loc.File,
+					Name:  m.Name,
+				}
+			}
+			set[m.Name] = methodLoc{Off: m.Off, File: dcl.File}
+		}
+	}
+	return nil
 }
 
 func (*pkgTypesCheck) VisitError(*ast.Error) (*ast.Error, error) {
