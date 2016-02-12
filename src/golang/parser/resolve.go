@@ -411,29 +411,6 @@ func unnamedType(dcl *ast.TypeDecl) ast.Type {
 	return typ
 }
 
-// Checks that a method name is unique in the method set of DCL and, if DCL is
-// a TypeName of a struct type, among the field names.
-func isUniqueMethod(name string, dcl *ast.TypeDecl) error {
-	for _, fn := range dcl.Methods {
-		if name == fn.Name {
-			return errors.New("duplicate method name")
-		}
-	}
-	for _, fn := range dcl.PMethods {
-		if name == fn.Name {
-			return errors.New("duplicate method name")
-		}
-	}
-	if s := checkStructType(dcl); s != nil {
-		for i := range s.Fields {
-			if name == fieldName(&s.Fields[i]) {
-				return errors.New("type has both field and method named " + name)
-			}
-		}
-	}
-	return nil
-}
-
 func (r *resolver) resolveFunc(fn *ast.Func) error {
 	if rcv := fn.Recv; rcv != nil {
 		typ, err := r.resolveType(rcv.Type)
@@ -449,9 +426,6 @@ func (r *resolver) resolveFunc(fn *ast.Func) error {
 			return errors.New("receiver base type cannot be a pointer")
 		case *ast.InterfaceType:
 			return errors.New("receiver base type cannot be an interface")
-		}
-		if err := isUniqueMethod(fn.Decl.Name, base); err != nil {
-			return err
 		}
 		rcv.Type = typ
 		if typ == base {

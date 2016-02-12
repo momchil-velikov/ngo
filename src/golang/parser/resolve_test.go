@@ -2466,20 +2466,6 @@ func TestResolveMethodDecl(t *testing.T) {
 		"cannot be a pointer")
 	expectError(t, "_test/methods/src/err", []string{"bad-type-7.go"},
 		"cannot be an interface")
-	expectError(t, "_test/methods/src/err", []string{"uniq-1.go"},
-		"duplicate method name")
-	expectError(t, "_test/methods/src/err", []string{"uniq-2.go"},
-		"duplicate method name")
-	expectError(t, "_test/methods/src/err", []string{"uniq-3.go"},
-		"both field and method named")
-	expectError(t, "_test/methods/src/err", []string{"uniq-4.go"},
-		"both field and method named")
-	expectError(t, "_test/methods/src/err", []string{"uniq-5.go"},
-		"both field and method named")
-	expectError(t, "_test/methods/src/err", []string{"uniq-6.go"},
-		"both field and method named")
-	expectError(t, "_test/methods/src/err", []string{"uniq-7.go"},
-		"both field and method named")
 	expectError(t, "_test/methods/src/err", []string{"dup-recv.go"},
 		"redeclared")
 }
