@@ -15,11 +15,14 @@ import (
 func compilePackage(
 	dir string, srcs []string, loc ast.PackageLocator) (*ast.Package, error) {
 
-	up, err := ParsePackage(dir, srcs)
+	p, err := ParsePackage(dir, srcs)
 	if err != nil {
 		return nil, err
 	}
-	return ResolvePackage(up, loc)
+	if err := ResolvePackage(p, loc); err != nil {
+		return nil, err
+	}
+	return p, err
 }
 
 func getTypeDecl(s ast.Scope, name string) *ast.TypeDecl {
@@ -78,7 +81,7 @@ func TestResolveTypeUniverse(t *testing.T) {
 	}
 	for _, cs := range cases {
 		// Test type is declared at package scope.
-		sym := p.Decls[cs.decl]
+		sym := p.Syms[cs.decl]
 		if sym == nil {
 			t.Fatalf("name `%s` not found at package scope\n", cs.decl)
 		}

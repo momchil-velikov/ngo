@@ -323,9 +323,9 @@ func TestWriteIfaceType2(t *testing.T) {
 func TestWriteTypename(t *testing.T) {
 	flt32 := ast.UniverseScope.Find("float32").(*ast.TypeDecl)
 	pkgA := &ast.Package{
-		Path:  "x/y/a",
-		Name:  "a",
-		Decls: make(map[string]ast.Symbol),
+		Path: "x/y/a",
+		Name: "a",
+		Syms: make(map[string]ast.Symbol),
 	}
 	files := []*ast.File{
 		{No: 1, Name: "a.go", Pkg: pkgA},
@@ -338,7 +338,7 @@ func TestWriteTypename(t *testing.T) {
 		File: pkgA.Files[0],
 		Type: &ast.PtrType{Base: flt32},
 	}
-	pkgA.Decls["A"] = typA
+	pkgA.Syms["A"] = typA
 
 	varX := &ast.Var{
 		Off:  97,
@@ -346,7 +346,7 @@ func TestWriteTypename(t *testing.T) {
 		File: pkgA.Files[1],
 		Type: typA,
 	}
-	pkgA.Decls["X"] = varX
+	pkgA.Syms["X"] = varX
 
 	buf, err := encode(t, func(e *Writer) error {
 		return e.writeDecl(pkgA, varX)
@@ -399,7 +399,7 @@ func TestWriteTypename(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	if sym, ok := pkgA.Decls["B"]; !ok {
+	if sym, ok := pkgA.Syms["B"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dcl, ok := sym.(*ast.TypeDecl); !ok {
 		t.Error("wrong declaration type: expecting TypeDecl")
@@ -430,10 +430,10 @@ func TestWriteTypename(t *testing.T) {
 	}
 
 	pkgB := &ast.Package{
-		Path:  "x/y/b",
-		Name:  "b",
-		Decls: make(map[string]ast.Symbol),
-		Deps:  []*ast.Import{&ast.Import{Path: "a", Pkg: pkgA}},
+		Path: "x/y/b",
+		Name: "b",
+		Syms: make(map[string]ast.Symbol),
+		Deps: []*ast.Import{&ast.Import{Path: "a", Pkg: pkgA}},
 	}
 	files = []*ast.File{
 		{No: 1, Name: "c.go", Pkg: pkgB},
@@ -463,7 +463,7 @@ func TestWriteTypename(t *testing.T) {
 }
 
 func TestWriteTypeDecl(t *testing.T) {
-	pkg := &ast.Package{Decls: make(map[string]ast.Symbol)}
+	pkg := &ast.Package{Syms: make(map[string]ast.Symbol)}
 	d := &ast.TypeDecl{
 		Name: "S",
 		Type: &ast.PtrType{Base: &ast.BuiltinType{Kind: ast.BUILTIN_FLOAT32}},
@@ -492,7 +492,7 @@ func TestWriteTypeDecl(t *testing.T) {
 		_, err := r.readDecl(pkg)
 		return err
 	})
-	if sym, ok := pkg.Decls["S"]; !ok {
+	if sym, ok := pkg.Syms["S"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dd, ok := sym.(*ast.TypeDecl); !ok {
 		t.Error("incorrect declaration type; expected TypeDecl")
@@ -503,13 +503,13 @@ func TestWriteTypeDecl(t *testing.T) {
 
 func TestWriteTypeDecl1(t *testing.T) {
 	pkg := &ast.Package{
-		Name:  "pkg",
-		Decls: make(map[string]ast.Symbol),
+		Name: "pkg",
+		Syms: make(map[string]ast.Symbol),
 	}
 	file := &ast.File{
-		Pkg:   pkg,
-		Name:  "pkg.go",
-		Decls: make(map[string]ast.Symbol),
+		Pkg:  pkg,
+		Name: "pkg.go",
+		Syms: make(map[string]ast.Symbol),
 	}
 	pkg.Files = append(pkg.Files, file)
 
@@ -544,13 +544,13 @@ func TestWriteTypeDecl1(t *testing.T) {
 
 func TestWriteTypeDecl2(t *testing.T) {
 	pkg := &ast.Package{
-		Name:  "pkg",
-		Decls: make(map[string]ast.Symbol),
+		Name: "pkg",
+		Syms: make(map[string]ast.Symbol),
 	}
 	file := &ast.File{
-		Pkg:   pkg,
-		Name:  "pkg.go",
-		Decls: make(map[string]ast.Symbol),
+		Pkg:  pkg,
+		Name: "pkg.go",
+		Syms: make(map[string]ast.Symbol),
 	}
 	pkg.Files = append(pkg.Files, file)
 
@@ -584,13 +584,13 @@ func TestWriteTypeDecl2(t *testing.T) {
 
 func TestWriteTypeDecl3(t *testing.T) {
 	pkg := &ast.Package{
-		Name:  "pkg",
-		Decls: make(map[string]ast.Symbol),
+		Name: "pkg",
+		Syms: make(map[string]ast.Symbol),
 	}
 	file := &ast.File{
-		Pkg:   pkg,
-		Name:  "pkg.go",
-		Decls: make(map[string]ast.Symbol),
+		Pkg:  pkg,
+		Name: "pkg.go",
+		Syms: make(map[string]ast.Symbol),
 	}
 	pkg.Files = append(pkg.Files, file)
 
@@ -616,13 +616,13 @@ func TestWriteTypeDecl3(t *testing.T) {
 
 func TestWriteTypeDecl4(t *testing.T) {
 	pkg := &ast.Package{
-		Name:  "pkg",
-		Decls: make(map[string]ast.Symbol),
+		Name: "pkg",
+		Syms: make(map[string]ast.Symbol),
 	}
 	file := &ast.File{
-		Pkg:   pkg,
-		Name:  "pkg.go",
-		Decls: make(map[string]ast.Symbol),
+		Pkg:  pkg,
+		Name: "pkg.go",
+		Syms: make(map[string]ast.Symbol),
 	}
 	pkg.Files = append(pkg.Files, file)
 
@@ -689,13 +689,13 @@ func TestWriteTypeDecl4(t *testing.T) {
 
 func TestWriteTypeDecl5(t *testing.T) {
 	pkg := &ast.Package{
-		Name:  "pkg",
-		Decls: make(map[string]ast.Symbol),
+		Name: "pkg",
+		Syms: make(map[string]ast.Symbol),
 	}
 	file := &ast.File{
-		Pkg:   pkg,
-		Name:  "pkg.go",
-		Decls: make(map[string]ast.Symbol),
+		Pkg:  pkg,
+		Name: "pkg.go",
+		Syms: make(map[string]ast.Symbol),
 	}
 	pkg.Files = append(pkg.Files, file)
 
@@ -750,7 +750,7 @@ func TestWriteVarDecl(t *testing.T) {
 
 	pkg := &ast.Package{
 		Files: []*ast.File{&ast.File{No: 1}},
-		Decls: make(map[string]ast.Symbol),
+		Syms:  make(map[string]ast.Symbol),
 	}
 	decode(t, buf, func(r *Reader) {
 		ok, err := r.readDecl(pkg)
@@ -791,7 +791,7 @@ func TestWriteVarDecl(t *testing.T) {
 		_, err := r.readDecl(pkg)
 		return err
 	})
-	if sym, ok := pkg.Decls["xyz"]; !ok {
+	if sym, ok := pkg.Syms["xyz"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dv, ok := sym.(*ast.Var); !ok {
 		t.Error("incorrect declaration type; expected Var")
@@ -838,12 +838,12 @@ func TestWriteConstDecl(t *testing.T) {
 			_INT32,
 		},
 	)
-	pkg := &ast.Package{Decls: make(map[string]ast.Symbol)}
+	pkg := &ast.Package{Syms: make(map[string]ast.Symbol)}
 	keepDecoding(t, buf, func(r *Reader) error {
 		_, err := r.readDecl(pkg)
 		return err
 	})
-	if sym, ok := pkg.Decls["xyz"]; !ok {
+	if sym, ok := pkg.Syms["xyz"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dc, ok := sym.(*ast.Const); !ok {
 		t.Error("incorrect declaration type; expected Const")
@@ -854,9 +854,9 @@ func TestWriteConstDecl(t *testing.T) {
 
 func TestWriteFuncDecl(t *testing.T) {
 	pkg := &ast.Package{
-		Path:  "x/y/a",
-		Name:  "a",
-		Decls: make(map[string]ast.Symbol),
+		Path: "x/y/a",
+		Name: "a",
+		Syms: make(map[string]ast.Symbol),
 	}
 	files := []*ast.File{
 		{No: 1, Name: "a.go", Pkg: pkg},
@@ -868,7 +868,7 @@ func TestWriteFuncDecl(t *testing.T) {
 		File: pkg.Files[0],
 		Type: &ast.PtrType{Base: ast.BuiltinFloat32},
 	}
-	pkg.Decls["A"] = typA
+	pkg.Syms["A"] = typA
 
 	fn := &ast.FuncDecl{
 		Off:  42,
@@ -895,7 +895,7 @@ func TestWriteFuncDecl(t *testing.T) {
 		_, err := r.readDecl(pkg)
 		return err
 	})
-	if sym, ok := pkg.Decls["FF"]; !ok {
+	if sym, ok := pkg.Syms["FF"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dfn, ok := sym.(*ast.FuncDecl); !ok {
 		t.Error("incorrect declaration type; expected FuncDecl")
@@ -911,7 +911,7 @@ func TestWriteFuncDecl(t *testing.T) {
 		File: pkg.Files[0],
 		Type: &ast.PtrType{Base: ast.BuiltinFloat32},
 	}
-	pkg.Decls["S"] = typS
+	pkg.Syms["S"] = typS
 
 	fn.Func.Recv = &ast.Param{Type: &ast.PtrType{Base: typS}}
 	buf = keepEncoding(t, func(e *Writer) error { return e.writeDecl(pkg, fn) })
@@ -940,7 +940,7 @@ func TestWriteFuncDecl(t *testing.T) {
 		_, err = r.readDecl(pkg)
 		return err
 	})
-	if sym, ok := pkg.Decls["FF"]; !ok {
+	if sym, ok := pkg.Syms["FF"]; !ok {
 		t.Error("declaration not found in package")
 	} else if dfn, ok := sym.(*ast.FuncDecl); !ok {
 		t.Error("incorrect declaration type; expected FuncDecl")
@@ -955,9 +955,9 @@ func TestWriteFuncDecl(t *testing.T) {
 
 func TestWriteMethodDecl(t *testing.T) {
 	pkg := &ast.Package{
-		Path:  "x/y/a",
-		Name:  "a",
-		Decls: make(map[string]ast.Symbol),
+		Path: "x/y/a",
+		Name: "a",
+		Syms: make(map[string]ast.Symbol),
 	}
 	files := []*ast.File{{Name: "a.go", Pkg: pkg}, {Name: "b.go", Pkg: pkg}}
 	pkg.Files = files
@@ -967,7 +967,7 @@ func TestWriteMethodDecl(t *testing.T) {
 		File: pkg.Files[0],
 		Type: &ast.PtrType{Base: ast.BuiltinFloat32},
 	}
-	pkg.Decls["A"] = typA
+	pkg.Syms["A"] = typA
 
 	F := &ast.FuncDecl{
 		Off:  42,
@@ -978,7 +978,7 @@ func TestWriteMethodDecl(t *testing.T) {
 			Sig:  &ast.FuncType{},
 		},
 	}
-	pkg.Decls[F.Name] = F
+	pkg.Syms[F.Name] = F
 
 	G := &ast.FuncDecl{
 		Off:  52,
@@ -989,7 +989,7 @@ func TestWriteMethodDecl(t *testing.T) {
 			Sig:  &ast.FuncType{},
 		},
 	}
-	pkg.Decls[G.Name] = G
+	pkg.Syms[G.Name] = G
 
 	buf, err := encode(t, func(w *Writer) error {
 		return w.writePkg(pkg)
@@ -1142,7 +1142,7 @@ func TestWritePackage3(t *testing.T) {
 			&ast.File{Name: "xx.go"},
 			&ast.File{Name: "yy.go"},
 		},
-		Decls: make(map[string]ast.Symbol),
+		Syms: make(map[string]ast.Symbol),
 	}
 	dep1 := &ast.Package{Name: "dep1", Sig: [20]byte{5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}}
 	depX := &ast.Package{Name: "depX", Sig: [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1}}
@@ -1158,7 +1158,7 @@ func TestWritePackage3(t *testing.T) {
 		Name: "xyz",
 		Type: &ast.BuiltinType{Kind: ast.BUILTIN_INT32},
 	}
-	pkg.Decls[d0.Name] = d0
+	pkg.Syms[d0.Name] = d0
 
 	d1 := &ast.Var{
 		Off:  12,
@@ -1166,7 +1166,7 @@ func TestWritePackage3(t *testing.T) {
 		Name: "Xyz",
 		Type: &ast.BuiltinType{Kind: ast.BUILTIN_INT32},
 	}
-	pkg.Decls[d1.Name] = d1
+	pkg.Syms[d1.Name] = d1
 
 	buf := keepEncoding(t, func(e *Writer) error { return e.writePkg(pkg) })
 	expect_eq(t, "pkg",
@@ -1221,10 +1221,10 @@ func TestWritePackage3(t *testing.T) {
 		!reflect.DeepEqual(dpkg.Deps[1].Sig, depX.Sig) {
 		t.Error("incorrect signature read")
 	}
-	if len(dpkg.Decls) != 1 {
+	if len(dpkg.Syms) != 1 {
 		t.Error("expecting only one exported decl")
 	}
-	if dpkg.Decls["Xyz"] == nil {
+	if dpkg.Syms["Xyz"] == nil {
 		t.Error("unexpected declaration name")
 	}
 	if dpkg.Files[0].Pkg != dpkg || dpkg.Files[1].Pkg != dpkg {

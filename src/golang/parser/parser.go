@@ -44,13 +44,13 @@ func (p *parser) setBrackets(n int) int {
 }
 
 // Parse all the source files of a package
-func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
+func ParsePackage(dir string, names []string) (*ast.Package, error) {
 	// We need at least one source file
 	if len(names) == 0 {
 		return nil, errors.New("no source files in " + dir)
 	}
 	// Parse sources
-	var files []*ast.UnresolvedFile
+	var files []*ast.File
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		src, err := ioutil.ReadFile(path)
@@ -72,10 +72,11 @@ func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
 			return nil, parseError{f.Name, ln, col, "inconsistent package name"}
 		}
 	}
-	pkg := &ast.UnresolvedPackage{
+	pkg := &ast.Package{
 		Path:  dir,
 		Name:  pkgname,
 		Files: files,
+		Syms:  make(map[string]ast.Symbol),
 	}
 	for _, f := range pkg.Files {
 		f.Pkg = pkg
@@ -84,7 +85,7 @@ func ParsePackage(dir string, names []string) (*ast.UnresolvedPackage, error) {
 }
 
 // Parse a source file
-func Parse(name string, src string) (*ast.UnresolvedFile, error) {
+func Parse(name string, src string) (*ast.File, error) {
 	p := parser{}
 	p.init(name, src)
 
@@ -219,7 +220,7 @@ func (p *parser) syncDecl() {
 }
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
-func (p *parser) parseFile() *ast.UnresolvedFile {
+func (p *parser) parseFile() *ast.File {
 	var off int
 
 	// Parse package name
@@ -244,7 +245,7 @@ func (p *parser) parseFile() *ast.UnresolvedFile {
 
 	p.match(scanner.EOF)
 
-	return &ast.UnresolvedFile{
+	return &ast.File{
 		Off:      off,
 		PkgName:  name,
 		Imports:  is,
@@ -252,6 +253,7 @@ func (p *parser) parseFile() *ast.UnresolvedFile {
 		Comments: p.comments,
 		Name:     p.scan.Name,
 		SrcMap:   p.scan.SrcMap,
+		Syms:     make(map[string]ast.Symbol),
 	}
 }
 

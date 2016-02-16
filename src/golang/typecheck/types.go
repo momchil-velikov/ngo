@@ -12,7 +12,7 @@ type pkgTypesCheck struct {
 
 func checkPkgLevelTypes(pkg *ast.Package) error {
 	ck := &pkgTypesCheck{Done: make(map[ast.Symbol]struct{})}
-	for _, s := range pkg.Decls {
+	for _, s := range pkg.Syms {
 		_, ck.File = s.DeclaredAt()
 		var err error
 		switch d := s.(type) {

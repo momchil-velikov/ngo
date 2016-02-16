@@ -55,9 +55,9 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 	}
 
 	// Exported declarations
-	ss := make([]sort.StringKey, len(pkg.Decls))
+	ss := make([]sort.StringKey, len(pkg.Syms))
 	ss = ss[:0]
-	for n, d := range pkg.Decls {
+	for n, d := range pkg.Syms {
 		if !d.IsExported() {
 			continue
 		}

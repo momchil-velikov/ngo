@@ -10,15 +10,15 @@ import (
 func compilePackage(
 	dir string, srcs []string, loc ast.PackageLocator) (*ast.Package, error) {
 
-	up, err := parser.ParsePackage(dir, srcs)
+	p, err := parser.ParsePackage(dir, srcs)
 	if err != nil {
 		return nil, err
 	}
-	pkg, err := parser.ResolvePackage(up, loc)
+	err = parser.ResolvePackage(p, loc)
 	if err != nil {
 		return nil, err
 	}
-	return pkg, CheckPackage(pkg)
+	return p, CheckPackage(p)
 }
 
 func expectError(t *testing.T, pkg string, srcs []string, msg string) {

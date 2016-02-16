@@ -124,9 +124,9 @@ func (p *Package) Declare(name string, sym Symbol) error {
 	_, file := sym.DeclaredAt()
 	old := file.Find(name)
 	if old == nil {
-		old = p.Decls[name]
+		old = p.Syms[name]
 		if old == nil {
-			p.Decls[name] = sym
+			p.Syms[name] = sym
 			return nil
 		}
 	}
@@ -142,7 +142,7 @@ func (p *Package) Lookup(name string) Symbol {
 }
 
 func (p *Package) Find(name string) Symbol {
-	return p.Decls[name]
+	return p.Syms[name]
 }
 
 // File scope
@@ -155,10 +155,10 @@ func (f *File) File() *File { return f }
 func (*File) Func() *Func { return nil }
 
 func (f *File) Declare(name string, sym Symbol) error {
-	if old := f.Decls[name]; old != nil {
+	if old := f.Syms[name]; old != nil {
 		return &redeclarationError{old: old, new: sym}
 	}
-	f.Decls[name] = sym
+	f.Syms[name] = sym
 	return nil
 }
 
@@ -171,7 +171,7 @@ func (f *File) Lookup(name string) Symbol {
 }
 
 func (f *File) Find(name string) Symbol {
-	return f.Decls[name]
+	return f.Syms[name]
 }
 
 // Function scope.

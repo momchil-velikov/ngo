@@ -40,7 +40,7 @@ func (r *Reader) readPkg(loc ast.PackageLocator) (*ast.Package, error) {
 	}
 
 	pkg := &ast.Package{
-		Decls: make(map[string]ast.Symbol),
+		Syms: make(map[string]ast.Symbol),
 	}
 
 	// Package name
@@ -110,7 +110,7 @@ func (r *Reader) readFile() (*ast.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	file := &ast.File{Name: name, Decls: make(map[string]ast.Symbol)}
+	file := &ast.File{Name: name, Syms: make(map[string]ast.Symbol)}
 	for {
 		n, err := r.ReadNum()
 		if err != nil {
@@ -173,10 +173,10 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 	switch kind {
 	case _VAR_DECL:
 		v := &ast.Var{Off: off, File: file, Name: name, Type: typ}
-		pkg.Decls[name] = v
+		pkg.Syms[name] = v
 	case _CONST_DECL:
 		c := &ast.Const{Off: off, File: file, Name: name, Type: typ}
-		pkg.Decls[name] = c
+		pkg.Syms[name] = c
 	case _FUNC_DECL:
 		var rcv *ast.Param
 		if typ != nil {
@@ -197,7 +197,7 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 			Func: ast.Func{Recv: rcv, Sig: ft},
 		}
 		f.Func.Decl = f
-		pkg.Decls[name] = f
+		pkg.Syms[name] = f
 		if rcv != nil {
 			base, err := receiverBaseType(rcv.Type)
 			if err != nil {
@@ -213,9 +213,9 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 		var t *ast.TypeDecl
 		// Check if the type declaration was created by an earlier encounter
 		// with its type name.
-		if sym, ok := pkg.Decls[name]; !ok {
+		if sym, ok := pkg.Syms[name]; !ok {
 			t = &ast.TypeDecl{}
-			pkg.Decls[name] = t
+			pkg.Syms[name] = t
 		} else if td, ok := sym.(*ast.TypeDecl); !ok {
 			return false, BadFile
 		} else {
@@ -365,7 +365,7 @@ func (r *Reader) readTypename(pkg *ast.Package) (*ast.TypeDecl, error) {
 		// create it. This allows a type name to refer to a type declaration
 		// that is not yet read.
 		dcl := &ast.TypeDecl{Name: name}
-		pkg.Decls[name] = dcl
+		pkg.Syms[name] = dcl
 		r.fwd++
 		return dcl, nil
 	} else if dcl, ok := sym.(*ast.TypeDecl); !ok {

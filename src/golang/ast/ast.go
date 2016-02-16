@@ -143,7 +143,7 @@ type Package struct {
 	Name  string            // Last component of the path name or "main"
 	Sig   [20]byte          // SHA-1 signature of something unrelated here
 	Files []*File           // Source files of the package
-	Decls map[string]Symbol // Package-level declarations
+	Syms  map[string]Symbol // Package-level declarations
 	Deps  []*Import         // Package dependencies, ordered by import path
 }
 
@@ -154,32 +154,19 @@ type Import struct {
 	Sig  [20]byte
 }
 
-type UnresolvedPackage struct {
-	Path  string
-	Name  string
-	Files []*UnresolvedFile
-}
-
 // Source file
 type File struct {
-	No      int               // Sequence number
-	Pkg     *Package          // Owner package
-	Imports []*ImportDecl     // Import declarations
-	Name    string            // File name
-	SrcMap  scanner.SourceMap // Map between source offsets and line/column numbers
-	Decls   map[string]Symbol // File scope declarations
-	Init    []*AssignStmt     // Init statements for package-level variables
-}
-
-type UnresolvedFile struct {
-	Off      int // position of the "package" keyword
-	Pkg      *UnresolvedPackage
-	PkgName  string
-	Imports  []*ImportDecl
-	Decls    []Decl
+	No       int               // Sequence number
+	Off      int               // Position of the "package" keyword
+	Pkg      *Package          // Owner package
+	PkgName  string            // Package name
+	Imports  []*ImportDecl     // Import declarations
+	Name     string            // File name
+	SrcMap   scanner.SourceMap // Map between source offsets and line/column numbers
 	Comments []Comment
-	Name     string
-	SrcMap   scanner.SourceMap
+	Decls    []Decl
+	Syms     map[string]Symbol // File scope declarations
+	Init     []*AssignStmt     // Init statements for package-level variables
 }
 
 // Import declaration

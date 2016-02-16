@@ -27,36 +27,25 @@ func (r *resolver) exitScope() {
 	r.scope = r.scope.Parent()
 }
 
-func ResolvePackage(
-	p *ast.UnresolvedPackage, loc ast.PackageLocator) (*ast.Package, error) {
-
-	pkg := &ast.Package{
-		Path:  p.Path,
-		Name:  p.Name,
-		Files: nil,
-		Decls: make(map[string]ast.Symbol),
-	}
-
+func ResolvePackage(pkg *ast.Package, loc ast.PackageLocator) error {
 	r := resolver{scope: ast.UniverseScope}
 	r.enterScope(pkg)
 
 	// Insert package and file scope declarations into the symbol table.
-	for _, f := range p.Files {
-		file, err := r.declareTopLevel(f, pkg, loc)
-		if err != nil {
-			return nil, err
+	for _, f := range pkg.Files {
+		if err := r.declareTopLevel(f, pkg, loc); err != nil {
+			return err
 		}
-		pkg.Files = append(pkg.Files, file)
 	}
 
 	// Declare lower level names and resolve all.
-	for i, f := range p.Files {
-		if err := r.resolveTopLevel(pkg.Files[i], f.Decls); err != nil {
-			return nil, err
+	for _, f := range pkg.Files {
+		if err := r.resolveTopLevel(f); err != nil {
+			return err
 		}
 	}
 
-	return pkg, nil
+	return nil
 }
 
 func findImport(path string, is []*ast.Import) (*ast.Import, int) {
@@ -78,15 +67,7 @@ func insertImport(is []*ast.Import, i int, imp *ast.Import) []*ast.Import {
 }
 
 func (r *resolver) declareTopLevel(
-	f *ast.UnresolvedFile, pkg *ast.Package, loc ast.PackageLocator) (*ast.File, error) {
-
-	file := &ast.File{
-		Pkg:     pkg,
-		Imports: f.Imports,
-		Name:    f.Name,
-		SrcMap:  f.SrcMap,
-		Decls:   make(map[string]ast.Symbol),
-	}
+	file *ast.File, pkg *ast.Package, loc ast.PackageLocator) error {
 
 	// Declare imported package names.
 	for _, i := range file.Imports {
@@ -95,7 +76,7 @@ func (r *resolver) declareTopLevel(
 		if dep == nil {
 			p, err := loc.FindPackage(path)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			dep = &ast.Import{Path: path, Pkg: p}
 			pkg.Deps = insertImport(pkg.Deps, pos, dep)
@@ -108,10 +89,10 @@ func (r *resolver) declareTopLevel(
 		}
 		if i.Name == "." {
 			// Import package exported identifiers into the file block.
-			for name, sym := range i.Pkg.Decls {
+			for name, sym := range i.Pkg.Syms {
 				if isExported(name) {
 					if err := file.Declare(name, sym); err != nil {
-						return nil, err
+						return err
 					}
 				}
 			}
@@ -121,13 +102,13 @@ func (r *resolver) declareTopLevel(
 				i.Name = i.Pkg.Name
 			}
 			if err := file.Declare(i.Name, i); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	// Declare top-level names.
-	for _, d := range f.Decls {
+	for _, d := range file.Decls {
 		var err error
 		switch d := d.(type) {
 		case *ast.TypeDecl:
@@ -135,7 +116,7 @@ func (r *resolver) declareTopLevel(
 		case *ast.TypeDeclGroup:
 			for _, d := range d.Types {
 				if err := r.declareTypeName(d, file); err != nil {
-					return nil, err
+					return err
 				}
 			}
 		case *ast.ConstDecl:
@@ -143,7 +124,7 @@ func (r *resolver) declareTopLevel(
 		case *ast.ConstDeclGroup:
 			for _, c := range d.Consts {
 				if err := r.declareConst(c, file); err != nil {
-					return nil, err
+					return err
 				}
 			}
 		case *ast.VarDecl:
@@ -151,7 +132,7 @@ func (r *resolver) declareTopLevel(
 		case *ast.VarDeclGroup:
 			for _, d := range d.Vars {
 				if err := r.declarePkgVar(d, file); err != nil {
-					return nil, err
+					return err
 				}
 			}
 		case *ast.FuncDecl:
@@ -160,14 +141,14 @@ func (r *resolver) declareTopLevel(
 			panic("not reached")
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return file, nil
+	return nil
 }
 
-func (r *resolver) resolveTopLevel(file *ast.File, ds []ast.Decl) error {
+func (r *resolver) resolveTopLevel(file *ast.File) error {
 	r.enterScope(file)
 	defer r.exitScope()
 	// Resolve right-hand sides of package-level variable initialization
@@ -181,7 +162,7 @@ func (r *resolver) resolveTopLevel(file *ast.File, ds []ast.Decl) error {
 			st.RHS[i] = x
 		}
 	}
-	for _, d := range ds {
+	for _, d := range file.Decls {
 		var err error
 		switch d := d.(type) {
 		case *ast.TypeDecl:
