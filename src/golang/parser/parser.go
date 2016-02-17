@@ -306,7 +306,7 @@ func (p *parser) parseImportSpec() *ast.ImportDecl {
 		name = ""
 	}
 	path, _ := p.matchRaw(scanner.STRING)
-	return &ast.ImportDecl{Off: off, Name: name, Path: path}
+	return &ast.ImportDecl{Off: off, File: p.file, Name: name, Path: path}
 }
 
 // Parse toplevel declaration(s)
@@ -373,7 +373,7 @@ func (p *parser) parseTypeDeclGroup() *ast.TypeDeclGroup {
 func (p *parser) parseTypeSpec() *ast.TypeDecl {
 	id, off := p.matchString(scanner.ID)
 	t := p.parseType()
-	return &ast.TypeDecl{Off: off, Name: id, Type: t}
+	return &ast.TypeDecl{Off: off, File: p.file, Name: id, Type: t}
 }
 
 // Determine if the given TOKEN could be a beginning of a typespec.
@@ -568,12 +568,12 @@ func (p *parser) parseConstIdList() (id []*ast.Const) {
 	name, off := p.matchString(scanner.ID)
 	// Ensure the list containes at least one element even in the case of a
 	// missing identifier.
-	id = append(id, &ast.Const{Off: off, Name: name})
+	id = append(id, &ast.Const{Off: off, File: p.file, Name: name})
 	for p.token == ',' {
 		p.next()
 		name, off = p.matchString(scanner.ID)
 		if len(name) > 0 {
-			id = append(id, &ast.Const{Off: off, Name: name})
+			id = append(id, &ast.Const{Off: off, File: p.file, Name: name})
 		}
 	}
 	return id
@@ -584,12 +584,12 @@ func (p *parser) parseVarIdList() (id []*ast.Var) {
 	name, off := p.matchString(scanner.ID)
 	// Ensure the list containes at least one element even in the case of a
 	// missing identifier.
-	id = append(id, &ast.Var{Off: off, Name: name})
+	id = append(id, &ast.Var{Off: off, File: p.file, Name: name})
 	for p.token == ',' {
 		p.next()
 		name, off = p.matchString(scanner.ID)
 		if len(name) > 0 {
-			id = append(id, &ast.Var{Off: off, Name: name})
+			id = append(id, &ast.Var{Off: off, File: p.file, Name: name})
 		}
 	}
 	return id

@@ -81,7 +81,6 @@ func (r *resolver) declareTopLevel(
 			dep = &ast.Import{Path: path, Pkg: p}
 			pkg.Deps = insertImport(pkg.Deps, pos, dep)
 		}
-		i.File = file
 		i.Pkg = dep.Pkg
 		if i.Name == "_" {
 			// do not import package decls
@@ -201,7 +200,6 @@ func (r *resolver) declareTypeName(t *ast.TypeDecl, file *ast.File) error {
 	if t.Name == "_" {
 		return nil
 	}
-	t.File = file
 	return r.scope.Declare(t.Name, t)
 }
 
@@ -219,7 +217,6 @@ func (r *resolver) declareConst(dcl *ast.ConstDecl, file *ast.File) error {
 		if c.Name == "_" {
 			continue
 		}
-		c.File = file
 		if err := r.scope.Declare(c.Name, c); err != nil {
 			return err
 		}
@@ -317,7 +314,6 @@ func (r *resolver) declarePkgVar(vr *ast.VarDecl, file *ast.File) error {
 		if v.Name == "_" {
 			continue
 		}
-		v.File = file
 		if err := file.Pkg.Declare(v.Name, v); err != nil {
 			return err
 		}
@@ -1139,7 +1135,6 @@ func (r *resolver) VisitVarDecl(s *ast.VarDecl) (ast.Stmt, error) {
 		if v.Name == "_" {
 			continue
 		}
-		v.File = r.scope.File()
 		if err := r.scope.Declare(v.Name, v); err != nil {
 			return nil, err
 		}
