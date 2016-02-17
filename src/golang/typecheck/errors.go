@@ -46,15 +46,14 @@ func (e *TypeCheckLoop) Error() string {
 }
 
 type BadEmbed struct {
-	Off  int
-	File *ast.File
 	Type *ast.TypeDecl
 }
 
 func (e *BadEmbed) Error() string {
-	ln, col := e.File.SrcMap.Position(e.Off)
+	file := e.Type.File
+	ln, col := file.SrcMap.Position(e.Type.Off)
 	return fmt.Sprintf("%s:%d:%d: interace embeds non-interface type %s",
-		e.File.Name, ln, col, e.Type.Name)
+		file.Name, ln, col, e.Type.Name)
 }
 
 // The BadConstType error is returned when the declared type of a constant is

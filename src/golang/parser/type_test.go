@@ -421,8 +421,8 @@ type (
     }
     T5 interface {
         T4
-        Baz(T3, T4) (r foo.T5)
         foo.T3
+        Baz(T3, T4) (r foo.T5)
     }
 )
 `

@@ -288,32 +288,35 @@ func TestWriteFuncType2(t *testing.T) {
 func TestWriteIfaceType1(t *testing.T) {
 	typ := &ast.InterfaceType{}
 	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
-	expect_eq(t, "write iface type", buf, []byte{_IFACE, 0})
+	expect_eq(t, "write iface type", buf, []byte{_IFACE, 0, 0})
 }
 
 func TestWriteIfaceType2(t *testing.T) {
-	typ := &ast.InterfaceType{
-		Methods: []ast.MethodSpec{
-			{Type: &ast.InterfaceType{}},
-			{Name: "F", Type: &ast.FuncType{}},
-		},
+	F := &ast.FuncDecl{
+		Name: "F",
+		Func: ast.Func{Sig: &ast.FuncType{}},
 	}
+	F.Func.Decl = F
+	typ := &ast.InterfaceType{Embedded: nil, Methods: []*ast.FuncDecl{F}}
 	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
 	expect_eq(t, "write iface type",
 		buf,
 		[]byte{
 			_IFACE,
-			2,
-			_IFACE, 0,
-			_FUNC, 0, 0, 0, 1, 'F',
+			0,
+			1,
+			_FUNC_DECL, 0, 0, 1, 'F', _VOID, _FUNC, 0, 0, 0,
 		},
 	)
 
-	var dtyp ast.Type
+	var dtyp *ast.InterfaceType
 	keepDecoding(t, buf, func(r *Reader) error {
-		var err error
-		dtyp, err = r.readType(nil)
-		return err
+		t, err := r.readType(&ast.Package{})
+		if err != nil {
+			return err
+		}
+		dtyp = t.(*ast.InterfaceType)
+		return nil
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
 		t.Error("read iface: types not equal")

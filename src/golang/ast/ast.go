@@ -625,17 +625,10 @@ type FuncType struct {
 
 func (t *FuncType) Position() int { return t.Off }
 
-type MethodSpec struct {
-	Off  int // position of the identifier
-	Name string
-	Type Type
-}
-
-func (m *MethodSpec) Position() int { return m.Off }
-
 type InterfaceType struct {
-	Off     int // position of the `interface` keyword
-	Methods []MethodSpec
+	Off      int // position of the `interface` keyword
+	Embedded []Type
+	Methods  []*FuncDecl
 }
 
 func (t *InterfaceType) Position() int { return t.Off }

@@ -420,21 +420,19 @@ func (w *Writer) writeIfaceType(pkg *ast.Package, t *ast.InterfaceType) error {
 	if err := w.WriteByte(_IFACE); err != nil {
 		return err
 	}
+	if err := w.WriteNum(uint64(len(t.Embedded))); err != nil {
+		return err
+	}
+	for _, d := range t.Embedded {
+		if err := w.writeType(pkg, d); err != nil {
+			return err
+		}
+	}
 	if err := w.WriteNum(uint64(len(t.Methods))); err != nil {
 		return err
 	}
-	for i := range t.Methods {
-		var err error
-		m := &t.Methods[i]
-		if len(m.Name) > 0 {
-			err = w.writeFuncType(pkg, m.Type.(*ast.FuncType))
-			if err == nil {
-				err = w.WriteString(m.Name)
-			}
-		} else {
-			err = w.writeType(pkg, m.Type)
-		}
-		if err != nil {
+	for _, f := range t.Methods {
+		if err := w.writeDecl(pkg, f); err != nil {
 			return err
 		}
 	}

@@ -13,6 +13,7 @@ import (
 )
 
 type parser struct {
+	file     *ast.File
 	errors   []error
 	scan     scanner.Scanner
 	comments []ast.Comment
@@ -24,6 +25,10 @@ type parser struct {
 
 func (p *parser) init(name string, src string) {
 	p.scan.Init(name, []byte(src))
+	p.file = &ast.File{
+		Name: p.scan.Name,
+		Syms: make(map[string]ast.Symbol),
+	}
 	p.level = 1
 	p.brackets = 1
 	p.next()
@@ -89,11 +94,11 @@ func Parse(name string, src string) (*ast.File, error) {
 	p := parser{}
 	p.init(name, src)
 
-	f := p.parseFile()
+	p.parseFile()
 	if p.errors == nil {
-		return f, nil
+		return p.file, nil
 	} else {
-		return f, ErrorList(p.errors)
+		return p.file, ErrorList(p.errors)
 	}
 }
 
@@ -102,6 +107,7 @@ func printIndent(w io.Writer, n int, s string) {
 		fmt.Fprint(w, s)
 	}
 }
+
 func (p *parser) traceIn(args ...interface{}) {
 	printIndent(os.Stderr, p.level, ".")
 	fmt.Fprintln(os.Stderr, "->", args)
@@ -220,41 +226,32 @@ func (p *parser) syncDecl() {
 }
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
-func (p *parser) parseFile() *ast.File {
-	var off int
-
+func (p *parser) parseFile() {
 	// Parse package name
 	if p.token == scanner.PACKAGE {
-		off = p.scan.TOff
+		p.file.Off = p.scan.TOff
 	}
-	name := p.parsePackageClause()
-	if len(name) == 0 {
-		return nil
+
+	p.file.PkgName = p.parsePackageClause()
+	if len(p.file.PkgName) == 0 {
+		return
 	}
 
 	if !p.expect(';') {
-		return nil
+		return
 	}
 	p.next()
 
 	// Parse import declaration(s)
-	is := p.parseImportDecls()
+	p.file.Imports = p.parseImportDecls()
 
 	// Parse toplevel declarations.
-	ds := p.parseToplevelDecls()
+	p.file.Decls = p.parseToplevelDecls()
 
 	p.match(scanner.EOF)
 
-	return &ast.File{
-		Off:      off,
-		PkgName:  name,
-		Imports:  is,
-		Decls:    ds,
-		Comments: p.comments,
-		Name:     p.scan.Name,
-		SrcMap:   p.scan.SrcMap,
-		Syms:     make(map[string]ast.Symbol),
-	}
+	p.file.Comments = p.comments
+	p.file.SrcMap = p.scan.SrcMap
 }
 
 // Parse a package clause. Return the package name or an empty string on error.
@@ -740,15 +737,23 @@ func convertToParamTypes(ps []ast.Param) {
 // MethodName         = identifier .
 // InterfaceTypeName  = TypeName .
 func (p *parser) parseInterfaceType() *ast.InterfaceType {
-	var ms []ast.MethodSpec
+	var (
+		ifs []ast.Type
+		ms  []*ast.FuncDecl
+	)
 	off := p.match(scanner.INTERFACE)
 	p.match('{')
 	for p.token != scanner.EOF && p.token != '}' {
-		var m ast.MethodSpec
 		id, off := p.matchString(scanner.ID)
 		if p.token == '(' {
-			sig := p.parseSignature()
-			m = ast.MethodSpec{Off: off, Name: id, Type: sig}
+			fn := &ast.FuncDecl{
+				Off:  off,
+				File: p.file,
+				Name: id,
+				Func: ast.Func{Off: off, Sig: p.parseSignature()},
+			}
+			fn.Func.Decl = fn
+			ms = append(ms, fn)
 		} else {
 			pkg := ""
 			if p.token == '.' {
@@ -756,18 +761,14 @@ func (p *parser) parseInterfaceType() *ast.InterfaceType {
 				pkg = id
 				id, _ = p.matchString(scanner.ID)
 			}
-			m = ast.MethodSpec{
-				Off:  off,
-				Type: &ast.QualifiedId{Off: off, Pkg: pkg, Id: id},
-			}
+			ifs = append(ifs, &ast.QualifiedId{Off: off, Pkg: pkg, Id: id})
 		}
-		ms = append(ms, m)
 		if p.token != '}' {
 			p.sync2(';', '}')
 		}
 	}
 	p.match('}')
-	return &ast.InterfaceType{Off: off, Methods: ms}
+	return &ast.InterfaceType{Off: off, Embedded: ifs, Methods: ms}
 }
 
 // ConstDecl = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
@@ -862,6 +863,7 @@ func (p *parser) parseFuncDecl() ast.Decl {
 	}
 	fn := &ast.FuncDecl{
 		Off:  off,
+		File: p.file,
 		Name: name,
 		Func: ast.Func{
 			Off:  foff,

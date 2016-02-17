@@ -337,7 +337,7 @@ func (r *resolver) resolvePkgVar(d *ast.VarDecl) error {
 }
 
 func (r *resolver) declareFunc(fn *ast.FuncDecl, file *ast.File) error {
-	fn.File = file
+	//fn.File = file
 	if fn.Name == "_" {
 		return nil
 	}
@@ -632,16 +632,22 @@ func (r *resolver) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
 }
 
 func (r *resolver) VisitInterfaceType(t *ast.InterfaceType) (ast.Type, error) {
-	for i := range t.Methods {
-		m := &t.Methods[i]
-		if m.Name == "_" {
-			return nil, errors.New("blank method name is not allowed")
-		}
-		typ, err := r.resolveType(m.Type)
+	for i := range t.Embedded {
+		typ, err := r.resolveType(t.Embedded[i])
 		if err != nil {
 			return nil, err
 		}
-		m.Type = typ
+		t.Embedded[i] = typ
+	}
+	for _, m := range t.Methods {
+		if m.Name == "_" {
+			return nil, errors.New("blank method name is not allowed")
+		}
+		typ, err := r.resolveType(m.Func.Sig)
+		if err != nil {
+			return nil, err
+		}
+		m.Func.Sig = typ.(*ast.FuncType)
 	}
 	return t, nil
 }

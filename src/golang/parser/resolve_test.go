@@ -364,7 +364,7 @@ func TestResolveConstructedType(t *testing.T) {
 	}
 
 	IfA := getTypeDecl(p, "IfA")
-	mF := IfA.Type.(*ast.InterfaceType).Methods[0].Type.(*ast.FuncType)
+	mF := IfA.Type.(*ast.InterfaceType).Methods[0].Func.Sig
 	if mF.Params[0].Type != u {
 		t.Error("parameterof method `IfA.F` is not of type `u`")
 	}
@@ -373,10 +373,10 @@ func TestResolveConstructedType(t *testing.T) {
 	}
 
 	IfB := getTypeDecl(p, "IfB").Type.(*ast.InterfaceType)
-	if IfB.Methods[0].Type != IfA {
+	if IfB.Embedded[0] != IfA {
 		t.Error("embedded interface of `IfB` is not `IfA`")
 	}
-	mG := IfB.Methods[1].Type.(*ast.FuncType)
+	mG := IfB.Methods[0].Func.Sig
 	if mG.Params[0].Type != x {
 		t.Error("parameterof method `IfB.G` is not of type `x`")
 	}

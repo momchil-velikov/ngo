@@ -142,6 +142,14 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 	if kind == _END {
 		return false, nil
 	}
+	if kind == _FUNC_DECL {
+		f, err := r.readFuncDecl(pkg)
+		if err != nil {
+			return false, err
+		}
+		pkg.Syms[f.Name] = f
+		return true, nil
+	}
 	n, err := r.ReadNum()
 	if err != nil {
 		return false, err
@@ -177,38 +185,6 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 	case _CONST_DECL:
 		c := &ast.Const{Off: off, File: file, Name: name, Type: typ}
 		pkg.Syms[name] = c
-	case _FUNC_DECL:
-		var rcv *ast.Param
-		if typ != nil {
-			rcv = &ast.Param{Type: typ}
-		}
-		typ, err = r.readType(pkg)
-		if err != nil {
-			return false, err
-		}
-		ft, ok := typ.(*ast.FuncType)
-		if !ok {
-			return false, BadFile
-		}
-		f := &ast.FuncDecl{
-			Off:  off,
-			File: file,
-			Name: name,
-			Func: ast.Func{Recv: rcv, Sig: ft},
-		}
-		f.Func.Decl = f
-		pkg.Syms[name] = f
-		if rcv != nil {
-			base, err := receiverBaseType(rcv.Type)
-			if err != nil {
-				return false, err
-			}
-			if base == rcv.Type {
-				base.Methods = append(base.Methods, f)
-			} else {
-				base.PMethods = append(base.PMethods, f)
-			}
-		}
 	case _TYPE_DECL:
 		var t *ast.TypeDecl
 		// Check if the type declaration was created by an earlier encounter
@@ -227,6 +203,68 @@ func (r *Reader) readDecl(pkg *ast.Package) (bool, error) {
 		return false, BadFile
 	}
 	return true, nil
+}
+
+func (r *Reader) readFuncDecl(pkg *ast.Package) (*ast.FuncDecl, error) {
+	n, err := r.ReadNum()
+	if err != nil {
+		return nil, err
+	}
+	fno := int(n)
+	if fno > len(pkg.Files) {
+		return nil, BadFile
+	}
+	var file *ast.File
+	if fno > 0 {
+		file = pkg.Files[fno-1]
+	}
+	n, err = r.ReadNum()
+	if err != nil {
+		return nil, err
+	}
+	off := int(n)
+	name, err := r.ReadString()
+	if err != nil {
+		return nil, err
+	}
+	if len(name) == 0 {
+		return nil, BadFile
+	}
+	typ, err := r.readType(pkg)
+	if err != nil {
+		return nil, err
+	}
+	var rcv *ast.Param
+	if typ != nil {
+		rcv = &ast.Param{Type: typ}
+	}
+	typ, err = r.readType(pkg)
+	if err != nil {
+		return nil, err
+	}
+	ft, ok := typ.(*ast.FuncType)
+	if !ok {
+		return nil, BadFile
+	}
+	f := &ast.FuncDecl{
+		Off:  off,
+		File: file,
+		Name: name,
+		Func: ast.Func{Recv: rcv, Sig: ft},
+	}
+	f.Func.Decl = f
+	if rcv != nil {
+		base, err := receiverBaseType(rcv.Type)
+		if err != nil {
+			return nil, err
+		}
+		if base == rcv.Type {
+			base.Methods = append(base.Methods, f)
+		} else {
+			base.PMethods = append(base.PMethods, f)
+		}
+	}
+	return f, nil
 }
 
 func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
@@ -437,27 +475,40 @@ func (r *Reader) readFuncType(pkg *ast.Package) (*ast.FuncType, error) {
 }
 
 func (r *Reader) readIfaceType(pkg *ast.Package) (*ast.InterfaceType, error) {
-	n, err := r.ReadNum()
+	ni, err := r.ReadNum()
 	if err != nil {
 		return nil, err
 	}
-	if n == 0 {
-		return &ast.InterfaceType{}, nil
-	}
-	ms := make([]ast.MethodSpec, n)
-	for i := range ms {
-		var err error
-		m := &ms[i]
-		m.Type, err = r.readType(pkg)
+	ifs := make([]*ast.TypeDecl, ni)
+	for i := range ifs {
+		t, err := r.readType(pkg)
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := m.Type.(*ast.FuncType); ok {
-			m.Name, err = r.ReadString()
-			if err != nil {
-				return nil, err
-			}
+		d, ok := t.(*ast.TypeDecl)
+		if !ok {
+			return nil, &BadFile
 		}
+		ifs[i] = d
+	}
+	nm, err := r.ReadNum()
+	if err != nil {
+		return nil, err
+	}
+	ms := make([]*ast.FuncDecl, nm)
+	for i := range ms {
+		kind, err := r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if kind != _FUNC_DECL {
+			return nil, BadFile
+		}
+		f, err := r.readFuncDecl(pkg)
+		if err != nil {
+			return nil, err
+		}
+		ms[i] = f
 	}
 	return &ast.InterfaceType{Methods: ms}, nil
 }

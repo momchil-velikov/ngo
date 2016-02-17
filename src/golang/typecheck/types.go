@@ -181,18 +181,13 @@ func isEqualityComparable(t ast.Type) bool {
 // DCL.
 // IMPORTANT: Callers must have ensured that type is not an invalid recursive
 // type.
-type methodLoc struct {
-	Off  int
-	File *ast.File
-}
-type iMethodSet map[string]methodLoc
 type methodSet map[string]*ast.FuncDecl
 
 func checkMethodUniqueness(dcl *ast.TypeDecl) error {
 	// Check for uniqueness of the method names in an interface type,
 	// including embedded interfaces.
 	if iface, ok := dcl.Type.(*ast.InterfaceType); ok {
-		return checkIfaceMethodUniqueness(make(iMethodSet), dcl, dcl, iface)
+		return checkIfaceMethodUniqueness(make(methodSet), dcl, iface)
 	}
 
 	// For non-interface types, check methods, declared on this typename.
@@ -234,29 +229,27 @@ func checkMethodUniqueness(dcl *ast.TypeDecl) error {
 // IMPORTANT: Callers must have ensured that type is not an invalid recursive
 // type.
 func checkIfaceMethodUniqueness(
-	set iMethodSet, top *ast.TypeDecl, dcl *ast.TypeDecl, iface *ast.InterfaceType) error {
+	set methodSet, dcl *ast.TypeDecl, iface *ast.InterfaceType) error {
 
-	for i := range iface.Methods {
-		m := &iface.Methods[i]
-		if len(m.Name) == 0 {
-			d := m.Type.(*ast.TypeDecl)
-			ifc := unnamedType(d.Type).(*ast.InterfaceType)
-			if err := checkIfaceMethodUniqueness(set, top, d, ifc); err != nil {
-				return err
-			}
-		} else {
-			if loc, ok := set[m.Name]; ok {
-				return &DupIfaceMethodName{
-					Decl:  top,
-					Off0:  m.Off,
-					File0: dcl.File,
-					Off1:  loc.Off,
-					File1: loc.File,
-					Name:  m.Name,
-				}
-			}
-			set[m.Name] = methodLoc{Off: m.Off, File: dcl.File}
+	for _, t := range iface.Embedded {
+		ifc := unnamedType(t).(*ast.InterfaceType)
+		if err := checkIfaceMethodUniqueness(set, dcl, ifc); err != nil {
+			return err
 		}
+
+	}
+	for _, m := range iface.Methods {
+		if d, ok := set[m.Name]; ok {
+			return &DupIfaceMethodName{
+				Decl:  dcl,
+				Off0:  m.Off,
+				File0: m.File,
+				Off1:  d.Off,
+				File1: d.File,
+				Name:  m.Name,
+			}
+		}
+		set[m.Name] = m
 	}
 	return nil
 }
@@ -411,23 +404,22 @@ func (ck *pkgTypesCheck) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
 }
 
 func (ck *pkgTypesCheck) VisitInterfaceType(typ *ast.InterfaceType) (ast.Type, error) {
-	for i := range typ.Methods {
-		if len(typ.Methods[i].Name) == 0 { // embedded interface
-			// parser/resolver guarantee we have a TypeDecl
-			dcl := typ.Methods[i].Type.(*ast.TypeDecl)
-			if _, ok := unnamedType(dcl.Type).(*ast.InterfaceType); !ok {
-				return nil, &BadEmbed{Off: typ.Methods[i].Off, File: ck.File, Type: dcl}
-			}
-			if err := ck.checkTypeDecl(dcl); err != nil {
-				return nil, err
-			}
-		} else { // method declaration
-			t, err := typ.Methods[i].Type.TraverseType(ck)
-			if err != nil {
-				return nil, err
-			}
-			typ.Methods[i].Type = t
+	for i := range typ.Embedded {
+		// parser/resolver guarantee we have a TypeDecl
+		d := typ.Embedded[i].(*ast.TypeDecl)
+		if _, ok := unnamedType(d).(*ast.InterfaceType); !ok {
+			return nil, &BadEmbed{Type: d}
 		}
+		if err := ck.checkTypeDecl(d); err != nil {
+			return nil, err
+		}
+	}
+	for _, m := range typ.Methods {
+		t, err := m.Func.Sig.TraverseType(ck)
+		if err != nil {
+			return nil, err
+		}
+		m.Func.Sig = t.(*ast.FuncType)
 	}
 	return typ, nil
 }
