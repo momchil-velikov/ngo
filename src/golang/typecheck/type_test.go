@@ -98,6 +98,12 @@ func TestStructErr(t *testing.T) {
 		"non-unique field name `X`")
 	expectError(t, "_test/src/typ", []string{"struct-dup-2.go"},
 		"non-unique field name `X`")
+	expectError(t, "_test/src/typ", []string{"struct-anon-1.go"},
+		"embedded type cannot be a pointer type")
+	expectError(t, "_test/src/typ", []string{"struct-anon-2.go"},
+		"embedded type cannot be a pointer type")
+	expectError(t, "_test/src/typ", []string{"struct-anon-3.go"},
+		"embedded type cannot be a pointer to interface type")
 }
 
 func TestMapType(t *testing.T) {

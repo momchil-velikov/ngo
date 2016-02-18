@@ -374,6 +374,28 @@ func (ck *pkgTypesCheck) VisitStructType(t *ast.StructType) (ast.Type, error) {
 			}
 		}
 	}
+	// Check restrictions on the anonymous field types. The parser already
+	// guarantees that they are in the form `T` or `*T`. Check the `T` is not
+	// a pointer type, and, in the case of `*T`, that `T` is not an interface
+	// or pointer type.
+	for i := range t.Fields {
+		f := &t.Fields[i]
+		if len(f.Name) > 0 {
+			continue
+		}
+		dcl, _ := f.Type.(*ast.TypeDecl)
+		if ptr, ok := f.Type.(*ast.PtrType); ok {
+			dcl = ptr.Base.(*ast.TypeDecl)
+			if _, ok := unnamedType(dcl.Type).(*ast.InterfaceType); ok {
+				return nil, &BadAnonType{
+					Off: f.Off, File: ck.File, What: "pointer to interface type"}
+			}
+		}
+		if _, ok := unnamedType(dcl.Type).(*ast.PtrType); ok {
+			return nil, &BadAnonType{
+				Off: f.Off, File: ck.File, What: "pointer type"}
+		}
+	}
 	return t, nil
 }
 

@@ -26,3 +26,9 @@ type E struct {
 type F struct {
 	X *D
 }
+
+type I interface{}
+
+type G struct {
+	I
+}

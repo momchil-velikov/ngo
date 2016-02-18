@@ -27,6 +27,20 @@ func (e *DupFieldName) Error() string {
 		e.File.Name, ln, col, fieldName(e.Field))
 }
 
+// The BadAnonType is returned whenever a type is not allowed for an
+// anonymous field.
+type BadAnonType struct {
+	Off  int
+	File *ast.File
+	What string
+}
+
+func (e *BadAnonType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: embedded type cannot be a %s",
+		e.File.Name, ln, col, e.What)
+}
+
 type TypeCheckLoop struct {
 	Off  int
 	File *ast.File
