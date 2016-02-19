@@ -404,9 +404,10 @@ func (x *CompLiteral) Type() Type    { return x.Typ }
 type Call struct {
 	Off  int // position of the func expression
 	Func Expr
-	Typ  Type
+	ATyp Type // argument type, for some builtin functions
 	Xs   []Expr
 	Ell  bool
+	Typ  Type
 }
 
 func (x *Call) Position() int { return x.Off }
@@ -440,13 +441,14 @@ func (x *ParensExpr) Position() int { return x.Off }
 func (*ParensExpr) Type() Type      { panic("not reached") }
 
 type TypeAssertion struct {
-	Off int // position of the expression
-	Typ Type
-	X   Expr
+	Off  int  // position of the expression
+	ATyp Type // assertion type
+	X    Expr
+	Typ  Type // type of the expression; it's always a non-strict TupleType
 }
 
 func (x *TypeAssertion) Position() int { return x.Off }
-func (x *TypeAssertion) Type() Type    { return x.Typ }
+func (x *TypeAssertion) Type() Type    { return x.ATyp }
 
 type Selector struct {
 	Off int // position of the struct expression
@@ -602,8 +604,9 @@ type StructType struct {
 func (t *StructType) Position() int { return t.Off }
 
 type TupleType struct {
-	Off  int
-	Type []Type
+	Off    int
+	Strict bool
+	Type   []Type
 }
 
 func (t *TupleType) Position() int { return t.Off }

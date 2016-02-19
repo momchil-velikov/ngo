@@ -600,7 +600,7 @@ func TestResolveTypeAssertion(t *testing.T) {
 	if op, ok := x.X.(*ast.OperandName); !ok || op.Decl != A {
 		t.Error("type assertion expression must be `A`")
 	}
-	if x.Typ != T {
+	if x.ATyp != T {
 		t.Error("type in type assertion expression must be `T`")
 	}
 }

@@ -632,10 +632,10 @@ func (x *OperandName) Format(ctx *FormatContext, _ uint) {
 
 func (e *TypeAssertion) Format(ctx *FormatContext, n uint) {
 	e.X.Format(ctx, n)
-	if e.Typ == nil {
+	if e.ATyp == nil {
 		ctx.WriteString(".(type)")
 	} else {
-		ctx.WriteV(n, ".(", e.Typ.Format, ")")
+		ctx.WriteV(n, ".(", e.ATyp.Format, ")")
 	}
 }
 
@@ -720,13 +720,13 @@ func (e *Conversion) Format(ctx *FormatContext, n uint) {
 
 func (e *Call) Format(ctx *FormatContext, n uint) {
 	e.Func.Format(ctx, n)
-	if e.Typ == nil && len(e.Xs) == 0 {
+	if e.ATyp == nil && len(e.Xs) == 0 {
 		ctx.WriteString("()")
 	} else {
 		var nargs = len(e.Xs)
 		ctx.WriteString("(")
-		if e.Typ != nil {
-			e.Typ.Format(ctx, n)
+		if e.ATyp != nil {
+			e.ATyp.Format(ctx, n)
 			if nargs > 0 {
 				ctx.WriteString(", ")
 			}

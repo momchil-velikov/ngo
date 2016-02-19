@@ -1160,7 +1160,7 @@ func (p *parser) parseTypeAssertion(x ast.Expr) ast.Expr {
 		t = p.parseType()
 	}
 	p.match(')')
-	return &ast.TypeAssertion{Off: x.Position(), Typ: t, X: x}
+	return &ast.TypeAssertion{Off: x.Position(), ATyp: t, X: x}
 }
 
 // PrimaryExpr =
@@ -1426,7 +1426,7 @@ func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 		}
 	}
 	p.match(')')
-	return &ast.Call{Off: f.Position(), Func: f, Typ: t, Xs: xs, Ell: dots}
+	return &ast.Call{Off: f.Position(), Func: f, ATyp: t, Xs: xs, Ell: dots}
 }
 
 // FunctionLit = "func" Function .
@@ -1681,7 +1681,7 @@ func (p *parser) parseIfStmt() ast.Stmt {
 
 // Checks if an Expression is a TypeSwitchGuard.
 func isTypeSwitchGuardExpr(x ast.Expr) (ast.Expr, bool) {
-	if y, ok := x.(*ast.TypeAssertion); ok && y.Typ == nil {
+	if y, ok := x.(*ast.TypeAssertion); ok && y.ATyp == nil {
 		return y.X, true
 	} else {
 		return nil, false

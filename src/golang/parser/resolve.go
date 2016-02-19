@@ -866,11 +866,11 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 			return nil, err
 		}
 		x.Func = fn
-		typ, err := r.resolveType(x.Typ)
+		typ, err := r.resolveType(x.ATyp)
 		if err != nil {
 			return nil, err
 		}
-		x.Typ = typ
+		x.ATyp = typ
 		for i := range x.Xs {
 			y, err := r.resolveExpr(x.Xs[i])
 			if err != nil {
@@ -880,7 +880,7 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 		}
 		return x, nil
 	} else {
-		if x.Typ != nil || len(x.Xs) != 1 || x.Ell {
+		if x.ATyp != nil || len(x.Xs) != 1 || x.Ell {
 			return nil, errors.New("invalid conversion argument")
 		}
 		y, err := r.resolveExpr(x.Xs[0])
@@ -914,11 +914,11 @@ func (r *resolver) VisitFunc(x *ast.Func) (ast.Expr, error) {
 }
 
 func (r *resolver) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
-	typ, err := r.resolveType(x.Typ)
+	typ, err := r.resolveType(x.ATyp)
 	if err != nil {
 		return nil, err
 	}
-	x.Typ = typ
+	x.ATyp = typ
 	y, err := r.resolveExpr(x.X)
 	if err != nil {
 		return nil, err
