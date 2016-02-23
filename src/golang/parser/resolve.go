@@ -549,6 +549,11 @@ func (*resolver) VisitTypeVar(*ast.TypeVar) (ast.Type, error) {
 }
 
 func (r *resolver) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
+	x, err := r.resolveExpr(t.Dim)
+	if err != nil {
+		return nil, err
+	}
+	t.Dim = x
 	elt, err := r.resolveType(t.Elt)
 	if err != nil {
 		return nil, err

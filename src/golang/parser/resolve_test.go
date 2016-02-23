@@ -309,12 +309,16 @@ func TestResolveConstructedType(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	D := p.Find("D").(*ast.Const)
 	a := getTypeDecl(p, "a")
 	u := getTypeDecl(p, "u")
 	if u.Type.(*ast.ArrayType).Elt != a {
 		t.Error("elements of `u` are not of type `a`")
 	}
-
+	op := u.Type.(*ast.ArrayType).Dim.(*ast.OperandName)
+	if op.Decl != D {
+		t.Error("the dimension of `u` is not `D`")
+	}
 	v := getTypeDecl(p, "v")
 	if v.Type.(*ast.SliceType).Elt != u {
 		t.Error("elements of `u` are not of type `v`")

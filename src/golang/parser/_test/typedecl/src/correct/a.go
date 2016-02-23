@@ -33,7 +33,9 @@ func F() {
 	}
 }
 
-type u [3]a
+const D = 3
+
+type u [D]a
 type v []u
 type w *v
 type x map[a]w
