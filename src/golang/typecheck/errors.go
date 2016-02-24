@@ -80,7 +80,7 @@ type BadConstType struct {
 
 func (e *BadConstType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: type is invalid for constant declaration",
+	return fmt.Sprintf("%s:%d:%d: invalid constant type",
 		e.File.Name, ln, col) // FIXME: describe the type
 }
 
@@ -310,4 +310,182 @@ type ExprLoop struct {
 func (e *ExprLoop) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: expression evaluation loop", e.File.Name, ln, col)
+}
+
+// The ConstInitLoop error is returned when the value of a named constant
+// eventually depends on itself.
+type ConstInitLoop struct {
+	Loop []*ast.Const
+}
+
+func (e *ConstInitLoop) Error() string {
+	s := "constant definition loop:\n"
+	n := len(e.Loop)
+	for i := 0; i < n-1; i++ {
+		off, file := e.Loop[i].DeclaredAt()
+		ln, col := file.SrcMap.Position(off)
+		s += fmt.Sprintf("\t%s:%d:%d: %s uses %s\n",
+			file.Name, ln, col, e.Loop[i].Name, e.Loop[i+1].Name,
+		)
+	}
+
+	off, file := e.Loop[n-1].DeclaredAt()
+	ln, col := file.SrcMap.Position(off)
+	s += fmt.Sprintf("\t%s:%d:%d: %s uses %s\n",
+		file.Name, ln, col, e.Loop[n-1].Name, e.Loop[0].Name,
+	)
+
+	return s
+}
+
+// The BadConversion error is returned when the destination type cannot
+// represent the value of the converted constant.
+type BadConversion struct {
+	Off  int
+	File *ast.File
+	Dst  *ast.BuiltinType
+	Src  *ast.BuiltinType
+	Val  ast.Value
+}
+
+func (e *BadConversion) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	var typ string
+	if e.Src == nil {
+		typ = "untyped"
+	} else {
+		typ = fmt.Sprintf("type %s", builtinTypeToString(e.Src))
+	}
+	return fmt.Sprintf("%s:%d:%d: %s (%s) cannot be converted to %s",
+		e.File.Name, ln, col, valueToString(e.Src, e.Val), typ, builtinTypeToString(e.Dst))
+}
+
+// The BadOperand error is returned whan an operation is not applicable to the
+// type of an operand.
+type BadOperand struct {
+	Off  int
+	File *ast.File
+	Op   string
+}
+
+func (e *BadOperand) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: invalid operand to %s", e.File.Name, ln, col, e.Op)
+}
+
+func intToString(typ *ast.BuiltinType, v uint64) string {
+	switch typ.Kind {
+	case ast.BUILTIN_UINT8:
+		return fmt.Sprintf("%d", uint8(v))
+	case ast.BUILTIN_UINT16:
+		return fmt.Sprintf("%d", uint16(v))
+	case ast.BUILTIN_UINT32:
+		return fmt.Sprintf("%d", uint32(v))
+	case ast.BUILTIN_UINT64:
+		return fmt.Sprintf("%d", v)
+	case ast.BUILTIN_INT8:
+		return fmt.Sprintf("%d", int8(v))
+	case ast.BUILTIN_INT16:
+		return fmt.Sprintf("%d", int16(v))
+	case ast.BUILTIN_INT32:
+		return fmt.Sprintf("%d", int32(v))
+	case ast.BUILTIN_INT64:
+		return fmt.Sprintf("%d", int64(v))
+	case ast.BUILTIN_UINT:
+		return fmt.Sprintf("%d", uint64(v)) // XXX: assumes uint is 64-bit
+	case ast.BUILTIN_INT:
+		return fmt.Sprintf("%d", int64(v)) // XXX: assumes int is 64-bit
+	case ast.BUILTIN_UINTPTR:
+		return fmt.Sprintf("%d", v) // XXX: assumes uintptr is 64-bit
+	default:
+		panic("not reached")
+	}
+}
+
+func floatToString(typ *ast.BuiltinType, v float64) string {
+	if typ.Kind == ast.BUILTIN_FLOAT64 {
+		return fmt.Sprintf("%f", v)
+	} else {
+		return fmt.Sprintf("%f", float32(v))
+	}
+}
+
+func complexToString(typ *ast.BuiltinType, v complex128) string {
+	if typ.Kind == ast.BUILTIN_COMPLEX128 {
+		return fmt.Sprintf("(%f+%fi)", real(v), imag(v))
+	} else {
+		return fmt.Sprintf("(%f+%fi)", float32(real(v)), float32(imag(v)))
+	}
+}
+
+func valueToString(typ *ast.BuiltinType, val ast.Value) string {
+	switch v := val.(type) {
+	case ast.Bool:
+		if bool(v) {
+			return "true"
+		} else {
+			return "false"
+		}
+	case ast.Rune:
+		return fmt.Sprintf("'%s'", string(rune(v)))
+	case ast.UntypedInt:
+		return v.String()
+	case ast.Int:
+		return intToString(typ, uint64(v))
+	case ast.UntypedFloat:
+		return v.Text('f', 6)
+	case ast.Float:
+		return floatToString(typ, float64(v))
+	case ast.UntypedComplex:
+		return fmt.Sprintf("(%s + %si)", v.Re.String(), v.Im.String())
+	case ast.Complex:
+		return complexToString(typ, complex128(v))
+	case ast.String:
+		return "\"" + string(v) + "\""
+	default:
+		panic("not reached")
+	}
+}
+
+func builtinTypeToString(typ *ast.BuiltinType) string {
+	switch typ.Kind {
+	case ast.BUILTIN_NIL_TYPE:
+		return "#nil"
+	case ast.BUILTIN_BOOL:
+		return "bool"
+	case ast.BUILTIN_UINT8:
+		return "uint8"
+	case ast.BUILTIN_UINT16:
+		return "uint16"
+	case ast.BUILTIN_UINT32:
+		return "uint32"
+	case ast.BUILTIN_UINT64:
+		return "uint64"
+	case ast.BUILTIN_INT8:
+		return "int8"
+	case ast.BUILTIN_INT16:
+		return "int16"
+	case ast.BUILTIN_INT32:
+		return "int32"
+	case ast.BUILTIN_INT64:
+		return "int64"
+	case ast.BUILTIN_FLOAT32:
+		return "float32"
+	case ast.BUILTIN_FLOAT64:
+		return "float64"
+	case ast.BUILTIN_COMPLEX64:
+		return "complex64"
+	case ast.BUILTIN_COMPLEX128:
+		return "complex128"
+	case ast.BUILTIN_UINT:
+		return "uint"
+	case ast.BUILTIN_INT:
+		return "int"
+	case ast.BUILTIN_UINTPTR:
+		return "uintptr"
+	case ast.BUILTIN_STRING:
+		return "string"
+	default:
+		panic("not reached")
+	}
 }

@@ -291,6 +291,7 @@ func (ck *typeckPhase0) checkTypeLoop(sym ast.Symbol) []ast.Symbol {
 
 type typeckPhase1 struct {
 	typeckCommon
+	Const []*ast.Const
 	TVars []*ast.TypeVar
 	X     ast.Expr
 }
@@ -321,6 +322,10 @@ func (ck *typeckPhase1) checkConstDecl(c *ast.Const) error {
 	if c.File == nil || c.File.Pkg != ck.Pkg {
 		return nil
 	}
+	// Check for a constant definition loop.
+	if l := ck.checkConstLoop(c); l != nil {
+		return &ConstInitLoop{Loop: l}
+	}
 	// Check if we have already processed this const declaration.
 	if _, ok := ck.Done[c]; ok {
 		return nil
@@ -328,12 +333,14 @@ func (ck *typeckPhase1) checkConstDecl(c *ast.Const) error {
 	ck.Done[c] = struct{}{}
 
 	ck.beginFile(c.File)
+	ck.beginEvalConst(c)
 	x, err := ck.checkExpr(c.Init)
+	ck.endEvalConst()
 	ck.endFile()
 	if err != nil {
 		return err
 	}
-	if _, ok := x.(*ast.ConstValue); !ok {
+	if v, ok := x.(*ast.ConstValue); !ok || v == ast.BuiltinNil {
 		return &NotConst{Off: c.Init.Position(), File: c.File, What: "const initializer"}
 	}
 	c.Init = x
@@ -431,11 +438,7 @@ func (ck *typeckPhase1) checkExpr(x ast.Expr) (ast.Expr, error) {
 		ck.X = x
 		defer func() { ck.X = nil }()
 	}
-	y, err := x.TraverseExpr(ck)
-	if err != nil {
-		return nil, err
-	}
-	return y, nil
+	return x.TraverseExpr(ck)
 }
 
 func (ck *typeckPhase1) checkTypeVarLoop(tv *ast.TypeVar) []*ast.TypeVar {
@@ -443,6 +446,23 @@ func (ck *typeckPhase1) checkTypeVarLoop(tv *ast.TypeVar) []*ast.TypeVar {
 		t := ck.TVars[i-1]
 		if t == tv {
 			return ck.TVars[i-1:]
+		}
+	}
+	return nil
+}
+
+func (ck *typeckPhase1) beginEvalConst(c *ast.Const) {
+	ck.Const = append(ck.Const, c)
+}
+
+func (ck *typeckPhase1) endEvalConst() {
+	ck.Const = ck.Const[:len(ck.Const)-1]
+}
+
+func (ck *typeckPhase1) checkConstLoop(c *ast.Const) []*ast.Const {
+	for i := len(ck.Const) - 1; i >= 0; i-- {
+		if c == ck.Const[i] {
+			return ck.Const[i:]
 		}
 	}
 	return nil
@@ -474,6 +494,11 @@ func singleValueType(typ ast.Type) ast.Type {
 		}
 	}
 	return typ
+}
+
+func builtinType(typ ast.Type) *ast.BuiltinType {
+	t, _ := unnamedType(typ).(*ast.BuiltinType)
+	return t
 }
 
 // Check if a type can be compared with `==` and `!=`.

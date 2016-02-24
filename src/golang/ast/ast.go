@@ -550,6 +550,15 @@ type BuiltinType struct {
 
 func (t *BuiltinType) Position() int { return -1 }
 
+func (t *BuiltinType) IsInteger() bool {
+	return BUILTIN_UINT8 <= t.Kind && t.Kind <= BUILTIN_INT64 ||
+		BUILTIN_UINT <= t.Kind && t.Kind <= BUILTIN_UINTPTR
+}
+
+func (t *BuiltinType) IsSigned() bool {
+	return BUILTIN_INT8 <= t.Kind && t.Kind <= BUILTIN_INT64 || t.Kind == BUILTIN_INT
+}
+
 type ArrayType struct {
 	Off int // position of the opening bracket
 	Dim Expr

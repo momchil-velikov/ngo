@@ -180,6 +180,5 @@ func TestConstType(t *testing.T) {
 }
 
 func TestConstTypeErr(t *testing.T) {
-	expectError(t, "_test/src/typ", []string{"const-err.go"},
-		"type is invalid for constant")
+	expectError(t, "_test/src/typ", []string{"const-err.go"}, "invalid constant type")
 }

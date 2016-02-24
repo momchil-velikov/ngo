@@ -3,25 +3,25 @@ package ast
 var UniverseScope *_UniverseScope
 
 var (
-	BuiltinVoidType   Type
-	BuiltinNilType    Type
-	BuiltinBool       Type
-	BuiltinUint8      Type
-	BuiltinUint16     Type
-	BuiltinUint32     Type
-	BuiltinUint64     Type
-	BuiltinInt8       Type
-	BuiltinInt16      Type
-	BuiltinInt32      Type
-	BuiltinInt64      Type
-	BuiltinFloat32    Type
-	BuiltinFloat64    Type
-	BuiltinComplex64  Type
-	BuiltinComplex128 Type
-	BuiltinUint       Type
-	BuiltinInt        Type
-	BuiltinUintptr    Type
-	BuiltinString     Type
+	BuiltinVoidType   *BuiltinType
+	BuiltinNilType    *BuiltinType
+	BuiltinBool       *BuiltinType
+	BuiltinUint8      *BuiltinType
+	BuiltinUint16     *BuiltinType
+	BuiltinUint32     *BuiltinType
+	BuiltinUint64     *BuiltinType
+	BuiltinInt8       *BuiltinType
+	BuiltinInt16      *BuiltinType
+	BuiltinInt32      *BuiltinType
+	BuiltinInt64      *BuiltinType
+	BuiltinFloat32    *BuiltinType
+	BuiltinFloat64    *BuiltinType
+	BuiltinComplex64  *BuiltinType
+	BuiltinComplex128 *BuiltinType
+	BuiltinUint       *BuiltinType
+	BuiltinInt        *BuiltinType
+	BuiltinUintptr    *BuiltinType
+	BuiltinString     *BuiltinType
 
 	BuiltinNil   Expr
 	BuiltinTrue  Expr

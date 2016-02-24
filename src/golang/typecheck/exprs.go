@@ -198,6 +198,16 @@ func (*typeckPhase0) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ck *typeckPhase0) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
+	t, err := ck.checkType(x.Typ)
+	if err != nil {
+		return nil, err
+	}
+	x.Typ = t
+	y, err := ck.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
 	return x, nil
 }
 
@@ -298,8 +308,8 @@ func (ck *typeckPhase0) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
 	return nil, nil
 }
 
-func (ck *typeckPhase0) VisitUnaryExpr(*ast.UnaryExpr) (ast.Expr, error) {
-	return nil, nil
+func (ck *typeckPhase0) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
+	return x, nil
 }
 
 func (ck *typeckPhase0) VisitBinaryExpr(*ast.BinaryExpr) (ast.Expr, error) {
@@ -319,7 +329,14 @@ func (*typeckPhase1) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 }
 
 func (ck *typeckPhase1) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
-	return x, nil
+	c, ok := x.Decl.(*ast.Const)
+	if !ok {
+		return x, nil
+	}
+	if err := ck.checkConstDecl(c); err != nil {
+		return nil, err
+	}
+	return c.Init.(*ast.ConstValue), nil
 }
 
 func (ck *typeckPhase1) VisitCall(x *ast.Call) (ast.Expr, error) {
@@ -476,6 +493,34 @@ func (*typeckPhase1) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ck *typeckPhase1) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
+	t, err := ck.checkType(x.Typ)
+	if err != nil {
+		return nil, err
+	}
+	x.Typ = t
+	y, err := ck.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+
+	if c, ok := y.(*ast.ConstValue); ok {
+		src := builtinType(c.Typ)
+		dst, ok := unnamedType(x.Typ).(*ast.BuiltinType)
+		if !ok {
+			// return nil, &BadConversion{
+			// 	Off: x.Off, File: ck.File, Dst: dst, Src: src, Val: c.Value}
+			return nil, &BadConstType{Off: x.Off, File: ck.File, Type: x.Typ}
+		}
+		v := convertConst(dst, builtinType(c.Typ), c.Value)
+		if v == nil {
+			return nil, &BadConversion{
+				Off: x.Off, File: ck.File, Dst: dst, Src: src, Val: c.Value}
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
+	}
+
+	// FIXME: check conversion is valid
 	return x, nil
 }
 
@@ -528,8 +573,25 @@ func (ck *typeckPhase1) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
 	return nil, nil
 }
 
-func (ck *typeckPhase1) VisitUnaryExpr(*ast.UnaryExpr) (ast.Expr, error) {
-	return nil, nil
+func (ck *typeckPhase1) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
+	y, err := ck.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+
+	c, ok := y.(*ast.ConstValue)
+	if !ok {
+		return x, nil
+	}
+	if x.Op == '-' {
+		v := minus(builtinType(c.Typ), c.Value)
+		if v == nil {
+			return nil, &BadOperand{Off: x.Off, File: ck.File, Op: "unary minus"}
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
+	}
+	return x, nil
 }
 
 func (ck *typeckPhase1) VisitBinaryExpr(*ast.BinaryExpr) (ast.Expr, error) {
