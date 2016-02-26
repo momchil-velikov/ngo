@@ -64,6 +64,8 @@ func TestArrayErr(t *testing.T) {
 		"cannot be converted to int")
 	expectError(t, "_test/src/typ", []string{"array-err-3.go"},
 		"array length must be non-negative")
+	expectError(t, "_test/src/typ", []string{"array-err-4.go"},
+		"array dimension is not a constant")
 }
 
 func TestSliceType(t *testing.T) {

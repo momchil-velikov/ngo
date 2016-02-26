@@ -26,13 +26,15 @@ func (*typeckPhase0) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
 }
 
 func (ck *typeckPhase0) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
-	ck.breakEmbedChain()
-	d, err := ck.checkExpr(t.Dim)
-	ck.restoreEmbedChain()
-	if err != nil {
-		return nil, err
+	if t.Dim != nil {
+		ck.breakEmbedChain()
+		d, err := ck.checkExpr(t.Dim)
+		ck.restoreEmbedChain()
+		if err != nil {
+			return nil, err
+		}
+		t.Dim = d
 	}
-	t.Dim = d
 	elt, err := ck.checkType(t.Elt)
 	if err != nil {
 		return nil, err
@@ -238,6 +240,9 @@ func (*typeckPhase1) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
 }
 
 func (ck *typeckPhase1) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
+	if t.Dim == nil {
+		return nil, &NotConst{Off: t.Position(), File: ck.File, What: "array dimension"}
+	}
 	x, err := ck.checkExpr(t.Dim)
 	if err != nil {
 		return nil, err
