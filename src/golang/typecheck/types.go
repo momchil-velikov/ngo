@@ -243,10 +243,22 @@ func (ck *typeckPhase1) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
 		return nil, err
 	}
 	t.Dim = x
-	if _, ok := x.(*ast.ConstValue); !ok {
-		return nil, &NotConst{Off: t.Off, File: ck.File, What: "array dimension"}
+	c, ok := x.(*ast.ConstValue)
+	if !ok {
+		return nil, &NotConst{Off: x.Position(), File: ck.File, What: "array dimension"}
 	}
-	// FIXME: check dimension is convertible to `int`
+	v := convertConst(ast.BuiltinInt, builtinType(c.Typ), c.Value)
+	if v == nil {
+		return nil, &BadConversion{
+			Off: x.Position(), File: ck.File,
+			Dst: ast.BuiltinInt, Src: builtinType(c.Typ), Val: c.Value,
+		}
+	}
+	if int64(v.(ast.Int)) < 0 {
+		return nil, &NegArrayLen{Off: c.Off, File: ck.File}
+	}
+	c.Typ = ast.BuiltinInt
+	c.Value = v
 	elt, err := ck.checkType(t.Elt)
 	if err != nil {
 		return nil, err

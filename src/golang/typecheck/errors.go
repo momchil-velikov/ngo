@@ -489,3 +489,17 @@ func builtinTypeToString(typ *ast.BuiltinType) string {
 		panic("not reached")
 	}
 }
+
+// The NegArrayLen error is returned when an array is declared of negetive
+// length.
+type NegArrayLen struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NegArrayLen) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: array length must be non-negative",
+		e.File.Name, ln, col)
+
+}

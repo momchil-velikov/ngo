@@ -29,8 +29,11 @@ func TestInfer01(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `S.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `S.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `S.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `S.X`s type should be 1")
 	}
 }
 
@@ -48,16 +51,22 @@ func TestInfer02(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `S.X`s type is not a constant")
 	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("the dimension of the `S.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `S.X`s type should have type `int`")
+	}
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("the dimension of the `S.X`s type should be 1")
 	}
 
 	c, ok = tY.Dim.(*ast.ConstValue)
 	if !ok {
 		t.Fatal("the dimension of the `S.Y`s type is not a constant")
 	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("the dimension of the `S.Y`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `S.Y`s type should have type `int`")
+	}
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("the dimension of the `S.Y`s type should be 1")
 	}
 
 	u := p.Find("u").(*ast.Var)
@@ -82,8 +91,11 @@ func TestInfer03(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of `u`s type is not a constant")
 	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("the dimension of the `u`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `u`s type should have type `int`")
+	}
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("the dimension of the `u`s type should be 1")
 	}
 
 	v := p.Find("v").(*ast.Var)
@@ -92,8 +104,11 @@ func TestInfer03(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of `v`s type is not a constant")
 	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("the dimension of the `v`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `v`s type should have type `int`")
+	}
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("the dimension of the `v`s type should be 1")
 	}
 }
 
@@ -110,8 +125,11 @@ func TestInfer04(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of `B.X`s type is not a constant")
 	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 2 {
-		t.Error("the dimension of the `B.X`s type should be untyped 2")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `B.X`s type should have type `int`")
+	}
+	if v, ok := c.Value.(ast.Int); !ok || v != 2 {
+		t.Error("the dimension of the `B.X`s type should be 2")
 	}
 }
 
@@ -139,8 +157,11 @@ func TestInfer05(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `S.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `S.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `S.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `S.X`s type should be 1")
 	}
 }
 
@@ -155,8 +176,11 @@ func TestInfer06(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `s.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `s.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `S.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `s.X`s type should be 1")
 	}
 }
 
@@ -180,8 +204,11 @@ func TestInfer09(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `a.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `a.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `a.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `a.X`s type should be 1")
 	}
 
 	b := p.Find("a").(*ast.Var)
@@ -190,8 +217,11 @@ func TestInfer09(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `a.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `a.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `b.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `b.X`s type should be 1")
 	}
 }
 
@@ -207,8 +237,11 @@ func TestInfer10(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `a.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `a.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `a.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `a.X`s type should be 1")
 	}
 }
 
@@ -223,8 +256,11 @@ func TestInfer11(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `a`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `a`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `a.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `a`s type should be 1")
 	}
 
 	aa := p.Find("aa").(*ast.Var)
@@ -232,8 +268,11 @@ func TestInfer11(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `aa`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `aa`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `aa`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `aa`s type should be 1")
 	}
 
 	b := p.Find("b").(*ast.Var)
@@ -241,8 +280,11 @@ func TestInfer11(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `b`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `b`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `b`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `b`s type should be 1")
 	}
 
 	bb := p.Find("bb").(*ast.Var)
@@ -250,8 +292,11 @@ func TestInfer11(t *testing.T) {
 	if !ok {
 		t.Fatal("the dimension of the `a.X`s type is not a constant")
 	}
-	if ui, ok := c.Value.(ast.UntypedInt); !ok || ui.Int64() != 1 {
-		t.Error("the dimension of the `a.X`s type should be untyped 1")
+	if c.Typ != ast.BuiltinInt {
+		t.Error("the dimension of the `a.X`s type should have type `int`")
+	}
+	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
+		t.Error("the dimension of the `a.X`s type should be 1")
 	}
 
 }

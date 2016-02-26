@@ -58,6 +58,12 @@ func TestArrayErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"array-loop-2.go"}, "invalid recursive")
 	expectError(t, "_test/src/typ", []string{"array-loop-3.go"}, "invalid recursive")
 	expectError(t, "_test/src/typ", []string{"array-loop-4.go"}, "invalid recursive")
+	expectError(t, "_test/src/typ", []string{"array-err-1.go"},
+		"array dimension is not a constant")
+	expectError(t, "_test/src/typ", []string{"array-err-2.go"},
+		"cannot be converted to int")
+	expectError(t, "_test/src/typ", []string{"array-err-3.go"},
+		"array length must be non-negative")
 }
 
 func TestSliceType(t *testing.T) {
