@@ -169,7 +169,9 @@ func (ck *typeckPhase0) checkVarDecl(v *ast.Var) error {
 
 	// Infer/check the type of each expression on the right-hand side.
 	for i := range v.Init.RHS {
+		ck.beginCheck(nil, v.File)
 		x, err := ck.checkExpr(v.Init.RHS[i])
+		ck.endCheck()
 		if err != nil {
 			return err
 		}
