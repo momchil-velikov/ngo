@@ -253,7 +253,7 @@ func (e *BadTypeAssertion) Error() string {
 }
 
 // The NotConst error is returned whenever an expression does not evaluate to
-// a constant value, requiored by context.
+// a constant value, required by context.
 type NotConst struct {
 	Off  int
 	File *ast.File
@@ -501,5 +501,153 @@ func (e *NegArrayLen) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: array length must be non-negative",
 		e.File.Name, ln, col)
+}
 
+// The BadLiteralType error is returned when the type given for a composite
+// literal is not an array, slice, struct or map type.
+type BadLiteralType struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadLiteralType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: invalid type for composite literal",
+		e.File.Name, ln, col)
+}
+
+// The MissingLiteralType error is returned when a composite literal elides
+// type and type elision ios not allowed by the context
+type MissingLiteralType struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *MissingLiteralType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: missing type for composite literal",
+		e.File.Name, ln, col)
+}
+
+// The MissingMapKey error is returned for map literals, containing elements
+// without a key.
+type MissingMapKey struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *MissingMapKey) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf(
+		"%s:%d:%d: all elements in a map composite literal must have a key",
+		e.File.Name, ln, col)
+}
+
+// The NotField error is returned for keys in struct composite literals, which
+// aren't field names.
+type NotField struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NotField) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: key is not a field name", e.File.Name, ln, col)
+}
+
+// The BadArraySize error is returned when an array index in a composite
+// literal or array dimension in array type declaration is not a non-negative
+// integer constant, which fits in `int`.
+type BadArraySize struct {
+	Off  int
+	File *ast.File
+	What string
+}
+
+func (e *BadArraySize) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: array %s must be a non-negative `int` constant",
+		e.File.Name, ln, col, e.What)
+}
+
+// The IndexOutOfBounds bounds error is returned for an array index, which is
+// out of array bounds.
+type IndexOutOfBounds struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *IndexOutOfBounds) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: array index out of bounds", e.File.Name, ln, col)
+}
+
+// The MixedStructLiteral is returned when a struct literal mixes keyed and
+// non-keyed initializers.
+type MixedStructLiteral struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *MixedStructLiteral) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: struct literal mixes field:value and value initializers",
+		e.File.Name, ln, col)
+}
+
+// The FieldEltMismatch error is returned when a struct composite literal with
+// no keys does not contain exactly one element for each field in the struct
+// type.
+type FieldEltMismatch struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *FieldEltMismatch) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf(
+		"%s:%d:%d: the literal must contain exactly one element for each struct field",
+		e.File.Name, ln, col)
+}
+
+// The DupLitField is returned for struct literals, which mention the same
+// field more than once.
+type DupLitField struct {
+	Off  int
+	File *ast.File
+	Name string
+}
+
+func (e *DupLitField) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: duplicate field name in struct literal: %s",
+		e.File.Name, ln, col, e.Name)
+}
+
+// The DupLitIndex is returned for array or slice literals, which mention the
+// same index more than once.
+type DupLitIndex struct {
+	Off  int
+	File *ast.File
+	Idx  int64
+}
+
+func (e *DupLitIndex) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: duplicate index in array/slice literal: %d",
+		e.File.Name, ln, col, e.Idx)
+}
+
+// The DupLitKey errors are returned for map literals, which mention the same
+// constant key more than once.
+type DupLitKey struct {
+	Off  int
+	File *ast.File
+	Key  interface{}
+}
+
+func (e *DupLitKey) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: duplicate key in map literal: %v",
+		e.File.Name, ln, col, e.Key)
 }

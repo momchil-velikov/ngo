@@ -773,3 +773,14 @@ func findInterfaceMethod(typ *ast.InterfaceType, name string) *ast.FuncDecl {
 	}
 	return nil
 }
+
+// Finds the field NAME in the structure type STR.
+func findField(str *ast.StructType, name string) *ast.Field {
+	for i := range str.Fields {
+		f := &str.Fields[i]
+		if name == fieldName(f) {
+			return f
+		}
+	}
+	return nil
+}

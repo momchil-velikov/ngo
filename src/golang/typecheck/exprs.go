@@ -10,7 +10,142 @@ func (*typeckPhase0) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+func (ck *typeckPhase0) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+	if x.Typ == nil {
+		return nil, &MissingLiteralType{x.Off, ck.File}
+	}
+	t, err := ck.checkType(x.Typ)
+	if err != nil {
+		return nil, err
+	}
+	x.Typ = t
+	return ck.checkCompLiteral(x.Typ, x)
+}
+
+// Checks the composite literal expression X of type TYP. The type may come
+// from the literal or from the context, in either case it has been already
+// checked.
+func (ck *typeckPhase0) checkCompLiteral(
+	typ ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	switch t := unnamedType(typ).(type) {
+	case *ast.ArrayType:
+		return ck.checkArrayOrSliceLiteral(t.Elt, x)
+	case *ast.SliceType:
+		return ck.checkArrayOrSliceLiteral(t.Elt, x)
+	case *ast.MapType:
+		return ck.checkMapLiteral(t, x)
+	case *ast.StructType:
+		return ck.checkStructLiteral(t, x)
+	default:
+		return nil, &BadLiteralType{Off: x.Off, File: ck.File}
+	}
+}
+
+func (ck *typeckPhase0) checkArrayOrSliceLiteral(
+	etyp ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	// The element type itself cannot be an array of unspecified size.
+	if t, ok := etyp.(*ast.ArrayType); ok && t.Dim == nil {
+		return nil, &BadArraySize{Off: t.Off, File: ck.File, What: "length"}
+	}
+	for _, elt := range x.Elts {
+		// Assign type to elements, which are composite literals with elided
+		// type.
+		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
+			if c.Typ == nil {
+				c.Typ = etyp
+			}
+		}
+		// Check key. Evaluation is postponed to phase1.
+		if elt.Key != nil {
+			k, err := ck.checkExpr(elt.Key)
+			if err != nil {
+				return nil, err
+			}
+			elt.Key = k
+		}
+		// Check element value.
+		e, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, err
+		}
+		elt.Elt = e
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase0) checkMapLiteral(
+	t *ast.MapType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	n := 0
+	for _, elt := range x.Elts {
+		// Assign types to keys and elements, which are composite literals
+		// with elided type.
+		if elt.Key != nil {
+			n++
+			if c, ok := elt.Key.(*ast.CompLiteral); ok {
+				if c.Typ == nil {
+					c.Typ = t.Key
+				}
+			}
+			// Check key.
+			k, err := ck.checkExpr(elt.Key)
+			if err != nil {
+				return nil, err
+			}
+			elt.Key = k
+		}
+		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
+			if c.Typ == nil {
+				c.Typ = t.Elt
+			}
+		}
+		// Check element value.
+		e, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, err
+		}
+		elt.Elt = e
+	}
+	// Every element must have a key.
+	if n > 0 && n != len(x.Elts) {
+		return nil, &MissingMapKey{Off: x.Off, File: ck.File}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase0) checkStructLiteral(
+	t *ast.StructType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	keys := make(map[string]struct{})
+	n := 0
+	for _, elt := range x.Elts {
+		if elt.Key != nil {
+			n++
+			id, ok := elt.Key.(*ast.QualifiedId)
+			if !ok || len(id.Pkg) > 0 || id.Id == "_" {
+				return nil, &NotField{Off: elt.Key.Position(), File: ck.File}
+			}
+			if findField(t, id.Id) == nil {
+				return nil, &NotFound{
+					Off: id.Off, File: ck.File, What: "field", Name: id.Id}
+			}
+			if _, ok := keys[id.Id]; ok {
+				return nil, &DupLitField{Off: x.Off, File: ck.File, Name: id.Id}
+			}
+			keys[id.Id] = struct{}{}
+		}
+		y, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, err
+		}
+		elt.Elt = y
+	}
+	if n > 0 && n != len(x.Elts) {
+		return nil, &MixedStructLiteral{Off: x.Off, File: ck.File}
+	}
+	if n == 0 && len(x.Elts) > 0 && len(x.Elts) != len(t.Fields) {
+		return nil, &FieldEltMismatch{Off: x.Off, File: ck.File}
+	}
 	return x, nil
 }
 
@@ -324,7 +459,300 @@ func (*typeckPhase1) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase1) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+func (ck *typeckPhase1) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+	// If we have an array composite literal with no dimension, check first
+	// the literal value.
+	if t, ok := unnamedType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
+		x, err := ck.checkCompLiteral(x.Typ, x)
+		if err != nil {
+			return nil, err
+		}
+		t, err := ck.checkType(x.Typ)
+		if err != nil {
+			return nil, err
+		}
+		x.Typ = t
+		return x, nil
+	}
+
+	t, err := ck.checkType(x.Typ)
+	if err != nil {
+		return nil, err
+	}
+	x.Typ = t
+	return ck.checkCompLiteral(x.Typ, x)
+}
+
+func (ck *typeckPhase1) checkCompLiteral(
+	typ ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	switch t := unnamedType(typ).(type) {
+	case *ast.ArrayType:
+		return ck.checkArrayLiteral(t, x)
+	case *ast.SliceType:
+		return ck.checkSliceLiteral(t, x)
+	case *ast.MapType:
+		return ck.checkMapLiteral(t, x)
+	case *ast.StructType:
+		return ck.checkStructLiteral(t, x)
+	default:
+		panic("not reached")
+	}
+}
+
+func (ck *typeckPhase1) checkArrayLiteral(
+	t *ast.ArrayType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	n := int64(0x7fffffff) // FIXME
+	if t.Dim != nil {
+		n = int64(t.Dim.(*ast.ConstValue).Value.(ast.Int))
+	}
+	x, n, err := ck.checkArrayOrSliceLiteral(n, t.Elt, x)
+	if err != nil {
+		return nil, err
+	}
+	// If the array type has no dimension, set it to the length of the literal.
+	if t.Dim == nil {
+		// FIXME: check dimension fits in target `int`
+		t.Dim = &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinInt, Value: ast.Int(n)}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkSliceLiteral(
+	t *ast.SliceType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	x, _, err := ck.checkArrayOrSliceLiteral(int64(0x7fffffff), t.Elt, x)
+	return x, err
+}
+
+func (ck *typeckPhase1) checkArrayOrSliceLiteral(
+	n int64, t ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, int64, error) {
+
+	keys := make(map[int64]struct{})
+	idx := int64(0)
+	max := int64(0)
+	for _, elt := range x.Elts {
+		if elt.Key != nil {
+			// Check index.
+			k, err := ck.checkExpr(elt.Key)
+			if err != nil {
+				return nil, 0, err
+			}
+			elt.Key = k
+			// Convert the index to `int`.
+			c, ok := k.(*ast.ConstValue)
+			if !ok {
+				return nil, 0, &BadArraySize{
+					Off: elt.Key.Position(), File: ck.File, What: "index"}
+			}
+			src := builtinType(c.Typ)
+			v := convertConst(ast.BuiltinInt, src, c.Value)
+			if v == nil {
+				return nil, 0, &BadConversion{
+					Off: x.Off, File: ck.File, Dst: ast.BuiltinInt, Src: src,
+					Val: c.Value}
+			}
+			c.Typ = ast.BuiltinInt
+			c.Value = v
+			idx = int64(v.(ast.Int))
+		}
+		// Check for duplicate index.
+		if _, ok := keys[idx]; ok {
+			return nil, 0, &DupLitIndex{Off: x.Off, File: ck.File, Idx: idx}
+		}
+		keys[idx] = struct{}{}
+		// Check the index is within bounds.
+		if idx < 0 || idx >= n {
+			off := elt.Elt.Position()
+			if elt.Key != nil {
+				off = elt.Key.Position()
+			}
+			return nil, 0, &IndexOutOfBounds{Off: off, File: ck.File}
+		}
+		// Update maximum index.
+		if idx > max {
+			max = idx
+		}
+		idx++
+		// Check element value.
+		e, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, 0, err
+		}
+		elt.Elt = e
+		// FIXME: check element is assignable to array/slice element type.
+	}
+	return x, max + 1, nil
+}
+
+func (ck *typeckPhase1) checkMapLiteral(
+	t *ast.MapType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	for _, elt := range x.Elts {
+		// Check key.
+		k, err := ck.checkExpr(elt.Key)
+		if err != nil {
+			return nil, err
+		}
+		elt.Key = k
+		// Check element value.
+		e, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, err
+		}
+		elt.Elt = e
+	}
+
+	// Check for duplicate constant keys.
+	k := builtinType(t.Key)
+	if k == nil {
+		return x, nil
+	}
+	switch {
+	case k.Kind == ast.BUILTIN_BOOL:
+		return ck.checkUniqBoolKeys(x)
+	case k.IsInteger():
+		if k.IsSigned() {
+			return ck.checkUniqIntKeys(x)
+		} else {
+			return ck.checkUniqUintKeys(x)
+		}
+	case k.Kind == ast.BUILTIN_FLOAT32 || k.Kind == ast.BUILTIN_FLOAT64:
+		return ck.checkUniqFloatKeys(x)
+	case k.Kind == ast.BUILTIN_COMPLEX64 || k.Kind == ast.BUILTIN_COMPLEX128:
+		return ck.checkUniqComplexKeys(x)
+	case k.Kind == ast.BUILTIN_STRING:
+		return ck.checkUniqStringKeys(x)
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqBoolKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	t, f := false, false
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		b := bool(c.Value.(ast.Bool))
+		if b && t || !b && f {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: b}
+		}
+		if b {
+			t = true
+		} else {
+			f = true
+		}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqIntKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[int64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinInt64, builtinType(c.Typ), c.Value)
+		k := int64(v.(ast.Int))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqUintKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[uint64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinUint64, builtinType(c.Typ), c.Value)
+		k := uint64(v.(ast.Int))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqFloatKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[float64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinFloat64, builtinType(c.Typ), c.Value)
+		k := float64(v.(ast.Float))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqComplexKeys(
+	x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	keys := make(map[complex128]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinComplex128, builtinType(c.Typ), c.Value)
+		k := complex128(v.(ast.Complex))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkUniqStringKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[string]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinString, builtinType(c.Typ), c.Value)
+		k := string(v.(ast.String))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ck *typeckPhase1) checkStructLiteral(
+	str *ast.StructType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	for _, elt := range x.Elts {
+		y, err := ck.checkExpr(elt.Elt)
+		if err != nil {
+			return nil, err
+		}
+		elt.Elt = y
+	}
 	return x, nil
 }
 
