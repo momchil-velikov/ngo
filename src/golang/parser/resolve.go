@@ -3,14 +3,7 @@ package parser
 import (
 	"errors"
 	"golang/ast"
-	"unicode"
-	"unicode/utf8"
 )
-
-func isExported(name string) bool {
-	r, _ := utf8.DecodeRuneInString(name)
-	return unicode.IsLetter(r) && unicode.IsUpper(r)
-}
 
 type resolver struct {
 	scope ast.Scope
@@ -89,7 +82,7 @@ func (r *resolver) declareTopLevel(
 		if i.Name == "." {
 			// Import package exported identifiers into the file block.
 			for name, sym := range i.Pkg.Syms {
-				if isExported(name) {
+				if ast.IsExported(name) {
 					if err := file.Declare(name, sym); err != nil {
 						return err
 					}
@@ -459,7 +452,7 @@ func (r *resolver) lookupIdent(id *ast.QualifiedId) (ast.Symbol, error) {
 			return nil, errors.New(id.Pkg + " does not refer to package name")
 		} else if d := i.Pkg.Lookup(id.Id); d == nil {
 			return nil, errors.New(id.Pkg + "." + id.Id + " not declared")
-		} else if !isExported(id.Id) {
+		} else if !ast.IsExported(id.Id) {
 			return nil, errors.New(id.Pkg + "." + id.Id + " is not exported")
 		} else {
 			return d, nil
@@ -718,7 +711,7 @@ func (r *resolver) isType(x ast.Expr) (ast.Type, error) {
 				return nil, nil
 			} else if d := imp.Pkg.Lookup(x.Id); d == nil {
 				return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
-			} else if !isExported(x.Id) {
+			} else if !ast.IsExported(x.Id) {
 				return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
 			} else if d, ok := d.(*ast.TypeDecl); ok {
 				return d, nil
@@ -1026,7 +1019,7 @@ func (r *resolver) VisitQualifiedId(x *ast.QualifiedId) (ast.Expr, error) {
 				return nil, errors.New(x.Pkg + "." + x.Id + " not declared")
 			} else if _, ok := d.(*ast.TypeDecl); ok {
 				return nil, errors.New("invalid operand " + x.Pkg + "." + x.Id)
-			} else if !isExported(x.Id) {
+			} else if !ast.IsExported(x.Id) {
 				return nil, errors.New(x.Pkg + "." + x.Id + " is not exported")
 			} else {
 				return &ast.OperandName{Off: x.Off, Decl: d}, nil

@@ -58,7 +58,7 @@ func (w *Writer) writePkg(pkg *ast.Package) error {
 	ss := make([]sort.StringKey, len(pkg.Syms))
 	ss = ss[:0]
 	for n, d := range pkg.Syms {
-		if !d.IsExported() {
+		if !ast.IsExported(d.Id()) {
 			continue
 		}
 		ss = append(ss, sort.StringKey{Key: n, Value: d})
@@ -347,8 +347,8 @@ func (w *Writer) writeTypename(pkg *ast.Package, t *ast.TypeDecl) error {
 	if pno == 1 {
 		// If we happen to output a non-exported type name (because it was
 		// mentioned by some exported declaration, e.g. it is the return type
-		// of an exported function) force output of this type declaration.
-		if !t.IsExported() {
+		// of an exported function), force output of this type declaration.
+		if !ast.IsExported(t.Name) {
 			w.extra[t.Name] = t
 		}
 	}

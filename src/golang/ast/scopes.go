@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-func isExported(name string) bool {
+func IsExported(name string) bool {
 	r, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsLetter(r) && unicode.IsUpper(r)
 }
@@ -20,8 +20,6 @@ type Symbol interface {
 	Id() string
 	// Returns source position of the declaration
 	DeclaredAt() (int, *File)
-	// Returns true if the declaration begins with an upper case letter
-	IsExported() bool
 }
 
 // The names of the imported packages are inserted into the file scope of the
@@ -33,7 +31,6 @@ func (i *ImportDecl) Id() string {
 func (i *ImportDecl) DeclaredAt() (int, *File) {
 	return i.Off, i.File
 }
-func (*ImportDecl) IsExported() bool { return false }
 
 func (TypeDecl) symbol() {}
 func (t *TypeDecl) Id() string {
@@ -42,7 +39,6 @@ func (t *TypeDecl) Id() string {
 func (t *TypeDecl) DeclaredAt() (int, *File) {
 	return t.Off, t.File
 }
-func (t *TypeDecl) IsExported() bool { return isExported(t.Name) }
 
 func (Const) symbol() {}
 func (c *Const) Id() string {
@@ -51,7 +47,6 @@ func (c *Const) Id() string {
 func (c *Const) DeclaredAt() (int, *File) {
 	return c.Off, c.File
 }
-func (c *Const) IsExported() bool { return isExported(c.Name) }
 
 func (Var) symbol() {}
 func (v *Var) Id() string {
@@ -60,7 +55,6 @@ func (v *Var) Id() string {
 func (v *Var) DeclaredAt() (int, *File) {
 	return v.Off, v.File
 }
-func (v *Var) IsExported() bool { return isExported(v.Name) }
 
 func (FuncDecl) symbol() {}
 func (f *FuncDecl) Id() string {
@@ -69,7 +63,6 @@ func (f *FuncDecl) Id() string {
 func (f *FuncDecl) DeclaredAt() (int, *File) {
 	return f.Off, f.File
 }
-func (f *FuncDecl) IsExported() bool { return isExported(f.Name) }
 
 func (Label) symbol() {}
 func (l *Label) Id() string {
@@ -78,7 +71,6 @@ func (l *Label) Id() string {
 func (l *Label) DeclaredAt() (int, *File) {
 	return l.Off, l.Blk.File()
 }
-func (l *Label) IsExported() bool { return false }
 
 // The Scope interface determines the set of visible names at each point of a
 // program
