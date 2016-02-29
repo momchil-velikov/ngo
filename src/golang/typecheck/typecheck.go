@@ -612,15 +612,19 @@ func checkIfaceMethodUniqueness(
 // caller to report an ambiguous selector error at the appropriate source
 // position. The final `bool` output is true whenever the original type was a
 // pointer type, or the field or method was promoted via one or more anonymous
-// fields of a pointer type.
+// fields of a pointer type. The selector lookup is done in the context of the
+// package PKGS, such non-exported fields and methods, declared in a different
+// package than PKG are invisible for the lookup: they are not found and they
+// do not cause ambiguous selector errors.
 type fieldOrMethod struct {
 	F *ast.Field
 	M *ast.FuncDecl
 }
 
-func findSelector(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool) {
-	orig := typ
+func findSelector(
+	pkg *ast.Package, typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool) {
 
+	orig := typ
 	// "For a value x of type T or *T where T is not a pointer or interface
 	// type, x.f denotes the field or method at the shallowest depth in T."
 	ptr, ok := typ.(*ast.PtrType)
@@ -631,14 +635,15 @@ func findSelector(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool
 	case *ast.InterfaceType:
 	case *ast.PtrType:
 	default:
-		s0, s1, p := findFieldOrMethod(typ, name)
-		return s0, s1, p || (ptr != nil)
+		s0, s1, pp := findFieldOrMethod(pkg, typ, name)
+		return s0, s1, pp || (ptr != nil)
 	}
 
 	// "For a value x of type I where I is an interface type, x.f denotes the
 	// actual method with name f of the dynamic value of x."
 	if ifc, ok := unnamedType(orig).(*ast.InterfaceType); ok {
-		return fieldOrMethod{M: findInterfaceMethod(ifc, name)}, fieldOrMethod{}, false
+		m := findInterfaceMethod(pkg, ifc, name)
+		return fieldOrMethod{M: m}, fieldOrMethod{}, false
 	}
 
 	// "As an exception, if the type of x is a named pointer type and (*x).f
@@ -647,7 +652,7 @@ func findSelector(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool
 	dcl, ok := orig.(*ast.TypeDecl)
 	if ok {
 		if ptr, ok := unnamedType(dcl.Type).(*ast.PtrType); ok {
-			s0, s1, p := findFieldOrMethod(ptr.Base, name)
+			s0, s1, p := findFieldOrMethod(pkg, ptr.Base, name)
 			if s1.F == nil && s1.M == nil {
 				// We have found an unambiguous selector. Do not return
 				// methods, only fields.
@@ -665,13 +670,15 @@ func findSelector(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool
 	return fieldOrMethod{}, fieldOrMethod{}, false
 }
 
-func findFieldOrMethod(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool) {
-	m := findImmediateFieldOrMethod(typ, name)
+func findFieldOrMethod(
+	pkg *ast.Package, typ ast.Type, name string) (fieldOrMethod, fieldOrMethod, bool) {
+
+	m := findImmediateFieldOrMethod(pkg, typ, name)
 	if m.F != nil || m.M != nil {
 		return m, fieldOrMethod{}, false
 	}
 	if str, ok := unnamedType(typ).(*ast.StructType); ok {
-		return findPromotedFieldOrMethod(str, name)
+		return findPromotedFieldOrMethod(pkg, str, name)
 	}
 	return fieldOrMethod{}, fieldOrMethod{}, false
 }
@@ -679,27 +686,30 @@ func findFieldOrMethod(typ ast.Type, name string) (fieldOrMethod, fieldOrMethod,
 // Finds and returns the method NAME of the type TYP (which can be a typename
 // or an interface type) or, if TYP is declared as a struct type, the field
 // NAME.
-func findImmediateFieldOrMethod(typ ast.Type, name string) fieldOrMethod {
+func findImmediateFieldOrMethod(
+	pkg *ast.Package, typ ast.Type, name string) fieldOrMethod {
+
 	if ifc, ok := unnamedType(typ).(*ast.InterfaceType); ok {
-		return fieldOrMethod{M: findInterfaceMethod(ifc, name)}
+		return fieldOrMethod{M: findInterfaceMethod(pkg, ifc, name)}
 	}
 	if dcl, ok := typ.(*ast.TypeDecl); ok {
-		for i := range dcl.Methods {
-			if name == dcl.Methods[i].Name {
-				return fieldOrMethod{M: dcl.Methods[i]}
+		for _, m := range dcl.Methods {
+			if name == m.Name && isAccessibleMethod(pkg, m) {
+				return fieldOrMethod{M: m}
 			}
 		}
-		for i := range dcl.PMethods {
-			if name == dcl.PMethods[i].Name {
-				return fieldOrMethod{M: dcl.PMethods[i]}
+		for _, m := range dcl.PMethods {
+			if name == m.Name && isAccessibleMethod(pkg, m) {
+				return fieldOrMethod{M: m}
 			}
 		}
 		typ = dcl.Type
 	}
 	if str, ok := unnamedType(typ).(*ast.StructType); ok {
 		for i := range str.Fields {
-			if name == fieldName(&str.Fields[i]) {
-				return fieldOrMethod{F: &str.Fields[i]}
+			f := &str.Fields[i]
+			if name == fieldName(f) && isAccessibleField(pkg, str, name) {
+				return fieldOrMethod{F: f}
 			}
 		}
 	}
@@ -725,7 +735,7 @@ func appendAnonFields(str *ast.StructType, ptr bool, anon []anonField) []anonFie
 
 // Finds and returns a promoted field or method NAME in the struct type STR.
 func findPromotedFieldOrMethod(
-	str *ast.StructType, name string) (fieldOrMethod, fieldOrMethod, bool) {
+	pkg *ast.Package, str *ast.StructType, name string) (fieldOrMethod, fieldOrMethod, bool) {
 
 	var anon, next []anonField
 	anon = appendAnonFields(str, false, nil)
@@ -738,7 +748,7 @@ func findPromotedFieldOrMethod(
 				t = p.Base
 				ptr = true
 			}
-			m := findImmediateFieldOrMethod(t, name)
+			m := findImmediateFieldOrMethod(pkg, t, name)
 			if m.F != nil || m.M != nil {
 				if found.F != nil || found.M != nil {
 					return found, m, false
@@ -759,7 +769,9 @@ func findPromotedFieldOrMethod(
 }
 
 // Finds method NAME in the interface type TYP.
-func findInterfaceMethod(typ *ast.InterfaceType, name string) *ast.FuncDecl {
+func findInterfaceMethod(
+	pkg *ast.Package, typ *ast.InterfaceType, name string) *ast.FuncDecl {
+
 	for _, m := range typ.Methods {
 		if name == m.Name {
 			return m
@@ -767,11 +779,21 @@ func findInterfaceMethod(typ *ast.InterfaceType, name string) *ast.FuncDecl {
 	}
 	for _, t := range typ.Embedded {
 		d := t.(*ast.TypeDecl)
-		if m := findInterfaceMethod(d.Type.(*ast.InterfaceType), name); m != nil {
+		if m := findInterfaceMethod(pkg, d.Type.(*ast.InterfaceType), name); m != nil {
 			return m
 		}
 	}
 	return nil
+}
+
+// Checks if the method declaration M is accessible from package P.
+func isAccessibleMethod(p *ast.Package, m *ast.FuncDecl) bool {
+	return ast.IsExported(m.Name) || (m.File != nil && p == m.File.Pkg)
+}
+
+// Checks if the field NAME in structure S is accessible from package P.
+func isAccessibleField(p *ast.Package, s *ast.StructType, name string) bool {
+	return ast.IsExported(name) || (s.File != nil && p == s.File.Pkg)
 }
 
 // Finds the field NAME in the structure type STR.

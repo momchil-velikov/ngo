@@ -21,8 +21,9 @@ func compilePackage(
 	return p, CheckPackage(p)
 }
 
-func expectError(t *testing.T, pkg string, srcs []string, msg string) {
-	_, err := compilePackage(pkg, srcs, nil)
+func expectErrorWithLoc(
+	t *testing.T, pkg string, srcs []string, loc ast.PackageLocator, msg string) {
+	_, err := compilePackage(pkg, srcs, loc)
 	if err == nil || !strings.Contains(err.Error(), msg) {
 		t.Errorf("%s:%v: expected `%s` error", pkg, srcs, msg)
 		if err == nil {
@@ -31,6 +32,10 @@ func expectError(t *testing.T, pkg string, srcs []string, msg string) {
 			t.Logf("actual: %s", err.Error())
 		}
 	}
+}
+
+func expectError(t *testing.T, pkg string, srcs []string, msg string) {
+	expectErrorWithLoc(t, pkg, srcs, nil, msg)
 }
 
 func TestBasicType(t *testing.T) {

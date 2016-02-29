@@ -351,7 +351,7 @@ func (ck *typeckPhase0) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
 	// is a typename. See https://github.com/golang/go/issues/9060
 
 	// Find the method.
-	m0, m1, vptr := findFieldOrMethod(x.RTyp, x.Id)
+	m0, m1, vptr := findFieldOrMethod(ck.File.Pkg, x.RTyp, x.Id)
 	if (m0.M != nil || m0.F != nil) && (m1.M != nil || m1.F != nil) {
 		return nil, &AmbiguousSelector{Off: x.Off, File: ck.File, Name: x.Id}
 	}
@@ -417,7 +417,7 @@ func (ck *typeckPhase0) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 		return nil, err
 	}
 	x.X = y
-	s0, s1, _ := findSelector(x.X.Type(), x.Id)
+	s0, s1, _ := findSelector(ck.File.Pkg, x.X.Type(), x.Id)
 	if s1.M != nil || s1.F != nil {
 		return nil, &AmbiguousSelector{Off: x.Position(), File: ck.File, Name: x.Id}
 	}
@@ -974,7 +974,7 @@ func (ck *typeckPhase1) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 		return nil, err
 	}
 	x.X = y
-	s0, s1, _ := findSelector(x.X.Type(), x.Id)
+	s0, s1, _ := findSelector(ck.File.Pkg, x.X.Type(), x.Id)
 	if s1.M != nil || s1.F != nil {
 		return nil, &AmbiguousSelector{Off: x.Position(), File: ck.File, Name: x.Id}
 	}

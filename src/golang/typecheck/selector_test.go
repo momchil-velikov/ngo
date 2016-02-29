@@ -1,14 +1,19 @@
 package typecheck
 
 import (
+	"bufio"
+	"errors"
 	"golang/ast"
+	"golang/pdb"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func testUnambiguousSelector(
-	t *testing.T, typ ast.Type, name string, found fieldOrMethod) {
+	t *testing.T, pkg *ast.Package, typ ast.Type, name string, found fieldOrMethod) {
 
-	u, v, _ := findSelector(typ, name)
+	u, v, _ := findSelector(pkg, typ, name)
 	if u.F == nil && u.M == nil {
 		t.Fatalf("selector `%s` not found", name)
 	}
@@ -20,15 +25,15 @@ func testUnambiguousSelector(
 	}
 }
 
-func testSelectorNotFound(t *testing.T, typ ast.Type, name string) {
-	u, _, _ := findSelector(typ, name)
+func testSelectorNotFound(t *testing.T, pkg *ast.Package, typ ast.Type, name string) {
+	u, _, _ := findSelector(pkg, typ, name)
 	if u.F != nil || u.M != nil {
 		t.Fatalf("selector `%s` found", name)
 	}
 }
 
-func testAmbiguousSelector(t *testing.T, typ ast.Type, name string) {
-	_, v, _ := findSelector(typ, name)
+func testAmbiguousSelector(t *testing.T, pkg *ast.Package, typ ast.Type, name string) {
+	_, v, _ := findSelector(pkg, typ, name)
 	if v.F == nil && v.M == nil {
 		t.Errorf("selector `%s` is not ambiguous", name)
 	}
@@ -43,125 +48,125 @@ func TestSelector(t *testing.T) {
 	A := p.Find("A").(*ast.TypeDecl)
 	AX := fieldOrMethod{F: &A.Type.(*ast.StructType).Fields[0]}
 	MX := fieldOrMethod{M: A.Methods[0]}
-	testUnambiguousSelector(t, A, "X", AX)
-	testUnambiguousSelector(t, A.Type, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: A}, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: A.Type}, "X", AX)
-	testUnambiguousSelector(t, A, "MX", MX)
-	testSelectorNotFound(t, A.Type, "MX")
-	testUnambiguousSelector(t, &ast.PtrType{Base: A}, "MX", MX)
-	testSelectorNotFound(t, &ast.PtrType{Base: A.Type}, "MX")
+	testUnambiguousSelector(t, p, A, "X", AX)
+	testUnambiguousSelector(t, p, A.Type, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: A}, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: A.Type}, "X", AX)
+	testUnambiguousSelector(t, p, A, "MX", MX)
+	testSelectorNotFound(t, p, A.Type, "MX")
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: A}, "MX", MX)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: A.Type}, "MX")
 
 	AA := p.Find("AA").(*ast.TypeDecl)
-	testUnambiguousSelector(t, AA, "X", AX)
-	testUnambiguousSelector(t, AA.Type, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: AA}, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: AA.Type}, "X", AX)
-	testSelectorNotFound(t, AA, "MX")
-	testSelectorNotFound(t, &ast.PtrType{Base: AA}, "MX")
+	testUnambiguousSelector(t, p, AA, "X", AX)
+	testUnambiguousSelector(t, p, AA.Type, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: AA}, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: AA.Type}, "X", AX)
+	testSelectorNotFound(t, p, AA, "MX")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: AA}, "MX")
 
 	B := p.Find("B").(*ast.TypeDecl)
 	BY := fieldOrMethod{F: &B.Type.(*ast.StructType).Fields[1]}
 	AMY := fieldOrMethod{M: A.Methods[1]}
 	BMY := fieldOrMethod{M: B.PMethods[0]}
-	testUnambiguousSelector(t, B, "X", AX)
-	testUnambiguousSelector(t, B.Type, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B.Type}, "X", AX)
-	testUnambiguousSelector(t, B, "MX", MX)
-	testUnambiguousSelector(t, B.Type, "MX", MX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "MX", MX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B.Type}, "MX", MX)
+	testUnambiguousSelector(t, p, B, "X", AX)
+	testUnambiguousSelector(t, p, B.Type, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B.Type}, "X", AX)
+	testUnambiguousSelector(t, p, B, "MX", MX)
+	testUnambiguousSelector(t, p, B.Type, "MX", MX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "MX", MX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B.Type}, "MX", MX)
 
-	testUnambiguousSelector(t, B, "Y", BY)
-	testUnambiguousSelector(t, B.Type, "Y", BY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "Y", BY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B.Type}, "Y", BY)
-	testUnambiguousSelector(t, B, "MY", BMY)
-	testUnambiguousSelector(t, B.Type, "MY", AMY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "MY", BMY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B.Type}, "MY", AMY)
+	testUnambiguousSelector(t, p, B, "Y", BY)
+	testUnambiguousSelector(t, p, B.Type, "Y", BY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "Y", BY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B.Type}, "Y", BY)
+	testUnambiguousSelector(t, p, B, "MY", BMY)
+	testUnambiguousSelector(t, p, B.Type, "MY", AMY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "MY", BMY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B.Type}, "MY", AMY)
 
 	C := p.Find("C").(*ast.TypeDecl)
 	CY := fieldOrMethod{F: &C.Type.(*ast.StructType).Fields[1]}
 	CMY := fieldOrMethod{M: C.Methods[0]}
-	testUnambiguousSelector(t, C, "X", AX)
-	testUnambiguousSelector(t, C.Type, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "X", AX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C.Type}, "X", AX)
-	testUnambiguousSelector(t, C, "MX", MX)
-	testUnambiguousSelector(t, C.Type, "MX", MX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "MX", MX)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C.Type}, "MX", MX)
+	testUnambiguousSelector(t, p, C, "X", AX)
+	testUnambiguousSelector(t, p, C.Type, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "X", AX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "X", AX)
+	testUnambiguousSelector(t, p, C, "MX", MX)
+	testUnambiguousSelector(t, p, C.Type, "MX", MX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "MX", MX)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "MX", MX)
 
-	testUnambiguousSelector(t, C, "Y", CY)
-	testUnambiguousSelector(t, C.Type, "Y", CY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "Y", CY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C.Type}, "Y", CY)
-	testUnambiguousSelector(t, C, "MY", CMY)
-	testUnambiguousSelector(t, C.Type, "MY", AMY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "MY", CMY)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C.Type}, "MY", AMY)
+	testUnambiguousSelector(t, p, C, "Y", CY)
+	testUnambiguousSelector(t, p, C.Type, "Y", CY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "Y", CY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "Y", CY)
+	testUnambiguousSelector(t, p, C, "MY", CMY)
+	testUnambiguousSelector(t, p, C.Type, "MY", AMY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "MY", CMY)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "MY", AMY)
 
 	I := p.Find("I").(*ast.TypeDecl)
 	F := fieldOrMethod{M: I.Type.(*ast.InterfaceType).Methods[0]}
-	testUnambiguousSelector(t, I, "F", F)
-	testUnambiguousSelector(t, I.Type, "F", F)
-	testSelectorNotFound(t, &ast.PtrType{Base: I}, "F")
+	testUnambiguousSelector(t, p, I, "F", F)
+	testUnambiguousSelector(t, p, I.Type, "F", F)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: I}, "F")
 
 	II := p.Find("II").(*ast.TypeDecl)
-	testUnambiguousSelector(t, II, "F", F)
-	testUnambiguousSelector(t, II.Type, "F", F)
-	testSelectorNotFound(t, &ast.PtrType{Base: II}, "F")
+	testUnambiguousSelector(t, p, II, "F", F)
+	testUnambiguousSelector(t, p, II.Type, "F", F)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: II}, "F")
 
 	J := p.Find("J").(*ast.TypeDecl)
 	G := fieldOrMethod{M: J.Type.(*ast.InterfaceType).Methods[0]}
-	testUnambiguousSelector(t, J, "F", F)
-	testUnambiguousSelector(t, J, "G", G)
-	testSelectorNotFound(t, &ast.PtrType{Base: J}, "F")
-	testSelectorNotFound(t, &ast.PtrType{Base: J}, "G")
+	testUnambiguousSelector(t, p, J, "F", F)
+	testUnambiguousSelector(t, p, J, "G", G)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: J}, "F")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: J}, "G")
 
-	testUnambiguousSelector(t, A, "F", F)
-	testUnambiguousSelector(t, A.Type, "F", F)
-	testUnambiguousSelector(t, &ast.PtrType{Base: A}, "F", F)
-	testUnambiguousSelector(t, A, "G", G)
-	testUnambiguousSelector(t, A.Type, "G", G)
-	testUnambiguousSelector(t, &ast.PtrType{Base: A}, "G", G)
+	testUnambiguousSelector(t, p, A, "F", F)
+	testUnambiguousSelector(t, p, A.Type, "F", F)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: A}, "F", F)
+	testUnambiguousSelector(t, p, A, "G", G)
+	testUnambiguousSelector(t, p, A.Type, "G", G)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: A}, "G", G)
 
-	testUnambiguousSelector(t, B, "F", F)
-	testUnambiguousSelector(t, B.Type, "F", F)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "F", F)
-	testUnambiguousSelector(t, B, "G", G)
-	testUnambiguousSelector(t, B.Type, "G", G)
-	testUnambiguousSelector(t, &ast.PtrType{Base: B}, "G", G)
+	testUnambiguousSelector(t, p, B, "F", F)
+	testUnambiguousSelector(t, p, B.Type, "F", F)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "F", F)
+	testUnambiguousSelector(t, p, B, "G", G)
+	testUnambiguousSelector(t, p, B.Type, "G", G)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: B}, "G", G)
 
-	testUnambiguousSelector(t, C, "F", F)
-	testUnambiguousSelector(t, C.Type, "F", F)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "F", F)
-	testUnambiguousSelector(t, C, "G", G)
-	testUnambiguousSelector(t, C.Type, "G", G)
-	testUnambiguousSelector(t, &ast.PtrType{Base: C}, "G", G)
+	testUnambiguousSelector(t, p, C, "F", F)
+	testUnambiguousSelector(t, p, C.Type, "F", F)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "F", F)
+	testUnambiguousSelector(t, p, C, "G", G)
+	testUnambiguousSelector(t, p, C.Type, "G", G)
+	testUnambiguousSelector(t, p, &ast.PtrType{Base: C}, "G", G)
 
 	P := p.Find("P").(*ast.TypeDecl)
-	testUnambiguousSelector(t, P, "X", AX)
-	testUnambiguousSelector(t, P.Type, "X", AX)
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "X")
-	testSelectorNotFound(t, &ast.PtrType{Base: P.Type}, "X")
-	testSelectorNotFound(t, P, "MX")
-	testUnambiguousSelector(t, P.Type, "MX", MX)
-	testSelectorNotFound(t, P, "MY")
+	testUnambiguousSelector(t, p, P, "X", AX)
+	testUnambiguousSelector(t, p, P.Type, "X", AX)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "X")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P.Type}, "X")
+	testSelectorNotFound(t, p, P, "MX")
+	testUnambiguousSelector(t, p, P.Type, "MX", MX)
+	testSelectorNotFound(t, p, P, "MY")
 
-	testUnambiguousSelector(t, P, "Y", CY)
-	testUnambiguousSelector(t, P.Type, "Y", CY)
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "Y")
-	testSelectorNotFound(t, &ast.PtrType{Base: P.Type}, "Y")
+	testUnambiguousSelector(t, p, P, "Y", CY)
+	testUnambiguousSelector(t, p, P.Type, "Y", CY)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "Y")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P.Type}, "Y")
 
-	testSelectorNotFound(t, P, "F")
-	testUnambiguousSelector(t, P.Type, "F", F)
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "F")
-	testSelectorNotFound(t, P, "G")
-	testUnambiguousSelector(t, P.Type, "G", G)
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "G")
+	testSelectorNotFound(t, p, P, "F")
+	testUnambiguousSelector(t, p, P.Type, "F", F)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "F")
+	testSelectorNotFound(t, p, P, "G")
+	testUnambiguousSelector(t, p, P.Type, "G", G)
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "G")
 }
 
 func TestSelectorErr(t *testing.T) {
@@ -171,33 +176,105 @@ func TestSelectorErr(t *testing.T) {
 	}
 
 	C := p.Find("C").(*ast.TypeDecl)
-	testAmbiguousSelector(t, C, "X")
-	testAmbiguousSelector(t, C.Type, "X")
-	testAmbiguousSelector(t, &ast.PtrType{Base: C}, "X")
-	testAmbiguousSelector(t, &ast.PtrType{Base: C.Type}, "X")
+	testAmbiguousSelector(t, p, C, "X")
+	testAmbiguousSelector(t, p, C.Type, "X")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: C}, "X")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "X")
 
-	testAmbiguousSelector(t, C, "F")
-	testAmbiguousSelector(t, C.Type, "F")
-	testAmbiguousSelector(t, &ast.PtrType{Base: C}, "F")
-	testAmbiguousSelector(t, &ast.PtrType{Base: C.Type}, "F")
+	testAmbiguousSelector(t, p, C, "F")
+	testAmbiguousSelector(t, p, C.Type, "F")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: C}, "F")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: C.Type}, "F")
 
 	P := p.Find("P").(*ast.TypeDecl)
-	testAmbiguousSelector(t, P, "X")
-	testAmbiguousSelector(t, P.Type, "X")
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "X")
-	testSelectorNotFound(t, &ast.PtrType{Base: P.Type}, "X")
+	testAmbiguousSelector(t, p, P, "X")
+	testAmbiguousSelector(t, p, P.Type, "X")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "X")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P.Type}, "X")
 
-	testAmbiguousSelector(t, P, "F")
-	testAmbiguousSelector(t, P.Type, "F")
-	testSelectorNotFound(t, &ast.PtrType{Base: P}, "F")
-	testSelectorNotFound(t, &ast.PtrType{Base: P.Type}, "F")
+	testAmbiguousSelector(t, p, P, "F")
+	testAmbiguousSelector(t, p, P.Type, "F")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P}, "F")
+	testSelectorNotFound(t, p, &ast.PtrType{Base: P.Type}, "F")
 
 	E := p.Find("E").(*ast.TypeDecl)
-	testAmbiguousSelector(t, E, "X")
-	testAmbiguousSelector(t, E.Type, "X")
-	testAmbiguousSelector(t, &ast.PtrType{Base: E}, "X")
-	testAmbiguousSelector(t, &ast.PtrType{Base: E.Type}, "X")
+	testAmbiguousSelector(t, p, E, "X")
+	testAmbiguousSelector(t, p, E.Type, "X")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: E}, "X")
+	testAmbiguousSelector(t, p, &ast.PtrType{Base: E.Type}, "X")
 
 	D := p.Find("D").(*ast.TypeDecl)
-	testSelectorNotFound(t, D, "Y")
+	testSelectorNotFound(t, p, D, "Y")
+}
+
+type MockPackageLocator struct {
+	pkgs map[string]*ast.Package
+}
+
+func (loc *MockPackageLocator) FindPackage(path string) (*ast.Package, error) {
+	pkg, ok := loc.pkgs[path]
+	if !ok {
+		return nil, errors.New("import `" + path + "` not found")
+	}
+	return pkg, nil
+}
+
+func reloadPackage(pkg *ast.Package, loc ast.PackageLocator) (*ast.Package, error) {
+	f, err := ioutil.TempFile("", "resolve-test-pkg")
+	if err != nil {
+		return nil, err
+	}
+	os.Remove(f.Name())
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	if err = pdb.Write(w, pkg); err != nil {
+		return nil, err
+	}
+	if err = w.Flush(); err != nil {
+		return nil, err
+	}
+	if _, err = f.Seek(0, os.SEEK_SET); err != nil {
+		return nil, err
+	}
+	return pdb.Read(bufio.NewReader(f), loc)
+}
+
+func TestSelectorNonExported(t *testing.T) {
+	loc := &MockPackageLocator{pkgs: make(map[string]*ast.Package)}
+	pa, err := compilePackage("_test/src/sel/a", []string{"a.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pa, err = reloadPackage(pa, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["sel/a"] = pa
+
+	expectErrorWithLoc(t, "_test/src/sel/b", []string{"b-err.go"}, loc,
+		"ambiguous selector X")
+
+	pb, err := compilePackage("_test/src/sel/b", []string{"b.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pb, err = reloadPackage(pb, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc.pkgs["sel/b"] = pb
+
+	_, err = compilePackage("_test/src/sel", []string{"selector-3.go"}, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-4.go"}, loc,
+		"type does not have a field or method named y")
+	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-5.go"}, loc,
+		"type does not have a field or method named y")
+	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-6.go"}, loc,
+		"ambiguous selector X")
+	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-7.go"}, loc,
+		"type does not have a field or method named y")
 }
