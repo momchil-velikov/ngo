@@ -212,31 +212,42 @@ func TestWriteChanType(t *testing.T) {
 func TestWriteStructType1(t *testing.T) {
 	typ := &ast.StructType{}
 	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
-	expect_eq(t, "write struct type", buf, []byte{_STRUCT, 0})
+	expect_eq(t, "write struct type", buf, []byte{_STRUCT, 0, 0})
 }
 
 func TestWriteStructType2(t *testing.T) {
+	pkg := &ast.Package{
+		Path: "x/y/a",
+		Name: "a",
+		Syms: make(map[string]ast.Symbol),
+	}
+	files := []*ast.File{
+		{No: 1, Name: "a.go", Pkg: pkg},
+	}
+	pkg.Files = files
 	typ := &ast.StructType{
+		File: pkg.Files[0],
 		Fields: []ast.Field{
-			{Name: "a", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}},
-			{Name: "b", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}, Tag: "xy"},
+			{Off: 1, Name: "a", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}},
+			{Off: 9, Name: "b", Type: &ast.BuiltinType{Kind: ast.BUILTIN_BOOL}, Tag: "xy"},
 		},
 	}
-	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
+	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(pkg, typ) })
 	expect_eq(t, "write struct type",
 		buf,
 		[]byte{
 			_STRUCT,
+			1,
 			2,
-			1, 'a', _BOOL, 0,
-			1, 'b', _BOOL, 2, 'x', 'y',
+			1, 1, 'a', _BOOL, 0,
+			9, 1, 'b', _BOOL, 2, 'x', 'y',
 		},
 	)
 
 	var dtyp ast.Type
 	keepDecoding(t, buf, func(r *Reader) error {
 		var err error
-		dtyp, err = r.readType(nil)
+		dtyp, err = r.readType(pkg)
 		return err
 	})
 	if !reflect.DeepEqual(typ, dtyp) {
@@ -637,6 +648,7 @@ func TestWriteTypeDecl4(t *testing.T) {
 	pkg.Declare(x.Name, x)
 
 	str := &ast.StructType{
+		File: file,
 		Fields: []ast.Field{
 			{Name: "x"},
 		},
@@ -668,8 +680,12 @@ func TestWriteTypeDecl4(t *testing.T) {
 			// declarations
 			_TYPE_DECL, 1, 0, 1, 'S',
 			_STRUCT,
+			// file index
+			1,
 			// num fiels
 			1,
+			// field offset
+			0,
 			// field name
 			1, 'x',
 			// field type
@@ -683,7 +699,7 @@ func TestWriteTypeDecl4(t *testing.T) {
 		},
 	)
 
-	buf.Bytes()[33] = 'x'
+	buf.Bytes()[35] = 'x'
 	_, err := Read(bytes.NewReader(buf.Bytes()), nil)
 	if err == nil || err != BadFile {
 		t.Error("forward typename: expecting BadFile")

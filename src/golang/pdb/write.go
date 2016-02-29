@@ -365,11 +365,21 @@ func (w *Writer) writeStructType(pkg *ast.Package, t *ast.StructType) error {
 	if err := w.WriteByte(_STRUCT); err != nil {
 		return err
 	}
+	fn := int(0)
+	if t.File != nil {
+		fn = t.File.No
+	}
+	if err := w.WriteNum(uint64(fn)); err != nil {
+		return err
+	}
 	if err := w.WriteNum(uint64(len(t.Fields))); err != nil {
 		return err
 	}
 	for i := range t.Fields {
 		f := &t.Fields[i]
+		if err := w.WriteNum(uint64(f.Off)); err != nil {
+			return err
+		}
 		if err := w.WriteString(f.Name); err != nil {
 			return err
 		}

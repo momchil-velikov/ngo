@@ -497,7 +497,7 @@ func (p *parser) parseStructType() *ast.StructType {
 		}
 	}
 	p.match('}')
-	return &ast.StructType{Off: off, Fields: fs}
+	return &ast.StructType{Off: off, File: p.file, Fields: fs}
 }
 
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .

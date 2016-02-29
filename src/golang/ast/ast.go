@@ -575,7 +575,7 @@ type SliceType struct {
 func (t *SliceType) Position() int { return t.Off }
 
 type PtrType struct {
-	Off  int // positio of the asterisk
+	Off  int // position of the asterisk
 	Base Type
 }
 
@@ -607,6 +607,7 @@ func (f *Field) Position() int { return f.Off }
 
 type StructType struct {
 	Off    int // position of the `struct` keyword
+	File   *File
 	Fields []Field
 }
 

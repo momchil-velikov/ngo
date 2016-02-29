@@ -414,6 +414,17 @@ func (r *Reader) readTypename(pkg *ast.Package) (*ast.TypeDecl, error) {
 }
 
 func (r *Reader) readStructType(pkg *ast.Package) (*ast.StructType, error) {
+	fno, err := r.ReadNum()
+	if err != nil {
+		return nil, err
+	}
+	if int(fno) > len(pkg.Files) {
+		return nil, BadFile
+	}
+	var file *ast.File
+	if fno > 0 {
+		file = pkg.Files[fno-1]
+	}
 	n, err := r.ReadNum()
 	if err != nil {
 		return nil, err
@@ -421,7 +432,11 @@ func (r *Reader) readStructType(pkg *ast.Package) (*ast.StructType, error) {
 	fs := make([]ast.Field, n)
 	for i := range fs {
 		f := &fs[i]
-		var err error
+		off, err := r.ReadNum()
+		if err != nil {
+			return nil, err
+		}
+		f.Off = int(off)
 		if f.Name, err = r.ReadString(); err != nil {
 			return nil, err
 		}
@@ -432,7 +447,7 @@ func (r *Reader) readStructType(pkg *ast.Package) (*ast.StructType, error) {
 			return nil, err
 		}
 	}
-	return &ast.StructType{Fields: fs}, nil
+	return &ast.StructType{File: file, Fields: fs}, nil
 }
 
 func (r *Reader) readParams(pkg *ast.Package) ([]ast.Param, error) {
