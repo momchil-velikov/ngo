@@ -163,6 +163,20 @@ func (w *Writer) writeDecl(pkg *ast.Package, d ast.Symbol) error {
 	case *ast.TypeDecl:
 		k = _TYPE_DECL
 		t = d.Type
+		if err := w.writedcl(pkg, k, fn, off, name, t); err != nil {
+			return err
+		}
+		for i := range d.Methods {
+			if err := w.writeDecl(pkg, d.Methods[i]); err != nil {
+				return err
+			}
+		}
+		for i := range d.PMethods {
+			if err := w.writeDecl(pkg, d.PMethods[i]); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		panic("not reached")
 	}

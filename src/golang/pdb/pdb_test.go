@@ -997,18 +997,18 @@ func TestWriteMethodDecl(t *testing.T) {
 			Sig:  &ast.FuncType{},
 		},
 	}
-	pkg.Syms[F.Name] = F
+	typA.Methods = []*ast.FuncDecl{F}
 
-	G := &ast.FuncDecl{
+	g := &ast.FuncDecl{
 		Off:  52,
-		Name: "G",
+		Name: "g",
 		File: pkg.Files[0],
 		Func: ast.Func{
 			Recv: &ast.Param{Type: &ast.PtrType{Base: typA}},
 			Sig:  &ast.FuncType{},
 		},
 	}
-	pkg.Syms[G.Name] = G
+	typA.PMethods = []*ast.FuncDecl{g}
 
 	buf, err := encode(t, func(w *Writer) error {
 		return w.writePkg(pkg)
@@ -1024,7 +1024,7 @@ func TestWriteMethodDecl(t *testing.T) {
 
 	dA := dpkg.Find("A").(*ast.TypeDecl)
 	if len(dA.Methods) != 1 || len(dA.PMethods) != 1 {
-		t.Error("incorrec method set")
+		t.Error("incorrect method set")
 	}
 }
 
