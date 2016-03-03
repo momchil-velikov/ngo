@@ -396,7 +396,12 @@ func (ck *typeckPhase0) VisitParensExpr(*ast.ParensExpr) (ast.Expr, error) {
 	panic("not reached")
 }
 
-func (*typeckPhase0) VisitFunc(x *ast.Func) (ast.Expr, error) {
+func (ck *typeckPhase0) VisitFunc(x *ast.Func) (ast.Expr, error) {
+	t, err := ck.checkType(x.Sig)
+	if err != nil {
+		return nil, err
+	}
+	x.Sig = t.(*ast.FuncType)
 	return x, nil
 }
 
@@ -964,7 +969,12 @@ func (ck *typeckPhase1) VisitParensExpr(*ast.ParensExpr) (ast.Expr, error) {
 	panic("not reached")
 }
 
-func (*typeckPhase1) VisitFunc(x *ast.Func) (ast.Expr, error) {
+func (ck *typeckPhase1) VisitFunc(x *ast.Func) (ast.Expr, error) {
+	t, err := ck.checkType(x.Sig)
+	if err != nil {
+		return nil, err
+	}
+	x.Sig = t.(*ast.FuncType)
 	return x, nil
 }
 
