@@ -198,4 +198,11 @@ func TestStructLiteralErr(t *testing.T) {
 		"the literal must contain exactly one element for each struct field")
 	expectError(t, "_test/src/comp", []string{"struct-err-6.go"},
 		"duplicate field name in struct literal: X")
+	expectError(t, "_test/src/comp", []string{"struct-err-7.go"},
+		"missing type for composite literal")
+}
+
+func TestLiteralErr(t *testing.T) {
+	expectError(t, "_test/src/comp", []string{"lit-err.go"},
+		"invalid type for composite literal")
 }
