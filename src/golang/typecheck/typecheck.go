@@ -87,6 +87,17 @@ func (ck *typeckPhase0) checkTypeDecl(d *ast.TypeDecl) error {
 	if err != nil {
 		return err
 	}
+	// Check method declarations.
+	for _, m := range d.Methods {
+		if err := ck.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
+	for _, m := range d.PMethods {
+		if err := ck.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
 	if err := checkMethodUniqueness(d); err != nil {
 		return err
 	}
@@ -316,6 +327,17 @@ func (ck *typeckPhase1) checkTypeDecl(d *ast.TypeDecl) error {
 		return err
 	}
 	d.Type = t
+	// Check method declarations.
+	for _, m := range d.Methods {
+		if err := ck.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
+	for _, m := range d.PMethods {
+		if err := ck.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
