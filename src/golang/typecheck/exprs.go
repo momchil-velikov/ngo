@@ -779,6 +779,21 @@ func (ck *typeckPhase1) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 }
 
 func (ck *typeckPhase1) VisitCall(x *ast.Call) (ast.Expr, error) {
+	// Check arguments.
+	if x.ATyp != nil {
+		t, err := ck.checkType(x.ATyp)
+		if err != nil {
+			return nil, err
+		}
+		x.ATyp = t
+	}
+	for i := range x.Xs {
+		y, err := ck.checkExpr(x.Xs[i])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[i] = y
+	}
 	// Check if we have a builtin function call.
 	if op, ok := x.Func.(*ast.OperandName); ok {
 		if d, ok := op.Decl.(*ast.FuncDecl); ok {
@@ -823,7 +838,7 @@ func (ck *typeckPhase1) VisitCall(x *ast.Call) (ast.Expr, error) {
 	}
 	x.Func = fn
 
-	// FIXME: check parameters
+	// FIXME: check arguments match parameters
 
 	// If the type of the expression is type variable, bind it to a concrete
 	// type.
@@ -892,12 +907,7 @@ func (ck *typeckPhase1) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	if len(x.Xs) != 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ck.File}
 	}
-	y, err := ck.checkExpr(x.Xs[0])
-	if err != nil {
-		return nil, err
-	}
-	x.Xs[0] = y
-	if a, ok := unnamedType(y.Type()).(*ast.ArrayType); ok {
+	if a, ok := unnamedType(x.Xs[0].Type()).(*ast.ArrayType); ok {
 		return ck.checkExpr(a.Dim)
 	}
 	return x, nil
