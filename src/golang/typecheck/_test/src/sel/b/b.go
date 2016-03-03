@@ -7,6 +7,10 @@ type B struct {
 	y int
 }
 
+func (B) F()
+
+func (B) g()
+
 type C struct {
 	a.A
 	B
@@ -18,6 +22,10 @@ var (
 	y = b.y
 
 	c C
-	// z = c.X // error
 	z = c.y
+
+	f0 = B.F
+	g0 = B.g
+
+	g1 = C.g
 )

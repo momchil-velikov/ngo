@@ -14,5 +14,5 @@ type C struct {
 
 var (
 	c C
-	z = c.X // error
+	z = c.X // error, ambiguous
 )

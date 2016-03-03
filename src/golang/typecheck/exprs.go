@@ -347,11 +347,17 @@ func (ck *typeckPhase0) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 }
 
 func (ck *typeckPhase0) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
-	// Does not check if the receiver type has the form `T` or `*T`, where `T`
-	// is a typename. See https://github.com/golang/go/issues/9060
+	// The parser/resolver will allow only receiver types that look like
+	// expressions, i.e.  `T` or `*T`, where `T` is a typename. Although see
+	// https://github.com/golang/go/issues/9060
+	t, err := ck.checkType(x.RTyp)
+	if err != nil {
+		return nil, err
+	}
+	x.RTyp = t
 
 	// Find the method.
-	m0, m1, vptr := findFieldOrMethod(ck.File.Pkg, x.RTyp, x.Id)
+	m0, m1, vptr := findSelector(ck.File.Pkg, x.RTyp, x.Id)
 	if (m0.M != nil || m0.F != nil) && (m1.M != nil || m1.F != nil) {
 		return nil, &AmbiguousSelector{Off: x.Off, File: ck.File, Name: x.Id}
 	}
@@ -936,8 +942,6 @@ func (ck *typeckPhase1) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 		src := builtinType(c.Typ)
 		dst, ok := unnamedType(x.Typ).(*ast.BuiltinType)
 		if !ok {
-			// return nil, &BadConversion{
-			// 	Off: x.Off, File: ck.File, Dst: dst, Src: src, Val: c.Value}
 			return nil, &BadConstType{Off: x.Off, File: ck.File, Type: x.Typ}
 		}
 		v := convertConst(dst, builtinType(c.Typ), c.Value)
