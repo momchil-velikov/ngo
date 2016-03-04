@@ -52,9 +52,17 @@ func TestBasicLoopErr(t *testing.T) {
 }
 
 func TestArrayType(t *testing.T) {
-	_, err := compilePackage("_test/src/typ", []string{"array.go"}, nil)
+	p, err := compilePackage("_test/src/typ", []string{"array.go"}, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Check the array length is a constant, converted to `int`.
+	B := p.Find("B").(*ast.TypeDecl)
+	typ := B.Type.(*ast.ArrayType)
+	c, ok := typ.Dim.(*ast.ConstValue)
+	if !ok || c.Typ != ast.BuiltinInt {
+		t.Error("array length must be `int` constant")
 	}
 }
 

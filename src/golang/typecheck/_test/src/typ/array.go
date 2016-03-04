@@ -4,4 +4,4 @@ var a A
 
 type A [1]int
 
-type B [3]A
+type B [3.0]A
