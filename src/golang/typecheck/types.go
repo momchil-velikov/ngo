@@ -21,8 +21,8 @@ func (ck *typeckPhase0) VisitTypeDeclType(td *ast.TypeDecl) (ast.Type, error) {
 	return td, nil
 }
 
-func (*typeckPhase0) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
-	panic("not reached")
+func (*typeckPhase0) VisitBuiltinType(t *ast.BuiltinType) (ast.Type, error) {
+	return t, nil
 }
 
 func (ck *typeckPhase0) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
@@ -235,8 +235,8 @@ func (ck *typeckPhase1) VisitTypeDeclType(td *ast.TypeDecl) (ast.Type, error) {
 	return td, nil
 }
 
-func (*typeckPhase1) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
-	panic("not reached")
+func (*typeckPhase1) VisitBuiltinType(t *ast.BuiltinType) (ast.Type, error) {
+	return t, nil
 }
 
 func (ck *typeckPhase1) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
