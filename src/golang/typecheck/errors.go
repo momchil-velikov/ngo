@@ -651,3 +651,28 @@ func (e *DupLitKey) Error() string {
 	return fmt.Sprintf("%s:%d:%d: duplicate key in map literal: %v",
 		e.File.Name, ln, col, e.Key)
 }
+
+// The BadIndexedType error is returned for an index expression, where the
+// indexed object is not one of array, pointer to array, slice, string, or
+// map type.
+type BadIndexedType struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadIndexedType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: type does not support indexing", e.File.Name, ln, col)
+}
+
+// The NotInteger error is returned for index expression, where the index is
+// not of an integral type.
+type NotInteger struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NotInteger) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: index must be of integer type", e.File.Name, ln, col)
+}

@@ -362,12 +362,12 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 	return res
 }
 
-func toInt64(c *ast.ConstValue) (int64, bool) {
+func toInt(c *ast.ConstValue) (int64, bool) {
 	src := builtinType(c.Typ)
 	if src == nil && c.Typ != nil {
 		return 0, false
 	}
-	v := convertConst(ast.BuiltinInt64, src, c.Value)
+	v := convertConst(ast.BuiltinInt, src, c.Value)
 	if v == nil {
 		return 0, false
 	}

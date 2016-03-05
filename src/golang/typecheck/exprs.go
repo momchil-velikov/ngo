@@ -446,8 +446,30 @@ func (ck *typeckPhase0) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitIndexExpr(*ast.IndexExpr) (ast.Expr, error) {
-	return nil, nil
+func (ck *typeckPhase0) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
+	y, err := ck.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	y, err = ck.checkExpr(x.I)
+	if err != nil {
+		return nil, err
+	}
+	x.I = y
+
+	t := unnamedType(x.X.Type())
+	if _, ok := t.(*ast.TypeVar); ok {
+		x.Typ = &ast.TypeVar{Off: x.Off, File: ck.File}
+		return x, nil
+	}
+
+	t = inferIndexExprType(t)
+	if t == nil {
+		return nil, &BadIndexedType{Off: x.Off, File: ck.File}
+	}
+	x.Typ = t
+	return x, nil
 }
 
 func (ck *typeckPhase0) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
@@ -1017,8 +1039,134 @@ func (ck *typeckPhase1) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase1) VisitIndexExpr(*ast.IndexExpr) (ast.Expr, error) {
-	return nil, nil
+func (ck *typeckPhase1) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
+	y, err := ck.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	y, err = ck.checkExpr(x.I)
+	if err != nil {
+		return nil, err
+	}
+	x.I = y
+
+	typ := unnamedType(x.X.Type())
+
+	// If the type of the index expression is a type variable, bind it to the
+	// actual type.
+	if tv, ok := x.Typ.(*ast.TypeVar); ok {
+		t := inferIndexExprType(typ)
+		if t == nil {
+			return nil, &BadIndexedType{Off: x.Off, File: ck.File}
+		}
+		tv.Type = t
+		x.Typ = t
+	}
+
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		typ = unnamedType(ptr.Base)
+	}
+
+	if _, ok := typ.(*ast.MapType); ok {
+		// FIXME: The type of the index expression must be assignable to the
+		// map key type.
+		return x, nil
+	}
+
+	// If the indexed expression is a constant, it must be non-negative and
+	// representable by `int`.
+	var (
+		idx        int64
+		idxIsConst bool
+	)
+	if c, ok := x.I.(*ast.ConstValue); ok {
+		idx, idxIsConst = toInt(c)
+		if !idxIsConst {
+			return nil, &BadConversion{
+				Off: x.Off, File: ck.File, Dst: ast.BuiltinInt, Src: builtinType(c.Typ),
+				Val: c.Value}
+		}
+	}
+
+	// If the indexed expression is not of a map type, the index expression
+	// must be of integer type.
+	if !idxIsConst {
+		if t := builtinType(x.I.Type()); t == nil || !t.IsInteger() {
+			return nil, &NotInteger{Off: x.I.Position(), File: ck.File}
+		}
+		return x, nil
+	}
+
+	// Check a constant index is within array bounds.
+	if _, ok := typ.(*ast.ArrayType); ok {
+		// FIXME: check temporarily disabled, pending whole typechecker rewrite
+		// n := int64(t.Dim.(*ast.ConstValue).Value.(ast.Int))
+		// if idx < 0 || idx > n {
+		// 	return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ck.File}
+		// }
+		return x, nil
+	}
+
+	// Check a constant index is within constant strign bounds. The resultin
+	// expression is a constant; evaluate it and return the result.
+	if _, ok := typ.(*ast.BuiltinType); ok {
+		// We know that the type is `string`.
+		if c, ok := x.X.(*ast.ConstValue); ok {
+			s := string(c.Value.(ast.String))
+			if idx < 0 || idx >= int64(len(s)) {
+				return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ck.File}
+			}
+			return &ast.ConstValue{
+				Off:   x.Off,
+				Typ:   ast.BuiltinUint8,
+				Value: ast.Int(s[idx]),
+			}, nil
+		}
+	}
+	return x, nil
+}
+
+// Infers the type of an index expression with TYP being the type of the
+// indexed object.
+func inferIndexExprType(typ ast.Type) ast.Type {
+	// If the type of the indexed expression is a pointer, the pointed to type
+	// must be an array type.
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
+		if !ok {
+			return nil
+		}
+		typ = b
+	}
+
+	if m, ok := typ.(*ast.MapType); ok {
+		// If the type of the indexed expression is a map, then the type of
+		// the expression is a non-strict pair of map element type and bool.
+		return &ast.TupleType{
+			Off:    -1,
+			Strict: false,
+			Type:   []ast.Type{m.Elt, ast.BuiltinBool},
+		}
+	}
+
+	switch t := typ.(type) {
+	case *ast.ArrayType:
+		// If the type of the indexed expression is an array or a slice, then
+		// the type of the index expression is the array/slice element type.
+		return t.Elt
+	case *ast.SliceType:
+		return t.Elt
+	case *ast.BuiltinType:
+		if t.Kind != ast.BUILTIN_STRING {
+			return nil
+		}
+		// If the type of the indexed expression is `string``, then the type
+		// of the index expression `byte`.
+		return ast.BuiltinUint8
+	default:
+		return nil
+	}
 }
 
 func (ck *typeckPhase1) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
