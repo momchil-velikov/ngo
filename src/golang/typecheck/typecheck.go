@@ -306,7 +306,7 @@ type typeckPhase1 struct {
 	typeckCommon
 	Const []*ast.Const
 	TVars []*ast.TypeVar
-	X     ast.Expr
+	Xs    []ast.Expr
 }
 
 func (ck *typeckPhase1) checkTypeDecl(d *ast.TypeDecl) error {
@@ -454,15 +454,24 @@ func (ck *typeckPhase1) checkType(t ast.Type) (ast.Type, error) {
 	return t.TraverseType(ck)
 }
 
+func (ck *typeckPhase1) checkExprLoop(x ast.Expr) []ast.Expr {
+	for i := len(ck.Xs) - 1; i >= 0; i-- {
+		if x == ck.Xs[i] {
+			return ck.Xs[i:]
+		}
+	}
+	return nil
+}
+
 func (ck *typeckPhase1) checkExpr(x ast.Expr) (ast.Expr, error) {
-	if x == ck.X {
+	if l := ck.checkExprLoop(x); l != nil {
 		return nil, &ExprLoop{Off: x.Position(), File: ck.File}
 	}
-	if ck.X == nil {
-		ck.X = x
-		defer func() { ck.X = nil }()
-	}
-	return x.TraverseExpr(ck)
+
+	ck.Xs = append(ck.Xs, x)
+	x, err := x.TraverseExpr(ck)
+	ck.Xs = ck.Xs[:len(ck.Xs)-1]
+	return x, err
 }
 
 func (ck *typeckPhase1) checkTypeVarLoop(tv *ast.TypeVar) []*ast.TypeVar {
