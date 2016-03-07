@@ -2,51 +2,537 @@ package typecheck
 
 import "golang/ast"
 
-func (ck *typeckPhase0) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
+type exprVerifier struct {
+	Pkg   *ast.Package
+	File  *ast.File
+	Files []*ast.File
+	Syms  []ast.Symbol
+	Xs    []ast.Expr
+	Done  map[ast.Symbol]struct{}
+}
+
+func verifyExprs(pkg *ast.Package) error {
+	ev := exprVerifier{Pkg: pkg, Done: make(map[ast.Symbol]struct{})}
+
+	for _, s := range pkg.Syms {
+		var err error
+		switch d := s.(type) {
+		case *ast.TypeDecl:
+			err = ev.checkTypeDecl(d)
+		case *ast.Const:
+			err = ev.checkConstDecl(d)
+		case *ast.Var:
+			err = ev.checkVarDecl(d)
+		case *ast.FuncDecl:
+			err = ev.checkFuncDecl(d)
+		default:
+			panic("not reached")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ev *exprVerifier) checkTypeDecl(d *ast.TypeDecl) error {
+	// No need to check things in a different package
+	if d.File == nil || d.File.Pkg != ev.Pkg {
+		return nil
+	}
+	// Check type.
+	t, err := ev.checkType(d.Type)
+	if err != nil {
+		return err
+	}
+	d.Type = t
+	// Check method declarations.
+	for _, m := range d.Methods {
+		if err := ev.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
+	for _, m := range d.PMethods {
+		if err := ev.checkFuncDecl(m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
+	// No need to check things in a different package
+	if c.File == nil || c.File.Pkg != ev.Pkg {
+		return nil
+	}
+	// Check for a constant definition loop.
+	if l := ev.checkLoop(c); l != nil {
+		return &TypeInferLoop{Loop: l}
+	}
+	// Check if we have already processed this const declaration.
+	if _, ok := ev.Done[c]; ok {
+		return nil
+	}
+	ev.Done[c] = struct{}{}
+
+	ev.beginCheck(c, c.File)
+	x, err := ev.checkExpr(c.Init)
+	ev.endCheck()
+	if err != nil {
+		return err
+	}
+	c.Init = x
+
+	if v, ok := x.(*ast.ConstValue); !ok || v == ast.BuiltinNil {
+		return &NotConst{Off: c.Init.Position(), File: c.File, What: "const initializer"}
+	}
+
+	return nil
+}
+
+func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
+	// No need to check things in a different package
+	if v.File == nil || v.File.Pkg != ev.Pkg {
+		return nil
+	}
+	// Check for a variable initialization loop.
+	if l := ev.checkLoop(v); l != nil {
+		return &TypeInferLoop{Loop: l}
+	}
+
+	if _, ok := ev.Done[v]; ok {
+		return nil
+	}
+
+	ev.beginFile(v.File)
+	defer func() { ev.endFile() }()
+
+	// Check the declared type of the variables.
+	if v.Type != nil {
+		t, err := ev.checkType(v.Type)
+		if err != nil {
+			return err
+		}
+		// All the variables share this type.
+		if v.Init == nil {
+			v.Type = t
+			ev.Done[v] = struct{}{}
+		} else {
+			for i := range v.Init.LHS {
+				op := v.Init.LHS[i].(*ast.OperandName)
+				v := op.Decl.(*ast.Var)
+				v.Type = t
+				ev.Done[v] = struct{}{}
+			}
+		}
+	}
+
+	if v.Init == nil || len(v.Init.RHS) == 0 {
+		return nil
+	}
+
+	if len(v.Init.LHS) > 1 && len(v.Init.RHS) == 1 {
+		// If there is a single expression on the RHS, make all the variables
+		// simultaneously depend on it. FIXME: multi-dependencies.
+		for i := range v.Init.LHS {
+			op := v.Init.LHS[i].(*ast.OperandName)
+			ev.beginCheck(op.Decl, v.File)
+		}
+		x, err := ev.checkExpr(v.Init.RHS[0])
+		for range v.Init.LHS {
+			ev.endCheck()
+		}
+		if err != nil {
+			return err
+		}
+		v.Init.RHS[0] = x
+		// FIXME: don't loop
+		// Assign types to the variables on the LHS and check assignment
+		// compatibility of the initialization expression with the declared
+		// type.
+		tp, ok := x.Type().(*ast.TupleType)
+		if !ok || len(tp.Type) != len(v.Init.LHS) {
+			return &BadMultiValueAssign{Off: x.Position(), File: v.File}
+		}
+		for i := range v.Init.LHS {
+			op := v.Init.LHS[i].(*ast.OperandName)
+			v := op.Decl.(*ast.Var)
+			if v.Type == nil {
+				v.Type = tp.Type[i]
+				ev.Done[v] = struct{}{}
+			}
+		}
+	} else {
+		// If there are multiple expressions on the RHS they must be
+		// single-valued and the same number as the variables on the LHS.
+		if len(v.Init.LHS) != len(v.Init.RHS) {
+			return &BadMultiValueAssign{Off: v.Init.Off, File: v.File}
+		}
+
+		i := 0
+		for i = range v.Init.LHS {
+			op := v.Init.LHS[i].(*ast.OperandName)
+			if v == op.Decl {
+				break
+			}
+		}
+
+		ev.beginCheck(v, v.File)
+		x, err := ev.checkExpr(v.Init.RHS[i])
+		ev.endCheck()
+		if err != nil {
+			return err
+		}
+		v.Init.RHS[i] = x
+		t := singleValueType(x.Type())
+		if t == nil {
+			return &SingleValueContext{Off: x.Position(), File: v.File}
+		}
+		if v.Type == nil {
+			v.Type = t
+			ev.Done[v] = struct{}{}
+		}
+	}
+
+	return nil
+}
+
+func (ev *exprVerifier) checkFuncDecl(fn *ast.FuncDecl) error {
+	// No need to check things in a different package
+	if fn.File == nil || fn.File.Pkg != ev.Pkg {
+		return nil
+	}
+
+	ev.beginFile(fn.File)
+	defer func() { ev.endFile() }()
+
+	// Check the receiver type.
+	if fn.Func.Recv != nil {
+		t, err := ev.checkType(fn.Func.Recv.Type)
+		if err != nil {
+			return err
+		}
+		fn.Func.Recv.Type = t
+	}
+	// Check the signature.
+	t, err := ev.checkType(fn.Func.Sig)
+	if err != nil {
+		return err
+	}
+	fn.Func.Sig = t.(*ast.FuncType)
+	return nil
+}
+
+func (ev *exprVerifier) checkType(t ast.Type) (ast.Type, error) {
+	return t.TraverseType(ev)
+}
+
+func (ev *exprVerifier) beginFile(f *ast.File) {
+	ev.Files = append(ev.Files, ev.File)
+	ev.File = f
+}
+
+func (ev *exprVerifier) endFile() {
+	n := len(ev.Files)
+	ev.File = ev.Files[n-1]
+	ev.Files = ev.Files[:n-1]
+}
+
+func (ev *exprVerifier) beginCheck(s ast.Symbol, f *ast.File) {
+	ev.beginFile(f)
+	ev.Syms = append(ev.Syms, s)
+}
+
+func (ev *exprVerifier) endCheck() {
+	ev.Syms = ev.Syms[:len(ev.Syms)-1]
+	ev.endFile()
+}
+
+func (ev *exprVerifier) breakEvalChain() {
+	ev.Syms = append(ev.Syms, nil)
+}
+
+func (ev *exprVerifier) restoreEvalChain() {
+	ev.Syms = ev.Syms[:len(ev.Syms)-1]
+}
+
+func (ev *exprVerifier) checkLoop(sym ast.Symbol) []ast.Symbol {
+	for i := len(ev.Syms) - 1; i >= 0; i-- {
+		s := ev.Syms[i]
+		if s == nil {
+			return nil
+		}
+		if s == sym {
+			return ev.Syms[i:]
+		}
+	}
+	return nil
+}
+
+func (ev *exprVerifier) checkExprLoop(x ast.Expr) []ast.Expr {
+	for i := len(ev.Xs) - 1; i >= 0; i-- {
+		if x == ev.Xs[i] {
+			return ev.Xs[i:]
+		}
+	}
+	return nil
+}
+
+func (ev *exprVerifier) checkExpr(x ast.Expr) (ast.Expr, error) {
+	if l := ev.checkExprLoop(x); l != nil {
+		return nil, &ExprLoop{Off: x.Position(), File: ev.File}
+	}
+
+	ev.Xs = append(ev.Xs, x)
+	x, err := x.TraverseExpr(ev)
+	ev.Xs = ev.Xs[:len(ev.Xs)-1]
+	return x, err
+}
+
+func (*exprVerifier) VisitError(*ast.Error) (*ast.Error, error) {
 	panic("not reached")
 }
 
-func (*typeckPhase0) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	return x, nil
+func (*exprVerifier) VisitTypeName(*ast.QualifiedId) (ast.Type, error) {
+	panic("not reached")
 }
 
-func (ck *typeckPhase0) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
-	if x.Typ == nil {
-		return nil, &MissingLiteralType{x.Off, ck.File}
+func (ev *exprVerifier) VisitTypeDeclType(t *ast.TypeDecl) (ast.Type, error) {
+	return t, nil
+}
+
+func (*exprVerifier) VisitBuiltinType(t *ast.BuiltinType) (ast.Type, error) {
+	return t, nil
+}
+
+func (ev *exprVerifier) checkArrayLength(t *ast.ArrayType) (*ast.ConstValue, error) {
+	if t.Dim == nil {
+		return nil, &BadUnspecArrayLen{Off: t.Position(), File: ev.File}
 	}
-	t, err := ck.checkType(x.Typ)
+	x, err := ev.checkExpr(t.Dim)
 	if err != nil {
 		return nil, err
 	}
-	x.Typ = t
-	return ck.checkCompLiteral(x.Typ, x)
+	t.Dim = x
+	c, ok := x.(*ast.ConstValue)
+	if !ok {
+		return nil, &NotConst{Off: x.Position(), File: ev.File, What: "array length"}
+	}
+	if c.Typ == ast.BuiltinInt {
+		return c, nil
+	}
+	v := convertConst(ast.BuiltinInt, builtinType(c.Typ), c.Value)
+	if v == nil {
+		return nil, &BadConversion{
+			Off: x.Position(), File: ev.File,
+			Dst: ast.BuiltinInt, Src: builtinType(c.Typ), Val: c.Value,
+		}
+	}
+	if int64(v.(ast.Int)) < 0 {
+		return nil, &NegArrayLen{Off: c.Off, File: ev.File}
+	}
+	c.Typ = ast.BuiltinInt
+	c.Value = v
+	return c, nil
+}
+
+func (ev *exprVerifier) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
+	elt, err := ev.checkType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	_, err = ev.checkArrayLength(t)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitSliceType(t *ast.SliceType) (ast.Type, error) {
+	elt, err := ev.checkType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitPtrType(t *ast.PtrType) (ast.Type, error) {
+	base, err := ev.checkType(t.Base)
+	if err != nil {
+		return nil, err
+	}
+	t.Base = base
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitMapType(t *ast.MapType) (ast.Type, error) {
+	key, err := ev.checkType(t.Key)
+	if err != nil {
+		return nil, err
+	}
+	elt, err := ev.checkType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Key = key
+	t.Elt = elt
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitChanType(t *ast.ChanType) (ast.Type, error) {
+	elt, err := ev.checkType(t.Elt)
+	if err != nil {
+		return nil, err
+	}
+	t.Elt = elt
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitStructType(t *ast.StructType) (ast.Type, error) {
+	// Check field types.
+	for i := range t.Fields {
+		fd := &t.Fields[i]
+		t, err := ev.checkType(fd.Type)
+		if err != nil {
+			return nil, err
+		}
+		fd.Type = t
+	}
+	return t, nil
+}
+
+func (*exprVerifier) VisitTupleType(*ast.TupleType) (ast.Type, error) {
+	panic("not reached")
+}
+
+func (ev *exprVerifier) VisitFuncType(t *ast.FuncType) (ast.Type, error) {
+	for i := range t.Params {
+		p := &t.Params[i]
+		t, err := ev.checkType(p.Type)
+		if err != nil {
+			return nil, err
+		}
+		p.Type = t
+	}
+	for i := range t.Returns {
+		p := &t.Returns[i]
+		t, err := ev.checkType(p.Type)
+		if err != nil {
+			return nil, err
+		}
+		p.Type = t
+	}
+	return t, nil
+}
+
+func (ev *exprVerifier) VisitInterfaceType(typ *ast.InterfaceType) (ast.Type, error) {
+	for _, m := range typ.Methods {
+		t, err := ev.checkType(m.Func.Sig)
+		if err != nil {
+			return nil, err
+		}
+		m.Func.Sig = t.(*ast.FuncType)
+	}
+	return typ, nil
+}
+
+func (ev *exprVerifier) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
+	panic("not reached")
+}
+
+func (*exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
+	return x, nil
+}
+
+func (ev *exprVerifier) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
+	if x.Typ == nil {
+		return nil, &MissingLiteralType{x.Off, ev.File}
+	}
+
+	// If we have an array composite literal with no dimension, check first
+	// the literal value.
+	if t, ok := unnamedType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
+		x, err := ev.checkCompLiteral(x.Typ, x)
+		if err != nil {
+			return nil, err
+		}
+		t, err := ev.checkType(x.Typ)
+		if err != nil {
+			return nil, err
+		}
+		x.Typ = t
+		return x, nil
+	} else {
+		t, err := ev.checkType(x.Typ)
+		if err != nil {
+			return nil, err
+		}
+		x.Typ = t
+		return ev.checkCompLiteral(x.Typ, x)
+	}
 }
 
 // Checks the composite literal expression X of type TYP. The type may come
 // from the literal or from the context, in either case it has been already
 // checked.
-func (ck *typeckPhase0) checkCompLiteral(
+func (ev *exprVerifier) checkCompLiteral(
 	typ ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
 	switch t := unnamedType(typ).(type) {
 	case *ast.ArrayType:
-		return ck.checkArrayOrSliceLiteral(t.Elt, x)
+		return ev.checkArrayLiteral(t, x)
 	case *ast.SliceType:
-		return ck.checkArrayOrSliceLiteral(t.Elt, x)
+		return ev.checkSliceLiteral(t, x)
 	case *ast.MapType:
-		return ck.checkMapLiteral(t, x)
+		return ev.checkMapLiteral(t, x)
 	case *ast.StructType:
-		return ck.checkStructLiteral(t, x)
+		return ev.checkStructLiteral(t, x)
 	default:
-		return nil, &BadLiteralType{Off: x.Off, File: ck.File}
+		return nil, &BadLiteralType{Off: x.Off, File: ev.File}
 	}
 }
 
-func (ck *typeckPhase0) checkArrayOrSliceLiteral(
-	etyp ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	// The element type itself cannot be an array of unspecified size.
-	if t, ok := etyp.(*ast.ArrayType); ok && t.Dim == nil {
-		return nil, &BadArraySize{Off: t.Off, File: ck.File, What: "length"}
+func (ev *exprVerifier) checkArrayLiteral(
+	t *ast.ArrayType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	n := int64(0x7fffffff) // FIXME
+	if t.Dim != nil {
+		c, err := ev.checkArrayLength(t)
+		if err != nil {
+			return nil, err
+		}
+		n = int64(c.Value.(ast.Int))
 	}
+	x, n, err := ev.checkArrayOrSliceLiteral(n, t.Elt, x)
+	if err != nil {
+		return nil, err
+	}
+	// If the array type has no dimension, set it to the length of the literal.
+	if t.Dim == nil {
+		// FIXME: check dimension fits in target `int`
+		t.Dim = &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinInt, Value: ast.Int(n)}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkSliceLiteral(
+	t *ast.SliceType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	x, _, err := ev.checkArrayOrSliceLiteral(int64(0x7fffffff), t.Elt, x)
+	return x, err
+}
+
+func (ev *exprVerifier) checkArrayOrSliceLiteral(
+	n int64, etyp ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, int64, error) {
+
+	// The element type itself cannot be an array of unspecified length.
+	if t, ok := etyp.(*ast.ArrayType); ok && t.Dim == nil {
+		return nil, 0, &BadUnspecArrayLen{Off: t.Off, File: ev.File}
+	}
+
+	keys := make(map[int64]struct{})
+	idx := int64(0)
+	max := int64(0)
 	for _, elt := range x.Elts {
 		// Assign type to elements, which are composite literals with elided
 		// type.
@@ -55,25 +541,60 @@ func (ck *typeckPhase0) checkArrayOrSliceLiteral(
 				c.Typ = etyp
 			}
 		}
-		// Check key. Evaluation is postponed to phase1.
 		if elt.Key != nil {
-			k, err := ck.checkExpr(elt.Key)
+			// Check index.
+			k, err := ev.checkExpr(elt.Key)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			elt.Key = k
+			// Convert the index to `int`.
+			c, ok := k.(*ast.ConstValue)
+			if !ok {
+				return nil, 0, &BadArraySize{
+					Off: elt.Key.Position(), File: ev.File, What: "index"}
+			}
+			src := builtinType(c.Typ)
+			v := convertConst(ast.BuiltinInt, src, c.Value)
+			if v == nil {
+				return nil, 0, &BadConversion{
+					Off: x.Off, File: ev.File, Dst: ast.BuiltinInt, Src: src,
+					Val: c.Value}
+			}
+			c.Typ = ast.BuiltinInt
+			c.Value = v
+			idx = int64(v.(ast.Int))
 		}
+		// Check for duplicate index.
+		if _, ok := keys[idx]; ok {
+			return nil, 0, &DupLitIndex{Off: x.Off, File: ev.File, Idx: idx}
+		}
+		keys[idx] = struct{}{}
+		// Check the index is within bounds.
+		if idx < 0 || idx >= n {
+			off := elt.Elt.Position()
+			if elt.Key != nil {
+				off = elt.Key.Position()
+			}
+			return nil, 0, &IndexOutOfBounds{Off: off, File: ev.File}
+		}
+		// Update maximum index.
+		if idx > max {
+			max = idx
+		}
+		idx++
 		// Check element value.
-		e, err := ck.checkExpr(elt.Elt)
+		e, err := ev.checkExpr(elt.Elt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		elt.Elt = e
+		// FIXME: check element is assignable to array/slice element type.
 	}
-	return x, nil
+	return x, max + 1, nil
 }
 
-func (ck *typeckPhase0) checkMapLiteral(
+func (ev *exprVerifier) checkMapLiteral(
 	t *ast.MapType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
 
 	n := 0
@@ -88,7 +609,7 @@ func (ck *typeckPhase0) checkMapLiteral(
 				}
 			}
 			// Check key.
-			k, err := ck.checkExpr(elt.Key)
+			k, err := ev.checkExpr(elt.Key)
 			if err != nil {
 				return nil, err
 			}
@@ -100,7 +621,7 @@ func (ck *typeckPhase0) checkMapLiteral(
 			}
 		}
 		// Check element value.
-		e, err := ck.checkExpr(elt.Elt)
+		e, err := ev.checkExpr(elt.Elt)
 		if err != nil {
 			return nil, err
 		}
@@ -108,13 +629,152 @@ func (ck *typeckPhase0) checkMapLiteral(
 	}
 	// Every element must have a key.
 	if n > 0 && n != len(x.Elts) {
-		return nil, &MissingMapKey{Off: x.Off, File: ck.File}
+		return nil, &MissingMapKey{Off: x.Off, File: ev.File}
+	}
+
+	// Check for duplicate constant keys.
+	k := builtinType(t.Key)
+	if k == nil {
+		return x, nil
+	}
+	switch {
+	case k.Kind == ast.BUILTIN_BOOL:
+		return ev.checkUniqBoolKeys(x)
+	case k.IsInteger():
+		if k.IsSigned() {
+			return ev.checkUniqIntKeys(x)
+		} else {
+			return ev.checkUniqUintKeys(x)
+		}
+	case k.Kind == ast.BUILTIN_FLOAT32 || k.Kind == ast.BUILTIN_FLOAT64:
+		return ev.checkUniqFloatKeys(x)
+	case k.Kind == ast.BUILTIN_COMPLEX64 || k.Kind == ast.BUILTIN_COMPLEX128:
+		return ev.checkUniqComplexKeys(x)
+	case k.Kind == ast.BUILTIN_STRING:
+		return ev.checkUniqStringKeys(x)
 	}
 	return x, nil
 }
 
-func (ck *typeckPhase0) checkStructLiteral(
-	t *ast.StructType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
+func (ev *exprVerifier) checkUniqBoolKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	t, f := false, false
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		b := bool(c.Value.(ast.Bool))
+		if b && t || !b && f {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: b}
+		}
+		if b {
+			t = true
+		} else {
+			f = true
+		}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkUniqIntKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[int64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinInt64, builtinType(c.Typ), c.Value)
+		k := int64(v.(ast.Int))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkUniqUintKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[uint64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinUint64, builtinType(c.Typ), c.Value)
+		k := uint64(v.(ast.Int))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkUniqFloatKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[float64]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinFloat64, builtinType(c.Typ), c.Value)
+		k := float64(v.(ast.Float))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkUniqComplexKeys(
+	x *ast.CompLiteral) (*ast.CompLiteral, error) {
+
+	keys := make(map[complex128]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinComplex128, builtinType(c.Typ), c.Value)
+		k := complex128(v.(ast.Complex))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkUniqStringKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
+	keys := make(map[string]struct{})
+	for i := range x.Elts {
+		c, ok := x.Elts[i].Key.(*ast.ConstValue)
+		if !ok {
+			continue
+		}
+		// The conversion must succeed due to a previous check for assignment
+		// compatibility with the map key type.
+		v := convertConst(ast.BuiltinString, builtinType(c.Typ), c.Value)
+		k := string(v.(ast.String))
+		if _, ok := keys[k]; ok {
+			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
+		}
+		keys[k] = struct{}{}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkStructLiteral(
+	str *ast.StructType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
 
 	keys := make(map[string]struct{})
 	n := 0
@@ -123,131 +783,103 @@ func (ck *typeckPhase0) checkStructLiteral(
 			n++
 			id, ok := elt.Key.(*ast.QualifiedId)
 			if !ok || len(id.Pkg) > 0 || id.Id == "_" {
-				return nil, &NotField{Off: elt.Key.Position(), File: ck.File}
+				return nil, &NotField{Off: elt.Key.Position(), File: ev.File}
 			}
-			if findField(t, id.Id) == nil {
+			if findField(str, id.Id) == nil {
 				return nil, &NotFound{
-					Off: id.Off, File: ck.File, What: "field", Name: id.Id}
+					Off: id.Off, File: ev.File, What: "field", Name: id.Id}
 			}
 			if _, ok := keys[id.Id]; ok {
-				return nil, &DupLitField{Off: x.Off, File: ck.File, Name: id.Id}
+				return nil, &DupLitField{Off: x.Off, File: ev.File, Name: id.Id}
 			}
 			keys[id.Id] = struct{}{}
 		}
-		y, err := ck.checkExpr(elt.Elt)
+		y, err := ev.checkExpr(elt.Elt)
 		if err != nil {
 			return nil, err
 		}
 		elt.Elt = y
 	}
 	if n > 0 && n != len(x.Elts) {
-		return nil, &MixedStructLiteral{Off: x.Off, File: ck.File}
+		return nil, &MixedStructLiteral{Off: x.Off, File: ev.File}
 	}
-	if n == 0 && len(x.Elts) > 0 && len(x.Elts) != len(t.Fields) {
-		return nil, &FieldEltMismatch{Off: x.Off, File: ck.File}
+	if n == 0 && len(x.Elts) > 0 && len(x.Elts) != len(str.Fields) {
+		return nil, &FieldEltMismatch{Off: x.Off, File: ev.File}
 	}
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
+func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 	switch d := x.Decl.(type) {
 	case *ast.Var:
-		err := ck.checkVarDecl(d)
-		if err != nil {
-			return nil, err
+		if d.Type == nil {
+			if err := ev.checkVarDecl(d); err != nil {
+				return nil, err
+			}
 		}
 		x.Typ = d.Type
+		return x, nil
 	case *ast.Const:
-		err := ck.checkConstDecl(d)
-		if err != nil {
+		if err := ev.checkConstDecl(d); err != nil {
 			return nil, err
 		}
 		x.Typ = d.Type
+		return d.Init.(*ast.ConstValue), nil
 	case *ast.FuncDecl:
-		if d.Func.Recv != nil {
-			panic("method declaration should never be an OperandName")
-		}
-		err := ck.checkFuncDecl(d)
-		if err != nil {
-			return nil, err
-		}
 		x.Typ = d.Func.Sig
+		return x, nil
 	default:
 		panic("not reached")
 	}
-	return x, nil
 }
 
-func (ck *typeckPhase0) VisitCall(x *ast.Call) (ast.Expr, error) {
-	// Check arguments.
-	if x.ATyp != nil {
-		t, err := ck.checkType(x.ATyp)
-		if err != nil {
-			return nil, err
-		}
-		x.ATyp = t
-	}
-	for i := range x.Xs {
-		y, err := ck.checkExpr(x.Xs[i])
-		if err != nil {
-			return nil, err
-		}
-		x.Xs[i] = y
-	}
+func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 	// Check if we have a builtin function call.
 	if op, ok := x.Func.(*ast.OperandName); ok {
 		if d, ok := op.Decl.(*ast.FuncDecl); ok {
 			switch d {
 			case ast.BuiltinAppend:
-				return ck.visitBuiltinAppend(x)
+				return ev.visitBuiltinAppend(x)
 			case ast.BuiltinCap:
-				return ck.visitBuiltinCap(x)
+				return ev.visitBuiltinCap(x)
 			case ast.BuiltinClose:
-				return ck.visitBuiltinClose(x)
+				return ev.visitBuiltinClose(x)
 			case ast.BuiltinComplex:
-				return ck.visitBuiltinComplex(x)
+				return ev.visitBuiltinComplex(x)
 			case ast.BuiltinCopy:
-				return ck.visitBuiltinCopy(x)
+				return ev.visitBuiltinCopy(x)
 			case ast.BuiltinDelete:
-				return ck.visitBuiltinDelete(x)
+				return ev.visitBuiltinDelete(x)
 			case ast.BuiltinImag:
-				return ck.visitBuiltinImag(x)
+				return ev.visitBuiltinImag(x)
 			case ast.BuiltinLen:
-				return ck.visitBuiltinLen(x)
+				return ev.visitBuiltinLen(x)
 			case ast.BuiltinMake:
-				return ck.visitBuiltinMake(x)
+				return ev.visitBuiltinMake(x)
 			case ast.BuiltinNew:
-				return ck.visitBuiltinNew(x)
+				return ev.visitBuiltinNew(x)
 			case ast.BuiltinPanic:
-				return ck.visitBuiltinPanic(x)
+				return ev.visitBuiltinPanic(x)
 			case ast.BuiltinPrint:
-				return ck.visitBuiltinPrint(x)
+				return ev.visitBuiltinPrint(x)
 			case ast.BuiltinPrintln:
-				return ck.visitBuiltinPrintln(x)
+				return ev.visitBuiltinPrintln(x)
 			case ast.BuiltinReal:
-				return ck.visitBuiltinReal(x)
+				return ev.visitBuiltinReal(x)
 			case ast.BuiltinRecover:
-				return ck.visitBuiltinRecover(x)
+				return ev.visitBuiltinRecover(x)
 			}
 		}
 	}
 	// Not a builtin call. Check the called expression.
-	fn, err := ck.checkExpr(x.Func)
+	fn, err := ev.checkExpr(x.Func)
 	if err != nil {
 		return nil, err
 	}
 	x.Func = fn
-
-	// If the type of the called object is unknown, create a new type variable
-	// for the call expression.
-	t := unnamedType(fn.Type())
-	if _, ok := t.(*ast.TypeVar); ok {
-		x.Typ = &ast.TypeVar{Off: x.Off, File: ck.File}
-		return x, nil
-	}
-	ftyp, ok := t.(*ast.FuncType)
+	ftyp, ok := fn.Type().(*ast.FuncType)
 	if !ok {
-		return nil, &NotFunc{Off: x.Off, File: ck.File, X: x}
+		return nil, &NotFunc{Off: x.Off, File: ev.File, X: x}
 	}
 	switch len(ftyp.Returns) {
 	case 0:
@@ -268,101 +900,137 @@ func (ck *typeckPhase0) VisitCall(x *ast.Call) (ast.Expr, error) {
 		}
 		x.Typ = &ast.TupleType{Off: x.Off, Strict: true, Type: tp}
 	}
+
+	// FIXME: check arguments match parameters
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) != 1 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	if a, ok := unnamedType(y.Type()).(*ast.ArrayType); ok {
+		c, err := ev.checkArrayLength(a)
+		if err != nil {
+			return nil, err
+		}
+		return c, nil
+	}
 	x.Typ = ast.BuiltinInt
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeckPhase0) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
+func (*exprVerifier) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
-	t, err := ck.checkType(x.Typ)
+func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
+	t, err := ev.checkType(x.Typ)
 	if err != nil {
 		return nil, err
 	}
 	x.Typ = t
-	y, err := ck.checkExpr(x.X)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
 	x.X = y
+
+	if c, ok := y.(*ast.ConstValue); ok {
+		src := builtinType(c.Typ)
+		dst, ok := unnamedType(x.Typ).(*ast.BuiltinType)
+		if !ok {
+			return nil, &BadConstType{Off: x.Off, File: ev.File, Type: x.Typ}
+		}
+		v := convertConst(dst, builtinType(c.Typ), c.Value)
+		if v == nil {
+			return nil, &BadConversion{
+				Off: x.Off, File: ev.File, Dst: dst, Src: src, Val: c.Value}
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
+	}
+
+	// FIXME: check conversion is valid
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
+func (ev *exprVerifier) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
 	// The parser/resolver will allow only receiver types that look like
 	// expressions, i.e.  `T` or `*T`, where `T` is a typename. Although see
 	// https://github.com/golang/go/issues/9060
-	t, err := ck.checkType(x.RTyp)
+	t, err := ev.checkType(x.RTyp)
 	if err != nil {
 		return nil, err
 	}
 	x.RTyp = t
 
 	// Find the method.
-	m0, m1, vptr := findSelector(ck.File.Pkg, x.RTyp, x.Id)
+	m0, m1, vptr := findSelector(ev.File.Pkg, x.RTyp, x.Id)
 	if (m0.M != nil || m0.F != nil) && (m1.M != nil || m1.F != nil) {
-		return nil, &AmbiguousSelector{Off: x.Off, File: ck.File, Name: x.Id}
+		return nil, &AmbiguousSelector{Off: x.Off, File: ev.File, Name: x.Id}
 	}
 	if m0.M == nil && m1.M == nil {
-		return nil, &NotFound{Off: x.Off, File: ck.File, What: "method", Name: x.Id}
+		return nil, &NotFound{Off: x.Off, File: ev.File, What: "method", Name: x.Id}
 	}
 	// See whether the method has a pointer or value receiver.
 	m := m0.M
@@ -377,7 +1045,7 @@ func (ck *typeckPhase0) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
 	if rptr && !vptr {
 		// The combination of pointer receiver method and a value type in the
 		// method expression is invalid.
-		return nil, &BadMethodExpr{Off: x.Off, File: ck.File}
+		return nil, &BadMethodExpr{Off: x.Off, File: ev.File}
 	}
 	// Construct the function type of the method expression.
 	ftyp := &ast.FuncType{
@@ -392,12 +1060,12 @@ func (ck *typeckPhase0) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitParensExpr(*ast.ParensExpr) (ast.Expr, error) {
+func (ev *exprVerifier) VisitParensExpr(*ast.ParensExpr) (ast.Expr, error) {
 	panic("not reached")
 }
 
-func (ck *typeckPhase0) VisitFunc(x *ast.Func) (ast.Expr, error) {
-	t, err := ck.checkType(x.Sig)
+func (ev *exprVerifier) VisitFunc(x *ast.Func) (ast.Expr, error) {
+	t, err := ev.checkType(x.Sig)
 	if err != nil {
 		return nil, err
 	}
@@ -405,11 +1073,11 @@ func (ck *typeckPhase0) VisitFunc(x *ast.Func) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
+func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
 	if x.ATyp == nil {
-		return nil, &BadTypeAssertion{Off: x.Off, File: ck.File}
+		return nil, &BadTypeAssertion{Off: x.Off, File: ev.File}
 	}
-	t, err := ck.checkType(x.ATyp)
+	t, err := ev.checkType(x.ATyp)
 	if err != nil {
 		return nil, err
 	}
@@ -419,24 +1087,27 @@ func (ck *typeckPhase0) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, erro
 		Strict: false,
 		Type:   []ast.Type{x.ATyp, ast.BuiltinBool},
 	}
-	return x, nil
-}
-
-func (ck *typeckPhase0) VisitSelector(x *ast.Selector) (ast.Expr, error) {
-	y, err := ck.checkExpr(x.X)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
 	x.X = y
-	s0, s1, _ := findSelector(ck.File.Pkg, x.X.Type(), x.Id)
+	return x, nil
+}
+
+func (ev *exprVerifier) VisitSelector(x *ast.Selector) (ast.Expr, error) {
+	y, err := ev.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	s0, s1, _ := findSelector(ev.File.Pkg, x.X.Type(), x.Id)
 	if s1.M != nil || s1.F != nil {
-		return nil, &AmbiguousSelector{Off: x.Position(), File: ck.File, Name: x.Id}
+		return nil, &AmbiguousSelector{Off: x.Position(), File: ev.File, Name: x.Id}
 	}
 	if s0.M == nil && s0.F == nil {
-		// Do not report an error now, because the expression type may be
-		// unknown.
-		x.Typ = &ast.TypeVar{Off: x.Off, File: ck.File}
-		return x, nil
+		return nil, &NotFound{
+			Off: x.Off, File: ev.File, What: "field or method", Name: x.Id}
 	}
 	if s0.M != nil {
 		x.Typ = s0.M.Func.Sig
@@ -446,735 +1117,161 @@ func (ck *typeckPhase0) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 	return x, nil
 }
 
-func (ck *typeckPhase0) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
-	y, err := ck.checkExpr(x.X)
+func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
 	x.X = y
-	y, err = ck.checkExpr(x.I)
+	y, err = ev.checkExpr(x.I)
 	if err != nil {
 		return nil, err
 	}
 	x.I = y
 
-	t := unnamedType(x.X.Type())
-	if _, ok := t.(*ast.TypeVar); ok {
-		x.Typ = &ast.TypeVar{Off: x.Off, File: ck.File}
-		return x, nil
-	}
-
-	t = inferIndexExprType(t)
-	if t == nil {
-		return nil, &BadIndexedType{Off: x.Off, File: ck.File}
-	}
-	x.Typ = t
-	return x, nil
-}
-
-func (ck *typeckPhase0) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
-	return nil, nil
-}
-
-func (ck *typeckPhase0) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase0) VisitBinaryExpr(*ast.BinaryExpr) (ast.Expr, error) {
-	return nil, nil
-}
-
-func (ck *typeckPhase1) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (*typeckPhase1) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
-	// If we have an array composite literal with no dimension, check first
-	// the literal value.
-	if t, ok := unnamedType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
-		x, err := ck.checkCompLiteral(x.Typ, x)
-		if err != nil {
-			return nil, err
-		}
-		t, err := ck.checkType(x.Typ)
-		if err != nil {
-			return nil, err
-		}
-		x.Typ = t
-		return x, nil
-	}
-
-	t, err := ck.checkType(x.Typ)
-	if err != nil {
-		return nil, err
-	}
-	x.Typ = t
-	return ck.checkCompLiteral(x.Typ, x)
-}
-
-func (ck *typeckPhase1) checkCompLiteral(
-	typ ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	switch t := unnamedType(typ).(type) {
-	case *ast.ArrayType:
-		return ck.checkArrayLiteral(t, x)
-	case *ast.SliceType:
-		return ck.checkSliceLiteral(t, x)
-	case *ast.MapType:
-		return ck.checkMapLiteral(t, x)
-	case *ast.StructType:
-		return ck.checkStructLiteral(t, x)
-	default:
-		panic("not reached")
-	}
-}
-
-func (ck *typeckPhase1) checkArrayLiteral(
-	t *ast.ArrayType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-
-	n := int64(0x7fffffff) // FIXME
-	if t.Dim != nil {
-		n = int64(t.Dim.(*ast.ConstValue).Value.(ast.Int))
-	}
-	x, n, err := ck.checkArrayOrSliceLiteral(n, t.Elt, x)
-	if err != nil {
-		return nil, err
-	}
-	// If the array type has no dimension, set it to the length of the literal.
-	if t.Dim == nil {
-		// FIXME: check dimension fits in target `int`
-		t.Dim = &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinInt, Value: ast.Int(n)}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkSliceLiteral(
-	t *ast.SliceType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	x, _, err := ck.checkArrayOrSliceLiteral(int64(0x7fffffff), t.Elt, x)
-	return x, err
-}
-
-func (ck *typeckPhase1) checkArrayOrSliceLiteral(
-	n int64, t ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, int64, error) {
-
-	keys := make(map[int64]struct{})
-	idx := int64(0)
-	max := int64(0)
-	for _, elt := range x.Elts {
-		if elt.Key != nil {
-			// Check index.
-			k, err := ck.checkExpr(elt.Key)
-			if err != nil {
-				return nil, 0, err
-			}
-			elt.Key = k
-			// Convert the index to `int`.
-			c, ok := k.(*ast.ConstValue)
-			if !ok {
-				return nil, 0, &BadArraySize{
-					Off: elt.Key.Position(), File: ck.File, What: "index"}
-			}
-			src := builtinType(c.Typ)
-			v := convertConst(ast.BuiltinInt, src, c.Value)
-			if v == nil {
-				return nil, 0, &BadConversion{
-					Off: x.Off, File: ck.File, Dst: ast.BuiltinInt, Src: src,
-					Val: c.Value}
-			}
-			c.Typ = ast.BuiltinInt
-			c.Value = v
-			idx = int64(v.(ast.Int))
-		}
-		// Check for duplicate index.
-		if _, ok := keys[idx]; ok {
-			return nil, 0, &DupLitIndex{Off: x.Off, File: ck.File, Idx: idx}
-		}
-		keys[idx] = struct{}{}
-		// Check the index is within bounds.
-		if idx < 0 || idx >= n {
-			off := elt.Elt.Position()
-			if elt.Key != nil {
-				off = elt.Key.Position()
-			}
-			return nil, 0, &IndexOutOfBounds{Off: off, File: ck.File}
-		}
-		// Update maximum index.
-		if idx > max {
-			max = idx
-		}
-		idx++
-		// Check element value.
-		e, err := ck.checkExpr(elt.Elt)
-		if err != nil {
-			return nil, 0, err
-		}
-		elt.Elt = e
-		// FIXME: check element is assignable to array/slice element type.
-	}
-	return x, max + 1, nil
-}
-
-func (ck *typeckPhase1) checkMapLiteral(
-	t *ast.MapType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-
-	for _, elt := range x.Elts {
-		// Check key.
-		k, err := ck.checkExpr(elt.Key)
-		if err != nil {
-			return nil, err
-		}
-		elt.Key = k
-		// Check element value.
-		e, err := ck.checkExpr(elt.Elt)
-		if err != nil {
-			return nil, err
-		}
-		elt.Elt = e
-	}
-
-	// Check for duplicate constant keys.
-	k := builtinType(t.Key)
-	if k == nil {
-		return x, nil
-	}
-	switch {
-	case k.Kind == ast.BUILTIN_BOOL:
-		return ck.checkUniqBoolKeys(x)
-	case k.IsInteger():
-		if k.IsSigned() {
-			return ck.checkUniqIntKeys(x)
-		} else {
-			return ck.checkUniqUintKeys(x)
-		}
-	case k.Kind == ast.BUILTIN_FLOAT32 || k.Kind == ast.BUILTIN_FLOAT64:
-		return ck.checkUniqFloatKeys(x)
-	case k.Kind == ast.BUILTIN_COMPLEX64 || k.Kind == ast.BUILTIN_COMPLEX128:
-		return ck.checkUniqComplexKeys(x)
-	case k.Kind == ast.BUILTIN_STRING:
-		return ck.checkUniqStringKeys(x)
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqBoolKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	t, f := false, false
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		b := bool(c.Value.(ast.Bool))
-		if b && t || !b && f {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: b}
-		}
-		if b {
-			t = true
-		} else {
-			f = true
-		}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqIntKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	keys := make(map[int64]struct{})
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		// The conversion must succeed due to a previous check for assignment
-		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinInt64, builtinType(c.Typ), c.Value)
-		k := int64(v.(ast.Int))
-		if _, ok := keys[k]; ok {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
-		}
-		keys[k] = struct{}{}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqUintKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	keys := make(map[uint64]struct{})
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		// The conversion must succeed due to a previous check for assignment
-		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinUint64, builtinType(c.Typ), c.Value)
-		k := uint64(v.(ast.Int))
-		if _, ok := keys[k]; ok {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
-		}
-		keys[k] = struct{}{}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqFloatKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	keys := make(map[float64]struct{})
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		// The conversion must succeed due to a previous check for assignment
-		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinFloat64, builtinType(c.Typ), c.Value)
-		k := float64(v.(ast.Float))
-		if _, ok := keys[k]; ok {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
-		}
-		keys[k] = struct{}{}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqComplexKeys(
-	x *ast.CompLiteral) (*ast.CompLiteral, error) {
-
-	keys := make(map[complex128]struct{})
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		// The conversion must succeed due to a previous check for assignment
-		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinComplex128, builtinType(c.Typ), c.Value)
-		k := complex128(v.(ast.Complex))
-		if _, ok := keys[k]; ok {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
-		}
-		keys[k] = struct{}{}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkUniqStringKeys(x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	keys := make(map[string]struct{})
-	for i := range x.Elts {
-		c, ok := x.Elts[i].Key.(*ast.ConstValue)
-		if !ok {
-			continue
-		}
-		// The conversion must succeed due to a previous check for assignment
-		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinString, builtinType(c.Typ), c.Value)
-		k := string(v.(ast.String))
-		if _, ok := keys[k]; ok {
-			return nil, &DupLitKey{Off: x.Off, File: ck.File, Key: k}
-		}
-		keys[k] = struct{}{}
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) checkStructLiteral(
-	str *ast.StructType, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-
-	for _, elt := range x.Elts {
-		y, err := ck.checkExpr(elt.Elt)
-		if err != nil {
-			return nil, err
-		}
-		elt.Elt = y
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
-	c, ok := x.Decl.(*ast.Const)
-	if !ok {
-		return x, nil
-	}
-	if err := ck.checkConstDecl(c); err != nil {
-		return nil, err
-	}
-	return c.Init.(*ast.ConstValue), nil
-}
-
-func (ck *typeckPhase1) VisitCall(x *ast.Call) (ast.Expr, error) {
-	// Check arguments.
-	if x.ATyp != nil {
-		t, err := ck.checkType(x.ATyp)
-		if err != nil {
-			return nil, err
-		}
-		x.ATyp = t
-	}
-	for i := range x.Xs {
-		y, err := ck.checkExpr(x.Xs[i])
-		if err != nil {
-			return nil, err
-		}
-		x.Xs[i] = y
-	}
-	// Check if we have a builtin function call.
-	if op, ok := x.Func.(*ast.OperandName); ok {
-		if d, ok := op.Decl.(*ast.FuncDecl); ok {
-			switch d {
-			case ast.BuiltinAppend:
-				return ck.visitBuiltinAppend(x)
-			case ast.BuiltinCap:
-				return ck.visitBuiltinCap(x)
-			case ast.BuiltinClose:
-				return ck.visitBuiltinClose(x)
-			case ast.BuiltinComplex:
-				return ck.visitBuiltinComplex(x)
-			case ast.BuiltinCopy:
-				return ck.visitBuiltinCopy(x)
-			case ast.BuiltinDelete:
-				return ck.visitBuiltinDelete(x)
-			case ast.BuiltinImag:
-				return ck.visitBuiltinImag(x)
-			case ast.BuiltinLen:
-				return ck.visitBuiltinLen(x)
-			case ast.BuiltinMake:
-				return ck.visitBuiltinMake(x)
-			case ast.BuiltinNew:
-				return ck.visitBuiltinNew(x)
-			case ast.BuiltinPanic:
-				return ck.visitBuiltinPanic(x)
-			case ast.BuiltinPrint:
-				return ck.visitBuiltinPrint(x)
-			case ast.BuiltinPrintln:
-				return ck.visitBuiltinPrintln(x)
-			case ast.BuiltinReal:
-				return ck.visitBuiltinReal(x)
-			case ast.BuiltinRecover:
-				return ck.visitBuiltinRecover(x)
-			}
-		}
-	}
-	// Not a builtin call. Check the called expression.
-	fn, err := ck.checkExpr(x.Func)
-	if err != nil {
-		return nil, err
-	}
-	x.Func = fn
-
-	// FIXME: check arguments match parameters
-
-	// If the type of the expression is type variable, bind it to a concrete
-	// type.
-	if tv, ok := x.Typ.(*ast.TypeVar); ok {
-		ftyp, ok := unnamedType(fn.Type()).(*ast.FuncType)
-		if !ok {
-			return nil, &NotFunc{Off: x.Off, File: ck.File, X: x}
-		}
-		// FIXME: refactor here
-		switch len(ftyp.Returns) {
-		case 0:
-			// If the function has no returns, set the call expression type to
-			// `void`.
-			tv.Type = ast.BuiltinVoidType
-		case 1:
-			// If the function has a single return, set the type of the call
-			// expression to that return's type.
-			tv.Type = ftyp.Returns[0].Type
-		default:
-			// If the called function has multiple return values, set the type
-			// of the call expression to a new TupleType, containing the
-			// returns' types.
-			tp := make([]ast.Type, len(ftyp.Returns))
-			for i := range tp {
-				tp[i] = ftyp.Returns[i].Type
-			}
-			tv.Type = &ast.TupleType{Off: x.Off, Strict: true, Type: tp}
-		}
-		x.Typ = tv.Type
-	}
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase1) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
-	if x.ATyp != nil {
-		return nil, &BadTypeArg{Off: x.Off, File: ck.File}
-	}
-	if len(x.Xs) != 1 {
-		return nil, &BadArgNumber{Off: x.Off, File: ck.File}
-	}
-	if a, ok := unnamedType(x.Xs[0].Type()).(*ast.ArrayType); ok {
-		return ck.checkExpr(a.Dim)
-	}
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeckPhase1) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
-	t, err := ck.checkType(x.Typ)
-	if err != nil {
-		return nil, err
-	}
-	x.Typ = t
-	y, err := ck.checkExpr(x.X)
-	if err != nil {
-		return nil, err
-	}
-	x.X = y
-
-	if c, ok := y.(*ast.ConstValue); ok {
-		src := builtinType(c.Typ)
-		dst, ok := unnamedType(x.Typ).(*ast.BuiltinType)
-		if !ok {
-			return nil, &BadConstType{Off: x.Off, File: ck.File, Type: x.Typ}
-		}
-		v := convertConst(dst, builtinType(c.Typ), c.Value)
-		if v == nil {
-			return nil, &BadConversion{
-				Off: x.Off, File: ck.File, Dst: dst, Src: src, Val: c.Value}
-		}
-		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
-	}
-
-	// FIXME: check conversion is valid
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitParensExpr(*ast.ParensExpr) (ast.Expr, error) {
-	panic("not reached")
-}
-
-func (ck *typeckPhase1) VisitFunc(x *ast.Func) (ast.Expr, error) {
-	t, err := ck.checkType(x.Sig)
-	if err != nil {
-		return nil, err
-	}
-	x.Sig = t.(*ast.FuncType)
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitSelector(x *ast.Selector) (ast.Expr, error) {
-	y, err := ck.checkExpr(x.X)
-	if err != nil {
-		return nil, err
-	}
-	x.X = y
-	s0, s1, _ := findSelector(ck.File.Pkg, x.X.Type(), x.Id)
-	if s1.M != nil || s1.F != nil {
-		return nil, &AmbiguousSelector{Off: x.Position(), File: ck.File, Name: x.Id}
-	}
-	if s0.M == nil && s0.F == nil {
-		return nil, &NotFound{
-			Off: x.Off, File: ck.File, What: "field or method", Name: x.Id}
-	}
-	if tv, ok := x.Typ.(*ast.TypeVar); ok {
-		if s0.M != nil {
-			tv.Type = s0.M.Func.Sig
-		} else {
-			tv.Type = s0.F.Type
-		}
-		x.Typ = tv.Type
-	}
-	return x, nil
-}
-
-func (ck *typeckPhase1) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
-	y, err := ck.checkExpr(x.X)
-	if err != nil {
-		return nil, err
-	}
-	x.X = y
-	y, err = ck.checkExpr(x.I)
-	if err != nil {
-		return nil, err
-	}
-	x.I = y
-
+	// Get the type of the indexed expression.  If the type of the indexed
+	// expression is a pointer, the pointed to type must be an array type.
 	typ := unnamedType(x.X.Type())
-
-	// If the type of the index expression is a type variable, bind it to the
-	// actual type.
-	if tv, ok := x.Typ.(*ast.TypeVar); ok {
-		t := inferIndexExprType(typ)
-		if t == nil {
-			return nil, &BadIndexedType{Off: x.Off, File: ck.File}
-		}
-		tv.Type = t
-		x.Typ = t
-	}
-
-	if ptr, ok := typ.(*ast.PtrType); ok {
-		typ = unnamedType(ptr.Base)
-	}
-
-	if _, ok := typ.(*ast.MapType); ok {
-		// FIXME: The type of the index expression must be assignable to the
-		// map key type.
-		return x, nil
-	}
-
-	// If the indexed expression is a constant, it must be non-negative and
-	// representable by `int`.
-	var (
-		idx        int64
-		idxIsConst bool
-	)
-	if c, ok := x.I.(*ast.ConstValue); ok {
-		idx, idxIsConst = toInt(c)
-		if !idxIsConst {
-			return nil, &BadConversion{
-				Off: x.Off, File: ck.File, Dst: ast.BuiltinInt, Src: builtinType(c.Typ),
-				Val: c.Value}
-		}
-	}
-
-	// If the indexed expression is not of a map type, the index expression
-	// must be of integer type.
-	if !idxIsConst {
-		if t := builtinType(x.I.Type()); t == nil || !t.IsInteger() {
-			return nil, &NotInteger{Off: x.I.Position(), File: ck.File}
-		}
-		return x, nil
-	}
-
-	// Check a constant index is within array bounds.
-	if _, ok := typ.(*ast.ArrayType); ok {
-		// FIXME: check temporarily disabled, pending whole typechecker rewrite
-		// n := int64(t.Dim.(*ast.ConstValue).Value.(ast.Int))
-		// if idx < 0 || idx > n {
-		// 	return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ck.File}
-		// }
-		return x, nil
-	}
-
-	// Check a constant index is within constant strign bounds. The resultin
-	// expression is a constant; evaluate it and return the result.
-	if _, ok := typ.(*ast.BuiltinType); ok {
-		// We know that the type is `string`.
-		if c, ok := x.X.(*ast.ConstValue); ok {
-			s := string(c.Value.(ast.String))
-			if idx < 0 || idx >= int64(len(s)) {
-				return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ck.File}
-			}
-			return &ast.ConstValue{
-				Off:   x.Off,
-				Typ:   ast.BuiltinUint8,
-				Value: ast.Int(s[idx]),
-			}, nil
-		}
-	}
-	return x, nil
-}
-
-// Infers the type of an index expression with TYP being the type of the
-// indexed object.
-func inferIndexExprType(typ ast.Type) ast.Type {
-	// If the type of the indexed expression is a pointer, the pointed to type
-	// must be an array type.
 	if ptr, ok := typ.(*ast.PtrType); ok {
 		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
 		if !ok {
-			return nil
+			return nil, &BadIndexedType{Off: x.Off, File: ev.File}
 		}
 		typ = b
 	}
 
-	if m, ok := typ.(*ast.MapType); ok {
-		// If the type of the indexed expression is a map, then the type of
-		// the expression is a non-strict pair of map element type and bool.
-		return &ast.TupleType{
-			Off:    -1,
-			Strict: false,
-			Type:   []ast.Type{m.Elt, ast.BuiltinBool},
-		}
-	}
-
 	switch t := typ.(type) {
-	case *ast.ArrayType:
-		// If the type of the indexed expression is an array or a slice, then
-		// the type of the index expression is the array/slice element type.
-		return t.Elt
-	case *ast.SliceType:
-		return t.Elt
 	case *ast.BuiltinType:
 		if t.Kind != ast.BUILTIN_STRING {
-			return nil
+			return nil, &BadIndexedType{Off: x.Off, File: ev.File}
 		}
-		// If the type of the indexed expression is `string``, then the type
-		// of the index expression `byte`.
-		return ast.BuiltinUint8
+		return ev.checkStringIndexExpr(x)
+	case *ast.ArrayType:
+		return ev.checkArrayIndexExpr(x, t)
+	case *ast.SliceType:
+		return ev.checkSliceIndexExpr(x, t)
+	case *ast.MapType:
+		return ev.checkMapIndexExpr(x, t)
 	default:
-		return nil
+		return nil, &BadIndexedType{Off: x.Off, File: ev.File}
 	}
 }
 
-func (ck *typeckPhase1) VisitSliceExpr(*ast.SliceExpr) (ast.Expr, error) {
-	return nil, nil
+func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
+	c, ok := x.(*ast.ConstValue)
+	if !ok {
+		// If the indexed expression is not of a map type, the index
+		// expression must be of integer type.
+		if t := builtinType(x.Type()); t == nil || !t.IsInteger() {
+			return 0, false, &NotInteger{Off: x.Position(), File: ev.File}
+		}
+		return 0, false, nil
+	}
+
+	// If the index expression is a constant, it must be representable by
+	// `int` and non-negative.
+	idx, ok := toInt(c)
+	if !ok {
+		return 0, false, &BadConversion{
+			Off: c.Off, File: ev.File, Dst: ast.BuiltinInt, Src: builtinType(c.Typ),
+			Val: c.Value}
+	}
+
+	if idx < 0 {
+		return 0, false, &IndexOutOfBounds{Off: c.Off, File: ev.File}
+	}
+
+	return idx, true, nil
 }
 
-func (ck *typeckPhase1) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
-	y, err := ck.checkExpr(x.X)
+func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
+	// If the type of the indexed expression is `string``, then the type of
+	// the index expression `byte`.
+	x.Typ = ast.BuiltinUint8
+	idx, idxIsConst, err := ev.checkIndexValue(x.I)
+	if err != nil {
+		return nil, err
+	}
+
+	// Indexing a constant string with aconstant index is a constant
+	// expression: evaluate it and return the result.
+	if c, ok := x.X.(*ast.ConstValue); ok && idxIsConst {
+		s := string(c.Value.(ast.String))
+		if idx >= int64(len(s)) {
+			return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ev.File}
+		}
+		return &ast.ConstValue{
+			Off:   x.Off,
+			Typ:   ast.BuiltinUint8,
+			Value: ast.Int(s[idx]),
+		}, nil
+	}
+
+	return x, nil
+}
+
+func (ev *exprVerifier) checkArrayIndexExpr(
+	x *ast.IndexExpr, t *ast.ArrayType) (ast.Expr, error) {
+
+	// The type of the expression is the array element type.
+	x.Typ = t.Elt
+
+	// Check the index is integer and, if constant, within array bounds.
+	idx, idxIsConst, err := ev.checkIndexValue(x.I)
+	if err != nil {
+		return nil, err
+	}
+
+	if idxIsConst {
+		c, err := ev.checkArrayLength(t)
+		if err != nil {
+			return nil, err
+		}
+		n := int64(c.Value.(ast.Int))
+		if idx >= n {
+			return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ev.File}
+		}
+	}
+
+	return x, nil
+}
+
+func (ev *exprVerifier) checkSliceIndexExpr(
+	x *ast.IndexExpr, t *ast.SliceType) (ast.Expr, error) {
+
+	// The type of the expression is the array element type.
+	x.Typ = t.Elt
+
+	// Check the index is integer and non-negative
+	_, _, err := ev.checkIndexValue(x.I)
+	if err != nil {
+		return nil, err
+	}
+
+	return x, nil
+}
+
+func (ev *exprVerifier) checkMapIndexExpr(
+	x *ast.IndexExpr, t *ast.MapType) (ast.Expr, error) {
+
+	// If the type of the indexed expression is a map, then the type of the
+	// expression is a non-strict pair of map element type and bool.
+	x.Typ = &ast.TupleType{
+		Off:    -1,
+		Strict: false,
+		Type:   []ast.Type{t.Elt, ast.BuiltinBool},
+	}
+	// FIXME: The type of the index expression must be assignable to the map
+	// key type.
+	return x, nil
+}
+
+func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
+	return x, nil
+}
+
+func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1187,13 +1284,13 @@ func (ck *typeckPhase1) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 	if x.Op == '-' {
 		v := minus(builtinType(c.Typ), c.Value)
 		if v == nil {
-			return nil, &BadOperand{Off: x.Off, File: ck.File, Op: "unary minus"}
+			return nil, &BadOperand{Off: x.Off, File: ev.File, Op: "unary minus"}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
 	}
 	return x, nil
 }
 
-func (ck *typeckPhase1) VisitBinaryExpr(*ast.BinaryExpr) (ast.Expr, error) {
+func (ev *exprVerifier) VisitBinaryExpr(*ast.BinaryExpr) (ast.Expr, error) {
 	return nil, nil
 }

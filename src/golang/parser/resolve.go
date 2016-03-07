@@ -537,10 +537,6 @@ func (*resolver) VisitBuiltinType(*ast.BuiltinType) (ast.Type, error) {
 	panic("not reached")
 }
 
-func (*resolver) VisitTypeVar(*ast.TypeVar) (ast.Type, error) {
-	panic("not reached")
-}
-
 func (r *resolver) VisitArrayType(t *ast.ArrayType) (ast.Type, error) {
 	x, err := r.resolveExpr(t.Dim)
 	if err != nil {

@@ -92,8 +92,8 @@ func TestArrayLiteral(t *testing.T) {
 		t.Error("the dimension of the `D[0]` should be 4")
 	}
 	e1 = D.Init.RHS[0].(*ast.CompLiteral).Elts[1].Elt.(*ast.CompLiteral)
-	c, ok = typ.Dim.(*ast.ConstValue)
 	typ = e1.Typ.(*ast.ArrayType)
+	c, ok = typ.Dim.(*ast.ConstValue)
 	if c.Typ != ast.BuiltinInt {
 		t.Error("the dimension of the `D[1]` should have type `int`")
 	}
@@ -130,7 +130,7 @@ func TestArrayLiteral(t *testing.T) {
 
 func TestArrayLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"array-err-1.go"},
-		"array length must be a non-negative `int` constant")
+		"unspecified array length not allowed")
 	expectError(t, "_test/src/comp", []string{"array-err-2.go"},
 		"2.100000 (untyped) cannot be converted to int")
 	expectError(t, "_test/src/comp", []string{"array-err-3.go"},
@@ -138,15 +138,19 @@ func TestArrayLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"array-err-4.go"},
 		"1.200000 (untyped) cannot be converted to int")
 	expectError(t, "_test/src/comp", []string{"array-err-5.go"},
-		"array index out of bounds")
+		"index out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-6.go"},
-		"array index out of bounds")
+		"index out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-7.go"},
-		"array index out of bounds")
+		"index out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-8.go"},
 		"duplicate index in array/slice literal: 1")
 	expectError(t, "_test/src/comp", []string{"array-err-9.go"},
 		"duplicate index in array/slice literal: 3")
+	expectError(t, "_test/src/comp", []string{"array-err-10.go"},
+		"unspecified array length not allowed")
+	expectError(t, "_test/src/comp", []string{"array-err-11.go"},
+		"unspecified array length not allowed")
 }
 
 func TestSliceLiteral(t *testing.T) {

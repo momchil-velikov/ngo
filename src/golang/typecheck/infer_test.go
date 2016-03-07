@@ -145,10 +145,12 @@ func TestInfer05(t *testing.T) {
 	a := p.Find("a").(*ast.Var)
 	if a.Type != P {
 		t.Error("the type of `a` must be inferred to `P`")
+		t.Log(a.Type)
 	}
 	b := p.Find("b").(*ast.Var)
 	if b.Type != Q {
 		t.Error("the type of `b` must be inferred to `Q`")
+		t.Log(b.Type)
 	}
 
 	S := p.Find("S").(*ast.TypeDecl).Type.(*ast.StructType)
@@ -298,7 +300,6 @@ func TestInfer11(t *testing.T) {
 	if i, ok := c.Value.(ast.Int); !ok || i != 1 {
 		t.Error("the dimension of the `a.X`s type should be 1")
 	}
-
 }
 
 func TestInfer12(t *testing.T) {

@@ -6,7 +6,6 @@ type TypeVisitor interface {
 	VisitTypeName(*QualifiedId) (Type, error)
 	VisitTypeDeclType(*TypeDecl) (Type, error)
 
-	VisitTypeVar(*TypeVar) (Type, error)
 	VisitBuiltinType(*BuiltinType) (Type, error)
 	VisitArrayType(*ArrayType) (Type, error)
 	VisitSliceType(*SliceType) (Type, error)
@@ -84,10 +83,6 @@ func (e *Error) TraverseType(v TypeVisitor) (Type, error) {
 }
 func (t *QualifiedId) TraverseType(v TypeVisitor) (Type, error) {
 	return v.VisitTypeName(t)
-}
-
-func (t *TypeVar) TraverseType(v TypeVisitor) (Type, error) {
-	return v.VisitTypeVar(t)
 }
 
 func (t *TypeDecl) TraverseType(v TypeVisitor) (Type, error) {

@@ -44,7 +44,7 @@ func (e *BadAnonType) Error() string {
 type TypeCheckLoop struct {
 	Off  int
 	File *ast.File
-	Loop []ast.Symbol
+	Loop []*ast.TypeDecl
 }
 
 func (e *TypeCheckLoop) Error() string {
@@ -53,9 +53,9 @@ func (e *TypeCheckLoop) Error() string {
 	fmt.Fprintf(&b, "%s:%d:%d: invalid recursive type\n", e.File.Name, ln, col)
 	i := 0
 	for ; i < len(e.Loop)-1; i++ {
-		fmt.Fprintf(&b, "\t %s depends on %s\n", e.Loop[i].Id(), e.Loop[i+1].Id())
+		fmt.Fprintf(&b, "\t %s depends on %s\n", e.Loop[i].Name, e.Loop[i+1].Name)
 	}
-	fmt.Fprintf(&b, "\t %s depends on %s", e.Loop[i].Id(), e.Loop[0].Id())
+	fmt.Fprintf(&b, "\t %s depends on %s", e.Loop[i].Name, e.Loop[0].Name)
 	return b.String()
 }
 
@@ -292,13 +292,32 @@ func (e *BadArgNumber) Error() string {
 // The TypeInferLoop error is returned for when an expression type depends
 // upon iself.
 type TypeInferLoop struct {
-	Off  int
-	File *ast.File
+	Loop []ast.Symbol
 }
 
 func (e *TypeInferLoop) Error() string {
-	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: type inference loop", e.File.Name, ln, col)
+	txt := bytes.Buffer{}
+	fmt.Fprintln(&txt, "type inference loop:")
+	n := len(e.Loop)
+	prev := e.Loop[0]
+	for i := 1; i < n; i++ {
+		if e.Loop[i] == nil {
+			continue
+		}
+		next := e.Loop[i]
+		off, file := prev.DeclaredAt()
+		ln, col := file.SrcMap.Position(off)
+		fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n",
+			file.Name, ln, col, prev.Id(), next.Id())
+		prev = next
+	}
+
+	next := e.Loop[0]
+	off, file := prev.DeclaredAt()
+	ln, col := file.SrcMap.Position(off)
+	fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n", file.Name, ln, col, prev.Id(), next.Id())
+	return txt.String()
+
 }
 
 // The ExprLoop error is returned for expressions, which depend on itself.
@@ -312,30 +331,34 @@ func (e *ExprLoop) Error() string {
 	return fmt.Sprintf("%s:%d:%d: expression evaluation loop", e.File.Name, ln, col)
 }
 
-// The ConstInitLoop error is returned when the value of a named constant
+// The EvalLoop error is returned when the value of a constant or a variable
 // eventually depends on itself.
-type ConstInitLoop struct {
-	Loop []*ast.Const
+type EvalLoop struct {
+	Loop []ast.Symbol
 }
 
-func (e *ConstInitLoop) Error() string {
-	s := "constant definition loop:\n"
+func (e *EvalLoop) Error() string {
+	txt := bytes.Buffer{}
+	fmt.Fprintln(&txt, "evaluation loop:")
 	n := len(e.Loop)
-	for i := 0; i < n-1; i++ {
-		off, file := e.Loop[i].DeclaredAt()
+	prev := e.Loop[0]
+	for i := 1; i < n; i++ {
+		if e.Loop[i] == nil {
+			continue
+		}
+		next := e.Loop[i]
+		off, file := prev.DeclaredAt()
 		ln, col := file.SrcMap.Position(off)
-		s += fmt.Sprintf("\t%s:%d:%d: %s uses %s\n",
-			file.Name, ln, col, e.Loop[i].Name, e.Loop[i+1].Name,
-		)
+		fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n",
+			file.Name, ln, col, prev.Id(), next.Id())
+		prev = next
 	}
 
-	off, file := e.Loop[n-1].DeclaredAt()
+	next := e.Loop[0]
+	off, file := prev.DeclaredAt()
 	ln, col := file.SrcMap.Position(off)
-	s += fmt.Sprintf("\t%s:%d:%d: %s uses %s\n",
-		file.Name, ln, col, e.Loop[n-1].Name, e.Loop[0].Name,
-	)
-
-	return s
+	fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n", file.Name, ln, col, prev.Id(), next.Id())
+	return txt.String()
 }
 
 // The BadConversion error is returned when the destination type cannot
@@ -555,6 +578,19 @@ func (e *NotField) Error() string {
 	return fmt.Sprintf("%s:%d:%d: key is not a field name", e.File.Name, ln, col)
 }
 
+// The BadUnspecArrayLen error is returned when an array type has unspecified
+// length outside of a top-level composite literal context.
+type BadUnspecArrayLen struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadUnspecArrayLen) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: unspecified array length not allowed",
+		e.File.Name, ln, col)
+}
+
 // The BadArraySize error is returned when an array index in a composite
 // literal or array dimension in array type declaration is not a non-negative
 // integer constant, which fits in `int`.
@@ -579,7 +615,7 @@ type IndexOutOfBounds struct {
 
 func (e *IndexOutOfBounds) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: array index out of bounds", e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: index out of bounds", e.File.Name, ln, col)
 }
 
 // The MixedStructLiteral is returned when a struct literal mixes keyed and
