@@ -9,7 +9,8 @@ var (
 
 	ax = A[3]
 	bx = B[4]
-	cx = C[0]
+	i  = int8(1.0)
+	cx = C[i]
 	dx = D[0]
 	ex = E[1.1]
 )

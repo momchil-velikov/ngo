@@ -41,3 +41,24 @@ func TestIndexExpr(t *testing.T) {
 		t.Error("the type of `dx` must be `float32`")
 	}
 }
+
+func TestIndexExprErrr(t *testing.T) {
+	expectError(t, "_test/src/index", []string{"index-err-1.go"},
+		"type does not support indexing")
+	expectError(t, "_test/src/index", []string{"index-err-2.go"},
+		"type does not support indexing")
+	expectError(t, "_test/src/index", []string{"index-err-3.go"},
+		"type does not support indexing")
+	expectError(t, "_test/src/index", []string{"index-err-4.go"},
+		"index must be of integer type")
+	expectError(t, "_test/src/index", []string{"index-err-5.go"},
+		"index must be of integer type")
+	expectError(t, "_test/src/index", []string{"index-err-6.go"},
+		"index out of bounds")
+	expectError(t, "_test/src/index", []string{"index-err-7.go"},
+		"1.100000 (untyped) cannot be converted to int")
+	expectError(t, "_test/src/index", []string{"index-err-8.go"},
+		"index out of bounds")
+	expectError(t, "_test/src/index", []string{"index-err-9.go"},
+		"index out of bounds")
+}

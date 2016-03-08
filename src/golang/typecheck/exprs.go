@@ -1131,7 +1131,7 @@ func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 
 	// Get the type of the indexed expression.  If the type of the indexed
 	// expression is a pointer, the pointed to type must be an array type.
-	typ := unnamedType(x.X.Type())
+	typ := defaultType(x.X)
 	if ptr, ok := typ.(*ast.PtrType); ok {
 		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
 		if !ok {
@@ -1193,18 +1193,13 @@ func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error)
 		return nil, err
 	}
 
-	// Indexing a constant string with aconstant index is a constant
-	// expression: evaluate it and return the result.
+	// Indexing a constant string with a constant index is NOT a constant
+	// expression, but still have to check the index is within bounds.
 	if c, ok := x.X.(*ast.ConstValue); ok && idxIsConst {
 		s := string(c.Value.(ast.String))
 		if idx >= int64(len(s)) {
 			return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ev.File}
 		}
-		return &ast.ConstValue{
-			Off:   x.Off,
-			Typ:   ast.BuiltinUint8,
-			Value: ast.Int(s[idx]),
-		}, nil
 	}
 
 	return x, nil

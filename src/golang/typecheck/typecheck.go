@@ -41,6 +41,40 @@ func builtinType(typ ast.Type) *ast.BuiltinType {
 	return t
 }
 
+func defaultType(x ast.Expr) ast.Type {
+	t := unnamedType(x.Type())
+	if t != nil {
+		return t
+	}
+
+	// Only untyped constants can have a nil type.
+	c := x.(*ast.ConstValue)
+	switch v := c.Value.(type) {
+	case ast.BuiltinValue:
+		if v == ast.BUILTIN_NIL {
+			return ast.BuiltinNilType
+		} else if v == ast.BUILTIN_IOTA {
+			return ast.BuiltinInt
+		} else {
+			panic("not reached")
+		}
+	case ast.Bool:
+		return ast.BuiltinBool
+	case ast.Rune:
+		return ast.BuiltinInt32
+	case ast.UntypedInt:
+		return ast.BuiltinInt
+	case ast.UntypedFloat:
+		return ast.BuiltinFloat64
+	case ast.UntypedComplex:
+		return ast.BuiltinComplex128
+	case ast.String:
+		return ast.BuiltinString
+	default:
+		panic("not reached")
+	}
+}
+
 func fieldName(f *ast.Field) string {
 	if len(f.Name) > 0 {
 		return f.Name
