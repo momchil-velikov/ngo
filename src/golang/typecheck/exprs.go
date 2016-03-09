@@ -1262,6 +1262,189 @@ func (ev *exprVerifier) checkMapIndexExpr(
 }
 
 func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
+	y, err := ev.checkExpr(x.X)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	if x.Lo == nil {
+		x.Lo = &ast.ConstValue{Off: -1, Typ: ast.BuiltinInt, Value: ast.Int(0)}
+	} else {
+		y, err = ev.checkExpr(x.Lo)
+		if err != nil {
+			return nil, err
+		}
+		x.Lo = y
+	}
+	if x.Hi != nil {
+		y, err = ev.checkExpr(x.Hi)
+		if err != nil {
+			return nil, err
+		}
+		x.Hi = y
+	}
+	if x.Cap != nil {
+		y, err = ev.checkExpr(x.Cap)
+		if err != nil {
+			return nil, err
+		}
+		x.Cap = y
+	}
+
+	typ := defaultType(x.X)
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
+		if !ok {
+			return nil, &BadIndexedType{Off: x.Off, File: ev.File}
+		}
+		typ = b
+
+	}
+
+	switch t := typ.(type) {
+	case *ast.BuiltinType:
+		if t.Kind != ast.BUILTIN_STRING {
+			return nil, &BadIndexedType{Off: x.Off, File: ev.File}
+		}
+		x, err := ev.checkStringSliceExpr(x)
+		return x, err
+	case *ast.ArrayType:
+		return ev.checkArraySliceExpr(x, t)
+	case *ast.SliceType:
+		return ev.checkSliceSliceExpr(x)
+	default:
+		return nil, &BadIndexedType{Off: x.Off, File: ev.File}
+	}
+}
+
+func (ev *exprVerifier) checkStringSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
+	// If the type of the indexed expression is `string``, then the type of
+	// the slice expression is a non-constant string.
+	x.Typ = ast.UniverseScope.Find("string").(*ast.TypeDecl)
+
+	// Check index types
+	var (
+		err                  error
+		lo, hi               int64
+		loIsConst, hiIsConst bool
+	)
+	if x.Lo != nil {
+		lo, loIsConst, err = ev.checkIndexValue(x.Lo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if x.Hi != nil {
+		hi, hiIsConst, err = ev.checkIndexValue(x.Hi)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Check indices are within bounds.
+	if c, ok := x.X.(*ast.ConstValue); ok {
+		s := string(c.Value.(ast.String))
+		n := int64(len(s))
+		if loIsConst && (lo > n || hiIsConst && lo > hi) {
+			return nil, &IndexOutOfBounds{Off: x.Lo.Position(), File: ev.File}
+		}
+		if hiIsConst && hi > n {
+			return nil, &IndexOutOfBounds{Off: x.Hi.Position(), File: ev.File}
+		}
+	}
+	if x.Cap != nil {
+		return nil, &BadSliceExpr{Off: x.Off, File: ev.File}
+	}
+
+	return x, nil
+}
+
+func (ev *exprVerifier) checkArraySliceExpr(
+	x *ast.SliceExpr, t *ast.ArrayType) (ast.Expr, error) {
+
+	// Slicing an array produces a slice of the array element type.
+	x.Typ = &ast.SliceType{Off: t.Off, Elt: t.Elt}
+
+	// Check index types.
+	var (
+		err                              error
+		lo, hi, cap                      int64
+		loIsConst, hiIsConst, capIsConst bool
+	)
+	if x.Lo != nil {
+		lo, loIsConst, err = ev.checkIndexValue(x.Lo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if x.Hi != nil {
+		hi, hiIsConst, err = ev.checkIndexValue(x.Hi)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if x.Cap != nil {
+		cap, capIsConst, err = ev.checkIndexValue(x.Cap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Check indices are within bounds.
+	c, err := ev.checkArrayLength(t)
+	if err != nil {
+		return nil, err
+	}
+	n := int64(c.Value.(ast.Int))
+
+	if loIsConst && (lo > n || hiIsConst && lo > hi || capIsConst && lo > cap) {
+		return nil, &IndexOutOfBounds{Off: x.Lo.Position(), File: ev.File}
+	}
+	if hiIsConst && (hi > n || capIsConst && hi > cap) {
+		return nil, &IndexOutOfBounds{Off: x.Hi.Position(), File: ev.File}
+	}
+	if capIsConst && cap > n {
+		return nil, &IndexOutOfBounds{Off: x.Hi.Position(), File: ev.File}
+	}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkSliceSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
+	// Slicing a slice produces a slice of the same type.
+	x.Typ = x.X.Type()
+
+	// Check index types.
+	var (
+		err                              error
+		lo, hi, cap                      int64
+		loIsConst, hiIsConst, capIsConst bool
+	)
+	if x.Lo != nil {
+		lo, loIsConst, err = ev.checkIndexValue(x.Lo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if x.Hi != nil {
+		hi, hiIsConst, err = ev.checkIndexValue(x.Hi)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if x.Cap != nil {
+		cap, capIsConst, err = ev.checkIndexValue(x.Cap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Check indices are within bounds.
+	if loIsConst && (hiIsConst && lo > hi || capIsConst && lo > cap) {
+		return nil, &IndexOutOfBounds{Off: x.Lo.Position(), File: ev.File}
+	}
+	if hiIsConst && capIsConst && hi > cap {
+		return nil, &IndexOutOfBounds{Off: x.Hi.Position(), File: ev.File}
+	}
 	return x, nil
 }
 

@@ -698,7 +698,21 @@ type BadIndexedType struct {
 
 func (e *BadIndexedType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: type does not support indexing", e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: type does not support indexing or slicing",
+		e.File.Name, ln, col)
+}
+
+// The BadSliceExpr error is returned for a slice expression with capacity
+// operand, where the sliced expression is of a string type.
+type BadSliceExpr struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadSliceExpr) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: string type does not support 3-index slicing",
+		e.File.Name, ln, col)
 }
 
 // The NotInteger error is returned for index expression, where the index is
