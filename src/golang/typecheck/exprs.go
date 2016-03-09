@@ -1186,8 +1186,8 @@ func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
 
 func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	// If the type of the indexed expression is `string``, then the type of
-	// the index expression `byte`.
-	x.Typ = ast.BuiltinUint8
+	// the index expression is `byte`.
+	x.Typ = ast.UniverseScope.Find("byte").(*ast.TypeDecl)
 	idx, idxIsConst, err := ev.checkIndexValue(x.I)
 	if err != nil {
 		return nil, err
