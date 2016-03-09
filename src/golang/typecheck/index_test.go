@@ -12,33 +12,33 @@ func TestIndexExpr(t *testing.T) {
 	}
 
 	ax := p.Find("ax").(*ast.Var)
-	typ := ax.Type
-	if unnamedType(typ) != ast.BuiltinInt8 {
+	d := ax.Type.(*ast.TypeDecl)
+	if d.Name != "int8" || d.Type != ast.BuiltinInt8 {
 		t.Error("the type of `ax` must be `int8`")
 	}
 
 	bx := p.Find("bx").(*ast.Var)
-	typ = bx.Type
-	if unnamedType(typ) != ast.BuiltinInt16 {
-		t.Error("the type of `bx` must be `int16`")
+	d = bx.Type.(*ast.TypeDecl)
+	if d.Name != "I16" || unnamedType(d.Type) != ast.BuiltinInt16 {
+		t.Error("the type of `bx` must be `I16`")
 	}
 
 	cx := p.Find("cx").(*ast.Var)
-	typ = cx.Type
-	if unnamedType(typ) != ast.BuiltinInt32 {
-		t.Error("the type of `bx` must be `int32`")
+	d = cx.Type.(*ast.TypeDecl)
+	if d.Name != "I32" || unnamedType(d.Type) != ast.BuiltinInt32 {
+		t.Error("the type of `cx` must be `I32`")
 	}
 
 	dx := p.Find("dx").(*ast.Var)
-	typ = dx.Type
-	if unnamedType(typ) != ast.BuiltinUint8 {
-		t.Error("the type of `dx` must be `uint8`")
+	d = dx.Type.(*ast.TypeDecl)
+	if d.Name != "byte" || unnamedType(d.Type) != ast.BuiltinUint8 {
+		t.Error("the type of `dx` must be `byte`")
 	}
 
 	ex := p.Find("ex").(*ast.Var)
-	typ = ex.Type
-	if unnamedType(typ) != ast.BuiltinFloat32 {
-		t.Error("the type of `dx` must be `float32`")
+	d = ex.Type.(*ast.TypeDecl)
+	if d.Name != "F32" || unnamedType(d.Type) != ast.BuiltinFloat32 {
+		t.Error("the type of `dx` must be `F32`")
 	}
 }
 
