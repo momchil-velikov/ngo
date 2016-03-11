@@ -1455,17 +1455,113 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 	}
 	x.X = y
 
-	c, ok := y.(*ast.ConstValue)
-	if !ok {
+	switch x.Op {
+	case '+':
+		return ev.checkUnaryPlus(x)
+	case '-':
+		return ev.checkUnaryMinus(x)
+	case '!':
+		return ev.checkNot(x)
+	case '^':
+		return ev.checkComplement(x)
+	case '*':
+		return ev.checkIndirection(x)
+	case '&':
+		return ev.checkAddr(x)
+	case ast.RECV:
+		return ev.checkRecv(x)
+	default:
+		panic("not reached")
+	}
+}
+
+func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr) (ast.Expr, error) {
+	if !isArith(x.X) {
+		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "unary plus"}
+	}
+	if _, ok := x.X.(*ast.ConstValue); ok {
+		return x.X, nil
+	} else {
+		x.Typ = x.X.Type()
 		return x, nil
 	}
-	if x.Op == '-' {
+}
+
+func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr) (ast.Expr, error) {
+	if !isArith(x.X) {
+		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "unary minus"}
+	}
+	if c, ok := x.X.(*ast.ConstValue); ok {
 		v := minus(builtinType(c.Typ), c.Value)
 		if v == nil {
-			return nil, &BadOperand{Off: x.Off, File: ev.File, Op: "unary minus"}
+			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: "unary minus"}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
+	} else {
+		x.Typ = x.X.Type()
+		return x, nil
 	}
+}
+
+func (ev *exprVerifier) checkNot(x *ast.UnaryExpr) (ast.Expr, error) {
+	if x.X.Type() != nil {
+		if t := builtinType(x.X.Type()); t == nil || t.Kind != ast.BUILTIN_BOOL {
+			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "logical not"}
+		}
+	}
+	if c, ok := x.X.(*ast.ConstValue); ok {
+		v, ok := c.Value.(ast.Bool)
+		if !ok {
+			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "logical not"}
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: !v}, nil
+	} else {
+		x.Typ = ast.BuiltinBool
+		return x, nil
+	}
+}
+
+func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr) (ast.Expr, error) {
+	if x.X.Type() != nil {
+		if t := builtinType(x.X.Type()); t == nil || !t.IsInteger() {
+			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "complement"}
+		}
+	}
+	if c, ok := x.X.(*ast.ConstValue); ok {
+		v := complement(builtinType(c.Typ), c.Value)
+		if v == nil {
+			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: "complement"}
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
+	} else {
+		x.Typ = x.X.Type()
+		return x, nil
+	}
+}
+
+func (ev *exprVerifier) checkIndirection(x *ast.UnaryExpr) (ast.Expr, error) {
+	ptr, ok := unnamedType(x.X.Type()).(*ast.PtrType)
+	if !ok {
+		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "indirection"}
+	}
+	x.Typ = ptr.Base
+	return x, nil
+}
+
+func (ev *exprVerifier) checkAddr(x *ast.UnaryExpr) (ast.Expr, error) {
+	if !isAddressable(x.X) {
+		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "address-of"}
+	}
+	x.Typ = &ast.PtrType{Off: x.Off, Base: x.X.Type()}
+	return x, nil
+}
+
+func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr) (ast.Expr, error) {
+	ch, ok := unnamedType(x.X.Type()).(*ast.ChanType)
+	if !ok || !ch.Recv {
+		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "receive"}
+	}
+	x.Typ = &ast.TupleType{Off: x.Off, Type: []ast.Type{ch.Elt, ast.BuiltinBool}}
 	return x, nil
 }
 

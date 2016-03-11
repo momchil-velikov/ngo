@@ -374,6 +374,18 @@ func toInt(c *ast.ConstValue) (int64, bool) {
 	return int64(v.(ast.Int)), true
 }
 
+func toFloat(c *ast.ConstValue) (float64, bool) {
+	src := builtinType(c.Typ)
+	if src == nil && c.Typ != nil {
+		return 0, false
+	}
+	v := convertConst(ast.BuiltinFloat64, src, c.Value)
+	if v == nil {
+		return 0, false
+	}
+	return float64(v.(ast.Float)), true
+}
+
 func minus(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	switch v := val.(type) {
 	case ast.Bool:
@@ -402,5 +414,37 @@ func minus(typ *ast.BuiltinType, val ast.Value) ast.Value {
 		return nil
 	default:
 		panic("not reached")
+	}
+}
+
+func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
+	switch v := val.(type) {
+	case ast.Int:
+		switch typ.Kind {
+		case ast.BUILTIN_INT8:
+			return ast.Int(^int8(v))
+		case ast.BUILTIN_INT16:
+			return ast.Int(^int16(v))
+		case ast.BUILTIN_INT32:
+			return ast.Int(^int32(v))
+		case ast.BUILTIN_INT64, ast.BUILTIN_INT:
+			return ast.Int(^int64(v))
+		case ast.BUILTIN_UINT8:
+			return ast.Int(^uint8(v))
+		case ast.BUILTIN_UINT16:
+			return ast.Int(^uint16(v))
+		case ast.BUILTIN_UINT32:
+			return ast.Int(^uint32(v))
+		case ast.BUILTIN_UINT64, ast.BUILTIN_UINT, ast.BUILTIN_UINTPTR:
+			return ast.Int(^uint64(v))
+		default:
+			panic("not reached")
+		}
+	case ast.UntypedInt:
+		return ast.UntypedInt{Int: new(big.Int).Not(v.Int)}
+	case ast.Rune:
+		return ^v
+	default:
+		return nil
 	}
 }

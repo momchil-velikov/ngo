@@ -547,6 +547,10 @@ func (t *BuiltinType) IsSigned() bool {
 	return BUILTIN_INT8 <= t.Kind && t.Kind <= BUILTIN_INT64 || t.Kind == BUILTIN_INT
 }
 
+func (t *BuiltinType) IsArith() bool {
+	return t.Kind >= BUILTIN_UINT8 && t.Kind <= BUILTIN_UINTPTR
+}
+
 type ArrayType struct {
 	Off int // position of the opening bracket
 	Dim Expr

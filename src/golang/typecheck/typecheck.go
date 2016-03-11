@@ -391,3 +391,53 @@ func findField(str *ast.StructType, name string) *ast.Field {
 	}
 	return nil
 }
+
+// Returns true if the expression X is of an arithmetic type, or an untyped
+// integral or floating point constsnt.
+func isArith(x ast.Expr) bool {
+	typ := x.Type()
+	if typ == nil {
+		switch x.(*ast.ConstValue).Value.(type) {
+		case ast.Bool, ast.String:
+			return false
+		default:
+			return true
+		}
+	}
+	t := builtinType(typ)
+	if t == nil {
+		return false
+	}
+	return t.IsArith()
+}
+
+// Returns true of the expression X is addressable.
+// "... that is, either a variable, pointer indirection, or slice indexing
+// operation; or a field selector of an addressable struct operand; or an
+// array indexing operation of an addressable array. As an exception to the
+// addressability requirement, x may also be a (possibly parenthesized)
+// composite literal."
+// https://golang.org/ref/spec#Address_operators
+func isAddressable(x ast.Expr) bool {
+	_, ok := x.(*ast.CompLiteral)
+	return ok || _isAddressable(x)
+}
+
+func _isAddressable(x ast.Expr) bool {
+	switch x := x.(type) {
+	case *ast.OperandName:
+		_, ok := x.Decl.(*ast.Var)
+		return ok
+	case *ast.UnaryExpr:
+		return x.Op == '*'
+	case *ast.IndexExpr:
+		if _, ok := unnamedType(x.X.Type()).(*ast.SliceType); ok {
+			return true
+		}
+		return _isAddressable(x.X)
+	case *ast.Selector:
+		return _isAddressable(x.X)
+	default:
+		return false
+	}
+}
