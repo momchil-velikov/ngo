@@ -6,6 +6,18 @@ import (
 	"golang/ast"
 )
 
+// The ErrorPos is used to attach a source position to another error.
+type ErrorPos struct {
+	Off  int
+	File *ast.File
+	Err  error
+}
+
+func (e *ErrorPos) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: %s", e.File.Name, ln, col, e.Err.Error())
+}
+
 type BadMapKey struct {
 	Off  int
 	File *ast.File

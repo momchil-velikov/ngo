@@ -1726,10 +1726,14 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Y = y
+	// Evaluate a constant shift expression.
 	if u, ok := x.X.(*ast.ConstValue); ok {
-		if _, ok := x.Y.(*ast.ConstValue); ok {
-			x.Typ = u.Typ
-			return x, nil
+		if s, ok := x.Y.(*ast.ConstValue); ok {
+			v, err := shift(u, s, x.Op == ast.SHL)
+			if err != nil {
+				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+			}
+			return &ast.ConstValue{Off: x.Off, Typ: u.Typ, Value: v}, nil
 		}
 	}
 	// The left operand is not a constant. Retry with a type context.

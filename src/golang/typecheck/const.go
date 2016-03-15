@@ -1,6 +1,7 @@
 package typecheck
 
 import (
+	"errors"
 	"golang/ast"
 	"math"
 	"math/big"
@@ -137,6 +138,8 @@ var (
 	MaxInt64  = big.NewInt(math.MaxInt64)
 	MaxUint64 = new(big.Int).SetUint64(math.MaxUint64)
 )
+
+const MaxShift = 511
 
 func convertUntypedInt(dst *ast.BuiltinType, val ast.UntypedInt) ast.Value {
 	if dst.IsInteger() || dst.Kind == ast.BUILTIN_STRING {
@@ -447,4 +450,86 @@ func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	default:
 		return nil
 	}
+}
+
+func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
+	// Get the shift count in a native uint.
+	var s uint64
+	switch v := y.Value.(type) {
+	case ast.Int:
+		t := builtinType(y.Typ)
+		if t.IsSigned() {
+			return shiftCountMustBeUnsignedInt()
+		}
+		s = uint64(v)
+	case ast.UntypedInt:
+		// The expression verifier converts the untyped shift count to
+		// `uint64`.
+		panic("not reached")
+	default:
+		return shiftCountMustBeUnsignedInt()
+	}
+	if s > MaxShift {
+		return shiftCountTooBig()
+	}
+	// Perform the shift.
+	switch v := x.Value.(type) {
+	case ast.Int:
+		if left {
+			return ast.Int(v << s), nil
+		} else if builtinType(x.Typ).IsSigned() {
+			return ast.Int(int64(v) >> s), nil
+		} else {
+			return ast.Int(v >> s), nil
+		}
+	case ast.UntypedInt:
+		if left {
+			return ast.UntypedInt{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
+		} else {
+			return ast.UntypedInt{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
+		}
+	case ast.UntypedFloat:
+		u, a := v.Int(new(big.Int))
+		if a != big.Exact {
+			return invalidShiftOperand()
+		}
+		if left {
+			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
+		} else {
+			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
+		}
+	case ast.UntypedComplex:
+		if z, a := v.Im.Int64(); a != big.Exact || z != 0 {
+			return invalidShiftOperand()
+		}
+		u, a := v.Re.Int(new(big.Int))
+		if a != big.Exact {
+			return invalidShiftOperand()
+		}
+		if left {
+			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
+		} else {
+			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
+		}
+	case ast.Rune:
+		if left {
+			return ast.Rune(v << s), nil
+		} else {
+			return ast.Rune(v >> s), nil
+		}
+	default:
+		return invalidShiftOperand()
+	}
+}
+
+func shiftCountMustBeUnsignedInt() (ast.Value, error) {
+	return nil, errors.New("shift count must be unsigned integer")
+}
+
+func shiftCountTooBig() (ast.Value, error) {
+	return nil, errors.New("shift count too big")
+}
+
+func invalidShiftOperand() (ast.Value, error) {
+	return nil, errors.New("shifted operand must have integer type")
 }

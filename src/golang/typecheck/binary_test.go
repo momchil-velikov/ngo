@@ -105,4 +105,100 @@ func TestShift(t *testing.T) {
 	if ix.Type() != ast.BuiltinInt {
 		t.Error("in initializer of `N`: cap must have type `int`")
 	}
+
+	// Test constant shifts evaluation.
+	V = p.Find("c0").(*ast.Var)
+	c := V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 2 {
+		t.Error("`c0 should have value 2")
+	}
+
+	V = p.Find("c1").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || int64(v) != -1 {
+		t.Error("`c1` should have value -1")
+	}
+
+	V = p.Find("c2").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("`c2` should have value 1")
+	}
+
+	V = p.Find("c3").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 2 {
+		t.Error("`c3` should have value 2")
+	}
+
+	V = p.Find("c4").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || int64(v) != -1 {
+		t.Error("`c4` should have value -1")
+	}
+
+	V = p.Find("c5").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 2 {
+		t.Error("`c5` should have value 2")
+	}
+
+	V = p.Find("c6").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 3 {
+		t.Error("`c6` should have value 3")
+	}
+
+	V = p.Find("c7").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 0 {
+		t.Error("`c7` should have value 0")
+	}
+
+	V = p.Find("c8").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 0 {
+		t.Error("`c8` should have value 0")
+	}
+
+	V = p.Find("c9").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 194 {
+		t.Error("`c9` should have value 194")
+	}
+
+	V = p.Find("c10").(*ast.Var)
+	c = V.Init.RHS[0].(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 49 {
+		t.Error("`c10` should have value 49")
+	}
+}
+
+func TestShiftErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"shift-err-1.go"},
+		"shift count must be unsigned integer")
+	expectError(t, "_test/src/binary", []string{"shift-err-2.go"},
+		"1.100000 (untyped) cannot be converted to uint64")
+	expectError(t, "_test/src/binary", []string{"shift-err-3.go"},
+		"shift count must be unsigned integer")
+	expectError(t, "_test/src/binary", []string{"shift-err-4.go"},
+		"shift count too big")
+	expectError(t, "_test/src/binary", []string{"shift-err-5.go"},
+		"shifted operand must have integer type")
+	expectError(t, "_test/src/binary", []string{"shift-err-6.go"},
+		"shifted operand must have integer type")
+	expectError(t, "_test/src/binary", []string{"shift-err-7.go"},
+		"shifted operand must have integer type")
+	expectError(t, "_test/src/binary", []string{"shift-err-8.go"},
+		"shifted operand must have integer type")
+	expectError(t, "_test/src/binary", []string{"shift-err-9.go"},
+		"shifted operand must have integer type")
+	expectError(t, "_test/src/binary", []string{"shift-err-10.go"},
+		"invalid operand to shift")
+	expectError(t, "_test/src/binary", []string{"shift-err-11.go"},
+		"invalid operand to shift")
+	expectError(t, "_test/src/binary", []string{"shift-err-12.go"},
+		"shift count must be unsigned and integer")
+	expectError(t, "_test/src/binary", []string{"shift-err-13.go"},
+		"shift count must be unsigned and integer")
 }
