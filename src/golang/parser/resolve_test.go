@@ -2140,6 +2140,9 @@ func TestResolveTypeMultiPackage(t *testing.T) {
 	// Test name not declared in imported package.
 	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err3.go"}, loc, "not declared")
 
+	// Test predeclared names are not found via a qualified id.
+	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err6.go"}, loc, "not exported")
+
 	// Test name declared, but not exported.
 	expectErrorWithLoc(t, "_test/pkg/src/d", []string{"err4.go"}, loc, "not exported")
 
