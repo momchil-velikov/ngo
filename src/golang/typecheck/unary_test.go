@@ -49,7 +49,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cB := p.Find("cB").(*ast.Const)
 	c = cB.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "int" {
+	if c.Typ == nil || c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
 	if v, ok := toInt(c); !ok || v != 1 {
@@ -58,7 +58,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cD := p.Find("cD").(*ast.Const)
 	c = cD.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "rune" {
+	if c.Typ == nil || c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
 	if v, ok := toInt(c); !ok || v != 'a' {
@@ -67,7 +67,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cF := p.Find("cF").(*ast.Const)
 	c = cF.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "float32" {
+	if c.Typ == nil || c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
 	if v, ok := toFloat(c); !ok || v != 1.125 {
@@ -77,20 +77,17 @@ func TestUnaryPlus(t *testing.T) {
 	// FIXME: check complex constants
 
 	vB := p.Find("vB").(*ast.Var)
-	typ := vB.Type.(*ast.TypeDecl)
-	if typ.Name != "int" {
+	if vB.Type != ast.BuiltinInt {
 		t.Error("`vB` should have type `int`")
 	}
 
 	vD := p.Find("vD").(*ast.Var)
-	typ = vD.Type.(*ast.TypeDecl)
-	if typ.Name != "rune" {
+	if vD.Type != ast.BuiltinInt32 {
 		t.Error("`vD` should have type `rune`")
 	}
 
 	vF := p.Find("vF").(*ast.Var)
-	typ = vF.Type.(*ast.TypeDecl)
-	if typ.Name != "float64" {
+	if vF.Type != ast.BuiltinFloat64 {
 		t.Error("`vF` should have type `float64`")
 	}
 }
@@ -144,7 +141,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cB := p.Find("cB").(*ast.Const)
 	c = cB.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "int" {
+	if c.Typ == nil || c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
 	if v, ok := toInt(c); !ok || v != -1 {
@@ -153,7 +150,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cD := p.Find("cD").(*ast.Const)
 	c = cD.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "rune" {
+	if c.Typ == nil || c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
 	if v, ok := toInt(c); !ok || v != -97 {
@@ -162,7 +159,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cF := p.Find("cF").(*ast.Const)
 	c = cF.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ.(*ast.TypeDecl).Name != "float32" {
+	if c.Typ == nil || c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
 	if v, ok := toFloat(c); !ok || v != -1.125 {
@@ -172,26 +169,22 @@ func TestUnaryMinus(t *testing.T) {
 	// FIXME: check complex constants
 
 	vB := p.Find("vB").(*ast.Var)
-	typ := vB.Type.(*ast.TypeDecl)
-	if typ.Name != "int" {
+	if vB.Type != ast.BuiltinInt {
 		t.Error("`vB` should have type `int`")
 	}
 
 	vD := p.Find("vD").(*ast.Var)
-	typ = vD.Type.(*ast.TypeDecl)
-	if typ.Name != "rune" {
+	if vD.Type != ast.BuiltinInt32 {
 		t.Error("`vD` should have type `rune`")
 	}
 
 	vF := p.Find("vF").(*ast.Var)
-	typ = vF.Type.(*ast.TypeDecl)
-	if typ.Name != "float64" {
+	if vF.Type != ast.BuiltinFloat64 {
 		t.Error("`vF` should have type `float64`")
 	}
 
 	v := p.Find("v").(*ast.Var)
-	typ = v.Type.(*ast.TypeDecl)
-	if typ.Name != "uint" {
+	if v.Type != ast.BuiltinUint {
 		t.Error("`v` should have type `uint`")
 	}
 }
@@ -275,7 +268,7 @@ func TestCompl(t *testing.T) {
 
 	cu8 := p.Find("cu8").(*ast.Const)
 	c = cu8.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uint8" {
+	if c.Typ != ast.BuiltinUint8 {
 		t.Error("`cu8` should have type `uint8`")
 	}
 	if v, ok := toInt(c); !ok || v != 0xfe {
@@ -284,7 +277,7 @@ func TestCompl(t *testing.T) {
 
 	cu16 := p.Find("cu16").(*ast.Const)
 	c = cu16.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uint16" {
+	if c.Typ != ast.BuiltinUint16 {
 		t.Error("`cu16` should have type `uint16`")
 	}
 	if v, ok := toInt(c); !ok || v != 0xfffe {
@@ -293,7 +286,7 @@ func TestCompl(t *testing.T) {
 
 	cu32 := p.Find("cu32").(*ast.Const)
 	c = cu32.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uint32" {
+	if c.Typ != ast.BuiltinUint32 {
 		t.Error("`cu32` should have type `uint32`")
 	}
 	if v, ok := toInt(c); !ok || v != 0xfffffffe {
@@ -302,7 +295,7 @@ func TestCompl(t *testing.T) {
 
 	cu64 := p.Find("cu64").(*ast.Const)
 	c = cu64.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uint64" {
+	if c.Typ != ast.BuiltinUint64 {
 		t.Error("`cu64` should have type `uint64`")
 	}
 	if v := uint64(c.Value.(ast.Int)); v != 0xfffffffffffffffe {
@@ -311,7 +304,7 @@ func TestCompl(t *testing.T) {
 
 	cu := p.Find("cu").(*ast.Const)
 	c = cu.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uint" {
+	if c.Typ != ast.BuiltinUint {
 		t.Error("`cu` should have type `uint`")
 	}
 	if v := uint64(c.Value.(ast.Int)); v != 0xfffffffffffffffe {
@@ -320,7 +313,7 @@ func TestCompl(t *testing.T) {
 
 	cp := p.Find("cp").(*ast.Const)
 	c = cp.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "uintptr" {
+	if c.Typ != ast.BuiltinUintptr {
 		t.Error("`cp` should have type `uintptr`")
 	}
 	if v := uint64(c.Value.(ast.Int)); v != 0xfffffffffffffffe {
@@ -329,7 +322,7 @@ func TestCompl(t *testing.T) {
 
 	ci8 := p.Find("ci8").(*ast.Const)
 	c = ci8.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "int8" {
+	if c.Typ != ast.BuiltinInt8 {
 		t.Error("`ci8` should have type `int8`")
 	}
 	if v, ok := toInt(c); !ok || v != -2 {
@@ -338,7 +331,7 @@ func TestCompl(t *testing.T) {
 
 	ci16 := p.Find("ci16").(*ast.Const)
 	c = ci16.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "int16" {
+	if c.Typ != ast.BuiltinInt16 {
 		t.Error("`ci16` should have type `int16`")
 	}
 	if v, ok := toInt(c); !ok || v != -2 {
@@ -347,7 +340,7 @@ func TestCompl(t *testing.T) {
 
 	ci32 := p.Find("ci32").(*ast.Const)
 	c = ci32.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "int32" {
+	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`ci32` should have type `int32`")
 	}
 	if v, ok := toInt(c); !ok || v != -2 {
@@ -356,7 +349,7 @@ func TestCompl(t *testing.T) {
 
 	ci64 := p.Find("ci64").(*ast.Const)
 	c = ci64.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "int64" {
+	if c.Typ != ast.BuiltinInt64 {
 		t.Error("`ci64` should have type `int64`")
 	}
 	if v, ok := toInt(c); !ok || v != -2 {
@@ -365,7 +358,7 @@ func TestCompl(t *testing.T) {
 
 	ci := p.Find("ci").(*ast.Const)
 	c = ci.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "int" {
+	if c.Typ != ast.BuiltinInt {
 		t.Error("`ci` should have type `int`")
 	}
 	if v, ok := toInt(c); !ok || v != -2 {
@@ -386,7 +379,7 @@ func TestCompl(t *testing.T) {
 
 	cr1 := p.Find("cr1").(*ast.Const)
 	c = cr1.Init.(*ast.ConstValue)
-	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "rune" {
+	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cr1` should have type `rune`")
 	}
 	if v, ok := toInt(c); !ok || v != -98 {
@@ -430,7 +423,6 @@ func TestAddr(t *testing.T) {
 
 	T := p.Find("T").(*ast.TypeDecl)
 	S := p.Find("S").(*ast.TypeDecl)
-	intT := ast.UniverseScope.Find("int").(*ast.TypeDecl)
 
 	B := p.Find("B").(*ast.Var)
 	if ptr, ok := B.Type.(*ast.PtrType); !ok || ptr.Base != T {
@@ -448,7 +440,7 @@ func TestAddr(t *testing.T) {
 	}
 
 	F := p.Find("F").(*ast.Var)
-	if ptr, ok := F.Type.(*ast.PtrType); !ok || ptr.Base != intT {
+	if ptr, ok := F.Type.(*ast.PtrType); !ok || ptr.Base != ast.BuiltinInt {
 		t.Error("`F` should have type `*int`")
 	}
 
@@ -458,7 +450,7 @@ func TestAddr(t *testing.T) {
 	}
 
 	I := p.Find("I").(*ast.Var)
-	if ptr, ok := I.Type.(*ast.PtrType); !ok || ptr.Base != intT {
+	if ptr, ok := I.Type.(*ast.PtrType); !ok || ptr.Base != ast.BuiltinInt {
 		t.Error("`I` should have type `*int`")
 	}
 

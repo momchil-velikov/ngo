@@ -12,13 +12,12 @@ func TestIndexExpr(t *testing.T) {
 	}
 
 	ax := p.Find("ax").(*ast.Var)
-	d := ax.Type.(*ast.TypeDecl)
-	if d.Name != "int8" || d.Type != ast.BuiltinInt8 {
+	if ax.Type != ast.BuiltinInt8 {
 		t.Error("the type of `ax` must be `int8`")
 	}
 
 	bx := p.Find("bx").(*ast.Var)
-	d = bx.Type.(*ast.TypeDecl)
+	d := bx.Type.(*ast.TypeDecl)
 	if d.Name != "I16" || unnamedType(d.Type) != ast.BuiltinInt16 {
 		t.Error("the type of `bx` must be `I16`")
 	}
@@ -30,8 +29,7 @@ func TestIndexExpr(t *testing.T) {
 	}
 
 	dx := p.Find("dx").(*ast.Var)
-	d = dx.Type.(*ast.TypeDecl)
-	if d.Name != "byte" || unnamedType(d.Type) != ast.BuiltinUint8 {
+	if dx.Type != ast.BuiltinUint8 {
 		t.Error("the type of `dx` must be `byte`")
 	}
 

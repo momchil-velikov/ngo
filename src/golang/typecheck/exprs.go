@@ -1187,7 +1187,7 @@ func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
 func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	// If the type of the indexed expression is `string``, then the type of
 	// the index expression is `byte`.
-	x.Typ = ast.UniverseScope.Find("byte").(*ast.TypeDecl)
+	x.Typ = ast.BuiltinUint8
 	idx, idxIsConst, err := ev.checkIndexValue(x.I)
 	if err != nil {
 		return nil, err
@@ -1320,7 +1320,7 @@ func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 func (ev *exprVerifier) checkStringSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 	// If the type of the indexed expression is `string``, then the type of
 	// the slice expression is a non-constant string.
-	x.Typ = ast.UniverseScope.Find("string").(*ast.TypeDecl)
+	x.Typ = ast.BuiltinString
 
 	// Check index types
 	var (

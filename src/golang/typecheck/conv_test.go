@@ -42,7 +42,7 @@ func TestConvBool(t *testing.T) {
 		t.Fatal("initializer of `B` is not a ConstValue")
 	}
 	b, ok = c.Value.(ast.Bool)
-	if !ok || c.Typ.(*ast.TypeDecl).Type != ast.BuiltinBool || !bool(b) {
+	if !ok || c.Typ != ast.BuiltinBool || !bool(b) {
 		t.Fatal("expected typed boolean value `true` after evaluation of `B`")
 	}
 }
@@ -106,10 +106,18 @@ func TestConvInt(t *testing.T) {
 	} {
 		n := p.Find(c.name).(*ast.Const)
 		x := n.Init.(*ast.ConstValue)
-		typ := x.Typ.(*ast.TypeDecl).Name
 
-		if typ != c.typ {
-			t.Errorf("unexpected type `%s` for `%s`\n", typ, n.Name)
+		var name string
+		if typ, ok := x.Typ.(*ast.BuiltinType); ok {
+			name = builtinTypeToString(typ)
+		} else if typ, ok := x.Typ.(*ast.TypeDecl); ok {
+			name = typ.Name
+		} else {
+			t.Fatalf("underlying type of %s is not a builtin type", n.Name)
+		}
+
+		if name != c.typ {
+			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
 		s := valueToString(builtinType(x.Typ), x.Value)
 		if s != c.val {
@@ -203,10 +211,18 @@ func TestConvFloat(t *testing.T) {
 	} {
 		n := p.Find(c.name).(*ast.Const)
 		x := n.Init.(*ast.ConstValue)
-		typ := x.Typ.(*ast.TypeDecl).Name
 
-		if typ != c.typ {
-			t.Errorf("unexpected type `%s` for `%s`\n", typ, n.Name)
+		var name string
+		if typ, ok := x.Typ.(*ast.BuiltinType); ok {
+			name = builtinTypeToString(typ)
+		} else if typ, ok := x.Typ.(*ast.TypeDecl); ok {
+			name = typ.Name
+		} else {
+			t.Fatalf("underlying type of %s is not a builtin type", n.Name)
+		}
+
+		if name != c.typ {
+			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
 		s := valueToString(builtinType(x.Typ), x.Value)
 		if s != c.val {

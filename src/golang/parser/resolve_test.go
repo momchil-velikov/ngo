@@ -58,26 +58,29 @@ func TestResolveTypeUniverse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases := []struct{ decl, ref, file string }{
-		{"a", "bool", "a.go"},
-		{"b", "byte", "a.go"},
-		{"c", "uint8", "a.go"},
-		{"d", "uint16", "a.go"},
-		{"e", "uint32", "a.go"},
-		{"f", "uint64", "a.go"},
-		{"g", "int8", "a.go"},
-		{"h", "int16", "a.go"},
-		{"i", "rune", "a.go"},
-		{"j", "int32", "a.go"},
-		{"k", "int64", "a.go"},
-		{"l", "float32", "b.go"},
-		{"m", "float64", "b.go"},
-		{"n", "complex64", "b.go"},
-		{"o", "complex128", "b.go"},
-		{"p", "uint", "b.go"},
-		{"q", "int", "b.go"},
-		{"r", "uintptr", "b.go"},
-		{"s", "string", "b.go"},
+	cases := []struct {
+		decl, ref, file string
+		typ             ast.Type
+	}{
+		{"a", "bool", "a.go", ast.BuiltinBool},
+		{"b", "byte", "a.go", ast.BuiltinUint8},
+		{"c", "uint8", "a.go", ast.BuiltinUint8},
+		{"d", "uint16", "a.go", ast.BuiltinUint16},
+		{"e", "uint32", "a.go", ast.BuiltinUint32},
+		{"f", "uint64", "a.go", ast.BuiltinUint64},
+		{"g", "int8", "a.go", ast.BuiltinInt8},
+		{"h", "int16", "a.go", ast.BuiltinInt16},
+		{"i", "rune", "a.go", ast.BuiltinInt32},
+		{"j", "int32", "a.go", ast.BuiltinInt32},
+		{"k", "int64", "a.go", ast.BuiltinInt64},
+		{"l", "float32", "b.go", ast.BuiltinFloat32},
+		{"m", "float64", "b.go", ast.BuiltinFloat64},
+		{"n", "complex64", "b.go", ast.BuiltinComplex64},
+		{"o", "complex128", "b.go", ast.BuiltinComplex128},
+		{"p", "uint", "b.go", ast.BuiltinUint},
+		{"q", "int", "b.go", ast.BuiltinInt},
+		{"r", "uintptr", "b.go", ast.BuiltinUintptr},
+		{"s", "string", "b.go", ast.BuiltinString},
 	}
 	for _, cs := range cases {
 		// Test type is declared at package scope.
@@ -99,21 +102,13 @@ func TestResolveTypeUniverse(t *testing.T) {
 		if file == nil || filepath.Base(file.Name) != cs.file {
 			t.Errorf("type '%s' must be declared in file `%s`", cs.decl, cs.file)
 		}
-		// Test type declaration refers to the respective typename at universe
-		// scope.
-		dcl, ok = dcl.Type.(*ast.TypeDecl)
+		// Test type declaration refers to the respective builtin type literals.
+		typ, ok := dcl.Type.(*ast.BuiltinType)
 		if !ok {
-			t.Fatalf("declaration of `%s` does not refer to a typename\n", cs.decl)
+			t.Fatalf("declaration of `%s` does not refer to a builtin type\n", cs.decl)
 		}
-		if dcl != ast.UniverseScope.Find(cs.ref) {
-			if dcl == nil {
-				t.Errorf("`%s` refers to an invalid Typename\n", cs.decl)
-			} else {
-				t.Errorf(
-					"`%s` expected to refer to `%s`, refers to `%s` instead\n",
-					cs.decl, cs.ref, dcl.Name,
-				)
-			}
+		if typ != cs.typ {
+			t.Errorf("`%s` refers to an invalid builtin type: %d\n", cs.decl, typ.Kind)
 		}
 	}
 }
@@ -190,11 +185,7 @@ func TestResolveTypeBlockScope(t *testing.T) {
 	if sym == nil || tdA == nil {
 		t.Fatal("type declaration `A` not found at `F`s scope")
 	}
-	dcl, ok := tdA.Type.(*ast.TypeDecl)
-	if !ok {
-		t.Fatal("declaration of `A` does not refer to a typename")
-	}
-	if dcl != ast.UniverseScope.Find("int") {
+	if tdA.Type != ast.BuiltinInt {
 		t.Error("declaration of `A` does not refer to predeclared `int`")
 	}
 
@@ -203,7 +194,7 @@ func TestResolveTypeBlockScope(t *testing.T) {
 	if sym == nil || tdAA == nil {
 		t.Fatal("type declaration `AA` not found at `F`s scope")
 	}
-	dcl, ok = tdAA.Type.(*ast.TypeDecl)
+	dcl, ok := tdAA.Type.(*ast.TypeDecl)
 	if !ok {
 		t.Fatal("declaration of `AA` does not refer to a typename")
 	}
@@ -216,11 +207,7 @@ func TestResolveTypeBlockScope(t *testing.T) {
 	if tdB == nil {
 		t.Fatal("type declaration `B` not found in a nested block in `F`")
 	}
-	dcl, ok = tdB.Type.(*ast.TypeDecl)
-	if !ok {
-		t.Fatal("declaration of `B` does not refer to a typename")
-	}
-	if dcl != ast.UniverseScope.Find("int") {
+	if tdB.Type != ast.BuiltinInt {
 		t.Error("declaration of `B` does not refer to predeclared `int`")
 	}
 
@@ -436,8 +423,8 @@ func TestResolveExprComposite(t *testing.T) {
 
 	C := p.Find("C").(*ast.Var)
 	x := C.Init.RHS[0].(*ast.CompLiteral)
-	elt := x.Typ.(*ast.SliceType).Elt.(*ast.TypeDecl)
-	if elt != ast.UniverseScope.Find("int") {
+	elt := x.Typ.(*ast.SliceType).Elt
+	if elt != ast.BuiltinInt {
 		t.Error("`C`s initializer type must be `[]int`")
 	}
 	if op, ok := x.Elts[0].Elt.(*ast.OperandName); !ok || op.Decl != A {
@@ -841,7 +828,7 @@ func testVarDecl(t *testing.T, Fn *ast.FuncDecl, v map[string]*ast.Var) {
 	}
 
 	// Check A and B have type `int`.
-	int := ast.UniverseScope.Find("int").(*ast.TypeDecl)
+	int := ast.BuiltinInt
 	if v["A"].Type != int {
 		t.Error("`A` type is not the predeclared `int`")
 	}
@@ -1007,7 +994,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if typ == nil {
 		t.Error("`B` must have a type")
 	}
-	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinInt {
+	if typ != ast.BuiltinInt {
 		t.Error("`B` must have type `int`")
 	}
 
@@ -1046,7 +1033,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if typ == nil {
 		t.Error("`E` must have a type")
 	}
-	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinString {
+	if typ != ast.BuiltinString {
 		t.Error("`E` must have type `string`")
 	}
 
@@ -1061,7 +1048,7 @@ func testConstDecl(t *testing.T, c map[string]*ast.Const) {
 	if typ == nil {
 		t.Error("`F` must have a type")
 	}
-	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinString {
+	if typ != ast.BuiltinString {
 		t.Error("`F` must have type `string`")
 	}
 }
@@ -1130,7 +1117,7 @@ func testConstDeclGroup(t *testing.T, c map[string]*ast.Const) {
 	if typ == nil {
 		t.Error("`C` must have a type")
 	}
-	if td, ok := typ.(*ast.TypeDecl); !ok || td.Type != ast.BuiltinInt {
+	if typ != ast.BuiltinInt {
 		t.Error("`C` must have type `int`")
 	}
 	if c["C"].Iota != 2 {
@@ -1801,8 +1788,8 @@ func TestResolveStmtTypeSwitch(t *testing.T) {
 	if s.X.(*ast.OperandName).Decl != x {
 		t.Error("st#1: expression in type switch refer to function local `x`")
 	}
-	typ := s.Cases[0].Types[0].(*ast.TypeDecl)
-	if typ.Type != ast.BuiltinInt {
+	typ := s.Cases[0].Types[0]
+	if typ != ast.BuiltinInt {
 		t.Error("st#1: type in case clause must resolve to builtin `int`")
 	}
 	a := s.Cases[0].Blk.Body[0].(*ast.ExprStmt).X.(*ast.BinaryExpr)
@@ -2460,7 +2447,7 @@ func TestResolveMethodDecl(t *testing.T) {
 	expectError(t, "_test/methods/src/err", []string{"bad-type-1.go"},
 		"invalid receiver type (is an unnamed type)")
 	expectError(t, "_test/methods/src/err", []string{"bad-type-2.go"},
-		"type and method must be declared in the same package")
+		"invalid receiver type (is an unnamed type)")
 
 	pkgA, err := compilePackage("_test/methods/src/err/a", []string{"bad-type-3.go"}, nil)
 	if err != nil {

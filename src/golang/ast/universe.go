@@ -23,10 +23,10 @@ var (
 	BuiltinUintptr    *BuiltinType
 	BuiltinString     *BuiltinType
 
-	BuiltinNil   Expr
-	BuiltinTrue  Expr
-	BuiltinFalse Expr
-	BuiltinIota  Expr
+	BuiltinNil   *ConstValue
+	BuiltinTrue  *ConstValue
+	BuiltinFalse *ConstValue
+	BuiltinIota  *ConstValue
 
 	BuiltinAppend  *FuncDecl
 	BuiltinCap     *FuncDecl

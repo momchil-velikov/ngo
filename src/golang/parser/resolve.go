@@ -526,7 +526,11 @@ func (r *resolver) VisitTypeName(t *ast.QualifiedId) (ast.Type, error) {
 	if !ok {
 		return nil, errors.New(t.Id + " is not a typename")
 	}
-	return td, nil
+	if td.File == nil {
+		return td.Type, nil
+	} else {
+		return td, nil
+	}
 }
 
 func (*resolver) VisitTypeDeclType(*ast.TypeDecl) (ast.Type, error) {
@@ -716,7 +720,12 @@ func (r *resolver) isType(x ast.Expr) (ast.Type, error) {
 			if d := r.scope.Lookup(x.Id); d == nil {
 				return nil, errors.New(x.Id + " not declared")
 			} else if d, ok := d.(*ast.TypeDecl); ok {
-				return d, nil
+				// For predeclared typenames, return directly the builtin type.
+				if d.File == nil {
+					return d.Type, nil
+				} else {
+					return d, nil
+				}
 			}
 		}
 	case *ast.UnaryExpr:
@@ -783,8 +792,8 @@ func (r *resolver) declareLHS(xs ...ast.Expr) error {
 }
 
 // Resolves an expression on the left-hand size of an assignment statement or
-// a short variable declaration.  Replaces occurences blank QualifiedId with
-// `ast.Blank`.
+// a short variable declaration.  Replaces occurences of blank QualifiedId
+// with `ast.Blank`.
 func (r *resolver) resolveLHS(x ast.Expr) (ast.Expr, error) {
 	if x == nil {
 		return nil, nil
@@ -1020,7 +1029,13 @@ func (r *resolver) VisitQualifiedId(x *ast.QualifiedId) (ast.Expr, error) {
 			} else {
 				return &ast.OperandName{Off: x.Off, Decl: d}, nil
 			}
-		} else if t, ok := d.(*ast.TypeDecl); ok {
+		} else if typ, ok := d.(*ast.TypeDecl); ok {
+			var t ast.Type
+			if typ.File != nil {
+				t = typ
+			} else {
+				t = typ.Type
+			}
 			return &ast.MethodExpr{Off: x.Off, RTyp: t, Id: x.Id}, nil
 		} else {
 			return &ast.Selector{

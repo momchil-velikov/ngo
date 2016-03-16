@@ -12,19 +12,17 @@ func TestSliceExpr(t *testing.T) {
 	}
 
 	b := p.Find("b").(*ast.Var)
-	d := b.Type.(*ast.TypeDecl)
-	if d.Name != "string" {
+	if b.Type != ast.BuiltinString {
 		t.Error("`b` must have type `string`")
 	}
 	e := p.Find("e").(*ast.Var)
-	d = e.Type.(*ast.TypeDecl)
-	if d.Name != "string" {
+	if e.Type != ast.BuiltinString {
 		t.Error("`e` must have type `string`")
 	}
 
 	f := p.Find("f").(*ast.Var)
 	typ := f.Type.(*ast.SliceType)
-	d = typ.Elt.(*ast.TypeDecl)
+	d := typ.Elt.(*ast.TypeDecl)
 	if d.Name != "Int" {
 		t.Error("`f` must have type `[]Int`")
 	}
