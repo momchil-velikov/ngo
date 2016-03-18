@@ -22,6 +22,7 @@ var (
 	BuiltinInt        *BuiltinType
 	BuiltinUintptr    *BuiltinType
 	BuiltinString     *BuiltinType
+	BuiltinDefault    *BuiltinType
 
 	BuiltinNil   *ConstValue
 	BuiltinTrue  *ConstValue
@@ -65,6 +66,7 @@ func init() {
 	BuiltinInt = &BuiltinType{BUILTIN_INT}
 	BuiltinUintptr = &BuiltinType{BUILTIN_UINTPTR}
 	BuiltinString = &BuiltinType{BUILTIN_STRING}
+	BuiltinDefault = &BuiltinType{BUILTIN_DEFAULT}
 
 	UniverseScope = &_UniverseScope{dcl: make(map[string]Symbol)}
 	for _, c := range []struct {

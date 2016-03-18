@@ -530,6 +530,8 @@ const (
 	BUILTIN_INT
 	BUILTIN_UINTPTR
 	BUILTIN_STRING
+
+	BUILTIN_DEFAULT
 )
 
 type BuiltinType struct {

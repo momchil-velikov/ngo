@@ -726,3 +726,17 @@ func (e *NotInteger) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: index must be of integer type", e.File.Name, ln, col)
 }
+
+// The BadShiftCount error is returned when the right operand of a shift
+// expression is neither of an unsigned integer type nor an untyped constat,
+// which can be converted to an unsined integer type.
+type BadShiftCount struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadShiftCount) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: shift count must be unsigned and integer",
+		e.File.Name, ln, col)
+}

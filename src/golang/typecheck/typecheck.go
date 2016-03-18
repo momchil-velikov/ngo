@@ -411,6 +411,25 @@ func isArith(x ast.Expr) bool {
 	return t.IsArith()
 }
 
+// Returns true if the expression X as an non-arithmetic untyped constant or
+// of a known, non-arithmwetic type.
+func definitelyNotArith(x ast.Expr) bool {
+	typ := x.Type()
+	if typ == nil {
+		switch x.(*ast.ConstValue).Value.(type) {
+		case ast.Bool, ast.String:
+			return true
+		default:
+			return false
+		}
+	}
+	t := builtinType(typ)
+	if t == nil {
+		return false
+	}
+	return !t.IsArith()
+}
+
 // Returns true of the expression X is addressable.
 // "... that is, either a variable, pointer indirection, or slice indexing
 // operation; or a field selector of an addressable struct operand; or an
