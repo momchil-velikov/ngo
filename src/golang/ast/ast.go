@@ -365,9 +365,12 @@ type UntypedInt struct {
 
 type Int uint64
 
+const UNTYPED_FLOAT_PRECISION = 256
+
 type UntypedFloat struct {
 	*big.Float
 }
+
 type Float float64
 
 type UntypedComplex struct {

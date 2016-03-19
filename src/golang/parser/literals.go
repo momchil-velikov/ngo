@@ -192,7 +192,8 @@ func readDecInt(b []byte) *big.Int {
 // constant. The literal value must have been obtained from and checked for
 // correctness by the scanner.
 func Float(b []byte) (ast.UntypedFloat, error) {
-	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
+	x, _, err :=
+		big.ParseFloat(string(b), 0, ast.UNTYPED_FLOAT_PRECISION, big.ToNearestEven)
 	return ast.UntypedFloat{Float: x}, err
 }
 
@@ -200,6 +201,7 @@ func Float(b []byte) (ast.UntypedFloat, error) {
 // point constant. The literal value must have been obtained from and checked
 // for correctness by the scanner.
 func Imaginary(b []byte) (ast.UntypedComplex, error) {
-	x, _, err := big.ParseFloat(string(b), 0, 256, big.ToNearestEven)
+	x, _, err :=
+		big.ParseFloat(string(b), 0, ast.UNTYPED_FLOAT_PRECISION, big.ToNearestEven)
 	return ast.UntypedComplex{Re: big.NewFloat(0.0), Im: x}, err
 }
