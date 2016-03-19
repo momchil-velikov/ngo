@@ -40,7 +40,7 @@ func TestString(t *testing.T) {
 
 func TestRune(t *testing.T) {
 	r := Rune([]byte("め"))
-	if rune(r) != 'め' {
+	if r.Int64() != 'め' {
 		t.Error("rune decode error")
 	}
 }

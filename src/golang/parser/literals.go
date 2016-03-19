@@ -146,7 +146,7 @@ func readRawString(lit []byte) string {
 // the scanner.
 func Rune(b []byte) ast.Rune {
 	r, _ := utf8.DecodeRune(b)
-	return ast.Rune(r)
+	return ast.Rune{Int: big.NewInt(int64(r))}
 }
 
 var bigDigit = [...]*big.Int{

@@ -141,22 +141,21 @@ var (
 
 const MaxShift = 511
 
-func convertUntypedInt(dst *ast.BuiltinType, val ast.UntypedInt) ast.Value {
+func convertUntypedInt(dst *ast.BuiltinType, val *big.Int) ast.Value {
 	if dst.IsInteger() || dst.Kind == ast.BUILTIN_STRING {
 		// If the destination type is integral, a successful conversion it not
 		// possible if the untyped constant is outside the range of (u)int64.
-		i := val.Int
-		if i.Cmp(MinInt64) < 0 || i.Cmp(MaxUint64) > 0 {
+		if val.Cmp(MinInt64) < 0 || val.Cmp(MaxUint64) > 0 {
 			if dst.Kind == ast.BUILTIN_STRING {
 				return ast.String(0xfffd)
 			} else {
 				return nil
 			}
 		}
-		if i.Sign() < 0 {
-			return convertInt(dst, ast.BuiltinInt64, uint64(i.Int64()))
+		if val.Sign() < 0 {
+			return convertInt(dst, ast.BuiltinInt64, uint64(val.Int64()))
 		} else {
-			return convertInt(dst, ast.BuiltinUint64, i.Uint64())
+			return convertInt(dst, ast.BuiltinUint64, val.Uint64())
 		}
 	}
 	switch dst.Kind {
@@ -165,7 +164,7 @@ func convertUntypedInt(dst *ast.BuiltinType, val ast.UntypedInt) ast.Value {
 	case ast.BUILTIN_COMPLEX64:
 		fallthrough
 	case ast.BUILTIN_FLOAT32:
-		f := new(big.Float).SetInt(val.Int)
+		f := new(big.Float).SetInt(val)
 		f32, _ := f.Float32()
 		if math.IsInf(float64(f32), 0) {
 			return nil
@@ -178,7 +177,7 @@ func convertUntypedInt(dst *ast.BuiltinType, val ast.UntypedInt) ast.Value {
 	case ast.BUILTIN_COMPLEX128:
 		fallthrough
 	case ast.BUILTIN_FLOAT64:
-		f := new(big.Float).SetInt(val.Int)
+		f := new(big.Float).SetInt(val)
 		f64, _ := f.Float64()
 		if math.IsInf(f64, 0) {
 			return nil
@@ -314,16 +313,16 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 	case ast.Bool:
 		res = convertBool(dst, v)
 	case ast.Rune:
-		res = convertInt(dst, ast.BuiltinInt32, uint64(v))
+		res = convertUntypedInt(dst, v.Int)
 	case ast.UntypedInt:
-		res = convertUntypedInt(dst, v)
+		res = convertUntypedInt(dst, v.Int)
 	case ast.Int:
 		res = convertInt(dst, src, uint64(v))
 	case ast.UntypedFloat:
 		if dst.IsInteger() {
 			if v.IsInt() {
 				i, _ := v.Int(nil)
-				res = convertUntypedInt(dst, ast.UntypedInt{Int: i})
+				res = convertUntypedInt(dst, i)
 			}
 		} else {
 			x, _ := v.Float64()
@@ -337,7 +336,7 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 		if dst.IsInteger() {
 			if v.Re.IsInt() && v.Im.Sign() == 0 {
 				i, _ := v.Re.Int(nil)
-				res = convertUntypedInt(dst, ast.UntypedInt{Int: i})
+				res = convertUntypedInt(dst, i)
 			} else {
 				res = nil
 			}
@@ -394,7 +393,7 @@ func minus(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	case ast.Bool:
 		return nil
 	case ast.Rune:
-		return ast.Rune(-int32(v))
+		return ast.Rune{Int: new(big.Int).Neg(v.Int)}
 	case ast.UntypedInt:
 		return ast.UntypedInt{Int: new(big.Int).Neg(v.Int)}
 	case ast.Int:
@@ -446,7 +445,7 @@ func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	case ast.UntypedInt:
 		return ast.UntypedInt{Int: new(big.Int).Not(v.Int)}
 	case ast.Rune:
-		return ^v
+		return ast.Rune{Int: new(big.Int).Not(v.Int)}
 	default:
 		return nil
 	}
@@ -513,9 +512,9 @@ func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
 		}
 	case ast.Rune:
 		if left {
-			return ast.Rune(v << s), nil
+			return ast.Rune{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
 		} else {
-			return ast.Rune(v >> s), nil
+			return ast.Rune{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
 		}
 	default:
 		return invalidShiftOperand()

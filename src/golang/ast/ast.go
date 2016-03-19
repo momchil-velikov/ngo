@@ -355,7 +355,9 @@ type BuiltinValue uint
 
 type Bool bool
 
-type Rune rune
+type Rune struct {
+	*big.Int
+}
 
 type UntypedInt struct {
 	*big.Int

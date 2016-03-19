@@ -587,7 +587,7 @@ func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 			ctx.WriteString("false")
 		}
 	case Rune:
-		ctx.WriteString(fmt.Sprintf("'%c'", rune(v)))
+		ctx.WriteString(fmt.Sprintf("'%c'", v.Int64()))
 	case UntypedInt:
 		ctx.WriteString(v.String())
 	case Int:

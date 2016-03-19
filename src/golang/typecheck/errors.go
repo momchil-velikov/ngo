@@ -462,7 +462,7 @@ func valueToString(typ *ast.BuiltinType, val ast.Value) string {
 			return "false"
 		}
 	case ast.Rune:
-		return fmt.Sprintf("'%s'", string(rune(v)))
+		return fmt.Sprintf("'%c'", v.Int64())
 	case ast.UntypedInt:
 		return v.String()
 	case ast.Int:
