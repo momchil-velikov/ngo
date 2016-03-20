@@ -463,7 +463,7 @@ func (ev *exprVerifier) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	if x.Typ != nil || ev.TypeCtx == nil {
+	if x == ast.BuiltinNil || x.Typ != nil || ev.TypeCtx == nil {
 		return x, nil
 	}
 
@@ -1664,7 +1664,36 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	x.Y = y
 
 	switch t0, t1 := x.X.Type(), x.Y.Type(); {
-	case t0 == nil && t1 == nil:
+	case t0 != nil && t1 == nil:
+		// If one operand is untyped, convert it to the type of the other operand
+		y, err := ev.checkExpr(x.Y, t0)
+		if err != nil {
+			return nil, err
+		}
+		x.Y = y
+	case t0 == nil && t1 != nil:
+		y, err := ev.checkExpr(x.X, t1)
+		if err != nil {
+			return nil, err
+		}
+		x.X = y
+	}
+
+	// Evaluate constant binary expressions.
+	if u, ok := x.X.(*ast.ConstValue); ok {
+		if v, ok := x.Y.(*ast.ConstValue); ok {
+			switch x.Op {
+			case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
+				v, err := compare(u, v, x.Op)
+				if err != nil {
+					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+				}
+				return &ast.ConstValue{Off: x.Off, Value: v}, nil
+			}
+		}
+	}
+
+	if x.X.Type() == nil && x.Y.Type() == nil {
 		// If both operands are without a type, retry with a type context,
 		// either parent type context if not nil, or with default type
 		// context.
@@ -1682,19 +1711,6 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 			return nil, err
 		}
 		x.Y = y
-	case t0 != nil && t1 == nil:
-		// If one operand is untyped, convert it to the type of the other operand
-		y, err := ev.checkExpr(x.Y, t0)
-		if err != nil {
-			return nil, err
-		}
-		x.Y = y
-	default: // t0 == nil && t1 != nil
-		y, err := ev.checkExpr(x.X, t1)
-		if err != nil {
-			return nil, err
-		}
-		x.X = y
 	}
 
 	switch x.Op {

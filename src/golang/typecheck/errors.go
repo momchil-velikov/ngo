@@ -525,6 +525,31 @@ func builtinTypeToString(typ *ast.BuiltinType) string {
 	}
 }
 
+func valueToTypeString(c *ast.ConstValue) string {
+	if t := builtinType(c.Typ); t != nil {
+		return builtinTypeToString(t)
+	}
+	switch v := c.Value.(type) {
+	case ast.BuiltinValue:
+		if v == ast.BUILTIN_NIL {
+			return "nil"
+		}
+	case ast.Bool:
+		return "untyped bool"
+	case ast.Rune:
+		return "untyped rune"
+	case ast.UntypedInt:
+		return "untyped int"
+	case ast.UntypedFloat:
+		return "untyped float"
+	case ast.UntypedComplex:
+		return "untyped complex"
+	case ast.String:
+		return "untyped string"
+	}
+	panic("not reached")
+}
+
 // The NegArrayLen error is returned when an array is declared of negetive
 // length.
 type NegArrayLen struct {

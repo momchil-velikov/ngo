@@ -202,3 +202,74 @@ func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-13.go"},
 		"shift count must be unsigned and integer")
 }
+
+func TestCompareExpr(t *testing.T) {
+	p, err := compilePackage("_test/src/binary", []string{"cmp.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cs := range []struct {
+		name string
+		exp  bool
+	}{
+		{"ab", false}, {"bb", false},
+		{"aub", false}, {"bub", false},
+
+		{"ci8", true}, {"di8", true}, {"ei8", false}, {"fi8", true}, {"gi8", false},
+		{"hi8", true},
+
+		{"cu8", false}, {"du8", true}, {"eu8", false}, {"fu8", true}, {"gu8", false},
+		{"hu8", true},
+
+		{"ci64", true}, {"di64", true}, {"ei64", false}, {"fi64", true}, {"gi64", false},
+		{"hi64", true},
+
+		{"af", false}, {"bf", true}, {"cf", false}, {"df", true}, {"ef", false},
+		{"ff", true},
+
+		{"as", false}, {"bs", true}, {"cs", false}, {"ds", true}, {"es", false},
+		{"fs", true},
+
+		{"aus", false}, {"bus", true}, {"cus", false}, {"dus", true}, {"eus", false},
+		{"fus", true},
+
+		{"cui", true}, {"dui", true}, {"eui", false}, {"fui", true}, {"gui", false},
+		{"hui", true},
+
+		{"cur", true}, {"dur", true}, {"eur", false}, {"fur", true}, {"gur", false},
+		{"hur", true},
+
+		{"cuf", true}, {"duf", true}, {"euf", false}, {"fuf", true}, {"guf", false},
+		{"huf", true},
+
+		{"cir", true}, {"dir", true}, {"eir", false}, {"fir", true}, {"gir", true},
+		{"hir", true},
+
+		{"cif", true}, {"dif", true}, {"eif", false}, {"fif", true}, {"gif", false},
+		{"hif", true},
+
+		{"cif", true}, {"dif", true}, {"eif", false}, {"fif", true}, {"gif", false},
+		{"hif", true},
+	} {
+		a := p.Find(cs.name).(*ast.Const)
+		c := a.Init.(*ast.ConstValue)
+		if v, ok := c.Value.(ast.Bool); !ok || c.Typ != nil || bool(v) != cs.exp {
+			t.Errorf("`%s` should be untyped boolean %v", cs.name, cs.exp)
+		}
+	}
+}
+
+func TestCompareErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"cmp-err-01.go"},
+		"operation `==` not supported for `nil`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-02.go"},
+		"mismatched types `int` and `uint`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-03.go"},
+		"operation `>` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-04.go"},
+		"mismatched types `untyped bool` and `untyped int`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-05.go"},
+		"operation `>` not supported for `untyped bool`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-06.go"},
+		"mismatched types `untyped string` and `untyped float`")
+}

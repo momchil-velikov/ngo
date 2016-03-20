@@ -2,6 +2,7 @@ package typecheck
 
 import (
 	"errors"
+	"fmt"
 	"golang/ast"
 	"math"
 	"math/big"
@@ -531,4 +532,342 @@ func shiftCountTooBig() (ast.Value, error) {
 
 func invalidShiftOperand() (ast.Value, error) {
 	return nil, errors.New("shifted operand must have integer type")
+}
+
+func untypedConvPanic(ast.Value) ast.Value { panic("not reached") }
+
+func untypedConvIntToRune(x ast.Value) ast.Value {
+	return ast.Rune{Int: new(big.Int).Set(x.(ast.UntypedInt).Int)}
+}
+
+func bigIntToFloat(x *big.Int) *big.Float {
+	v := new(big.Float).SetPrec(ast.UNTYPED_FLOAT_PRECISION).SetMode(big.ToNearestEven)
+	return v.SetInt(x)
+}
+
+func untypedConvIntToFloat(x ast.Value) ast.Value {
+	return ast.UntypedFloat{Float: bigIntToFloat(x.(ast.UntypedInt).Int)}
+}
+
+func untypedConvIntToComplex(x ast.Value) ast.Value {
+	return ast.UntypedComplex{
+		Re: bigIntToFloat(x.(ast.UntypedInt).Int),
+		Im: new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven),
+	}
+}
+
+func untypedConvRuneToFloat(x ast.Value) ast.Value {
+	return ast.UntypedFloat{Float: bigIntToFloat(x.(ast.Rune).Int)}
+}
+
+func untypedConvRuneToComplex(x ast.Value) ast.Value {
+	return ast.UntypedComplex{
+		Re: bigIntToFloat(x.(ast.Rune).Int),
+		Im: new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven),
+	}
+}
+
+func untypedConvFloatToComplex(x ast.Value) ast.Value {
+	return ast.UntypedComplex{
+		Re: new(big.Float).Set(x.(ast.UntypedFloat).Float),
+		Im: new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven),
+	}
+}
+
+type untypedKind uint
+
+const (
+	_UNTYPED_INT untypedKind = iota
+	_UNTYPED_RUNE
+	_UNTYPED_FLOAT
+	_UNTYPED_COMPLEX
+	_UNTYPED_BOOL
+	_UNTYPED_STRING
+)
+
+func untypedToKind(x ast.Value) untypedKind {
+	switch x.(type) {
+	case ast.UntypedInt:
+		return _UNTYPED_INT
+	case ast.Rune:
+		return _UNTYPED_RUNE
+	case ast.UntypedFloat:
+		return _UNTYPED_FLOAT
+	case ast.UntypedComplex:
+		return _UNTYPED_COMPLEX
+	case ast.Bool:
+		return _UNTYPED_BOOL
+	case ast.String:
+		return _UNTYPED_STRING
+	default:
+		panic("not reached")
+	}
+}
+
+var untypedConvTable = [...][4]func(ast.Value) ast.Value{
+	{
+		untypedConvPanic,
+		untypedConvIntToRune, untypedConvIntToFloat, untypedConvIntToComplex,
+	},
+	{
+		untypedConvPanic, untypedConvPanic,
+		untypedConvRuneToFloat, untypedConvRuneToComplex,
+	},
+	{
+		untypedConvPanic, untypedConvPanic, untypedConvPanic,
+		untypedConvFloatToComplex,
+	},
+}
+
+func untypedConvert(x ast.Value, y ast.Value) (untypedKind, ast.Value, ast.Value) {
+	i, j := untypedToKind(x), untypedToKind(y)
+	if i == j {
+		return i, x, y
+	}
+	swap := false
+	if i > j {
+		swap = true
+		i, j = j, i
+		x, y = y, x
+	}
+	x = untypedConvTable[i][j](x)
+	if swap {
+		x, y = y, x
+	}
+	return j, x, y
+}
+
+func compare(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
+	// If the constants are typed, they must have the same type.
+	if t := builtinType(x.Typ); t != nil {
+		if t != builtinType(y.Typ) {
+			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+		}
+		return compareTyped(t.Kind, x.Value, y.Value, op)
+	} else {
+		// If the operands are untyped, they must either both be bool,
+		// or strings, or use the type later in the sequence int, rune, float,
+		// complex, by converting one of the operands to the type of the
+		// other.
+		var (
+			t    untypedKind
+			u, v ast.Value
+		)
+		switch x.Value.(type) {
+		case ast.BuiltinValue:
+			return nil, &invalidCompare{Op: op, Type: "nil"}
+		case ast.Bool:
+			if _, ok := y.Value.(ast.Bool); !ok {
+				return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+			}
+			t, u, v = _UNTYPED_BOOL, x.Value, y.Value
+		case ast.String:
+			if _, ok := y.Value.(ast.String); !ok {
+				return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+			}
+			t, u, v = _UNTYPED_STRING, x.Value, y.Value
+		default:
+			t, u, v = untypedConvert(x.Value, y.Value)
+		}
+		return compareUntyped(t, u, v, op)
+	}
+}
+
+func compareTyped(typ int, x ast.Value, y ast.Value, op uint) (ast.Value, error) {
+	c := 0
+	switch typ {
+	case ast.BUILTIN_BOOL:
+		u, v := x.(ast.Bool), y.(ast.Bool)
+		switch op {
+		case ast.EQ:
+			return ast.Bool(u == v), nil
+		case ast.NE:
+			return ast.Bool(u != v), nil
+		default:
+			return nil, &invalidCompare{Op: op, Type: "bool"}
+		}
+	case ast.BUILTIN_UINT8, ast.BUILTIN_UINT16, ast.BUILTIN_UINT32,
+		ast.BUILTIN_UINT64, ast.BUILTIN_UINT, ast.BUILTIN_UINTPTR:
+		u, v := x.(ast.Int), y.(ast.Int)
+		if u < v {
+			c = -1
+		} else if u > v {
+			c = 1
+		}
+	case ast.BUILTIN_INT8, ast.BUILTIN_INT16, ast.BUILTIN_INT32,
+		ast.BUILTIN_INT64, ast.BUILTIN_INT:
+		u, v := int64(x.(ast.Int)), int64(y.(ast.Int))
+		if u < v {
+			c = -1
+		} else if u > v {
+			c = 1
+		}
+	case ast.BUILTIN_FLOAT32, ast.BUILTIN_FLOAT64:
+		u, v := x.(ast.Float), y.(ast.Float)
+		if u < v {
+			c = -1
+		} else if u > v {
+			c = 1
+		}
+	case ast.BUILTIN_COMPLEX64, ast.BUILTIN_COMPLEX128:
+		u, v := x.(ast.Complex), y.(ast.Complex)
+		switch op {
+		case ast.EQ:
+			return ast.Bool(u == v), nil
+		case ast.NE:
+			return ast.Bool(u != v), nil
+		default:
+			return nil, &invalidCompare{Op: op, Type: "complex64/128"}
+		}
+	case ast.BUILTIN_STRING:
+		u, v := x.(ast.String), y.(ast.String)
+		if u < v {
+			c = -1
+		} else if u > v {
+			c = 1
+		}
+	default:
+		panic("not reached")
+	}
+	return cmpToBool(c, op), nil
+}
+
+func compareUntyped(t untypedKind, x ast.Value, y ast.Value, op uint) (ast.Value, error) {
+	c := 0
+	switch t {
+	case _UNTYPED_INT:
+		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
+		c = x.Cmp(y.Int)
+	case _UNTYPED_RUNE:
+		x, y := x.(ast.Rune), y.(ast.Rune)
+		c = x.Cmp(y.Int)
+	case _UNTYPED_FLOAT:
+		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
+		c = x.Cmp(y.Float)
+	case _UNTYPED_COMPLEX:
+		if op != ast.EQ && op != ast.NE {
+			return nil, &invalidCompare{Op: op, Type: "untyped complex"}
+		}
+		x, y := x.(ast.UntypedComplex), y.(ast.UntypedComplex)
+		u, v := x.Re.Cmp(y.Re), x.Im.Cmp(y.Im)
+		if op == ast.EQ {
+			return ast.Bool(u == 0 && v == 0), nil
+		} else {
+			return ast.Bool(u != 0 || v != 0), nil
+		}
+	case _UNTYPED_BOOL:
+		if op != ast.EQ && op != ast.NE {
+			return nil, &invalidCompare{Op: op, Type: "untyped bool"}
+		}
+		x, y := x.(ast.Bool), y.(ast.Bool)
+		if op == ast.EQ {
+			return ast.Bool(x == y), nil
+		} else {
+			return ast.Bool(x != y), nil
+		}
+	case _UNTYPED_STRING:
+		x, y := x.(ast.String), y.(ast.String)
+		if x < y {
+			c = -1
+		} else if x > y {
+			c = 1
+		}
+	default:
+		panic("not reached")
+	}
+	return cmpToBool(c, op), nil
+}
+
+func cmpToBool(c int, op uint) ast.Bool {
+	switch op {
+	case ast.LT:
+		return ast.Bool(c == -1)
+	case ast.GT:
+		return ast.Bool(c == 1)
+	case ast.EQ:
+		return ast.Bool(c == 0)
+	case ast.NE:
+		return ast.Bool(c != 0)
+	case ast.LE:
+		return ast.Bool(c <= 0)
+	case ast.GE:
+		return ast.Bool(c >= 0)
+	default:
+		panic("not reached")
+	}
+}
+
+func opToString(op uint) string {
+
+	switch op {
+	case ast.PLUS:
+		return "+"
+	case ast.MINUS:
+		return "-"
+	case ast.MUL:
+		return "*"
+	case ast.DIV:
+		return "/"
+	case ast.REM:
+		return "%"
+	case ast.BITAND:
+		return "&"
+	case ast.BITOR:
+		return "|"
+	case ast.BITXOR:
+		return "^"
+	case ast.LT:
+		return "<"
+	case ast.GT:
+		return ">"
+	case ast.NOT:
+		return "!"
+	case ast.SHL:
+		return "<<"
+	case ast.SHR:
+		return ">>"
+	case ast.ANDN:
+		return "&^"
+	case ast.AND:
+		return "&&"
+	case ast.OR:
+		return "||"
+	case ast.RECV:
+		return "<-"
+	case ast.EQ:
+		return "=="
+	case ast.NE:
+		return "!="
+	case ast.LE:
+		return "<="
+	case ast.GE:
+		return "=>"
+	default:
+		panic("not reached")
+	}
+}
+
+type invalidCompare struct {
+	Op   uint
+	Type string
+}
+
+func (e *invalidCompare) Error() string {
+	return fmt.Sprintf("operation `%s` not supported for `%s`", opToString(e.Op), e.Type)
+}
+
+type mismatchedTypes struct {
+	Op   uint
+	X, Y *ast.ConstValue
+}
+
+func (e *mismatchedTypes) Error() string {
+	return fmt.Sprintf("invalid operation `%s`: mismatched types `%s` and `%s`",
+		opToString(e.Op), valueToTypeString(e.X), valueToTypeString(e.Y))
 }
