@@ -1,7 +1,6 @@
 package typecheck
 
 import (
-	"errors"
 	"fmt"
 	"golang/ast"
 	"math"
@@ -452,14 +451,14 @@ func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	}
 }
 
-func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
+func shift(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
 	// Get the shift count in a native uint.
 	var s uint64
 	switch v := y.Value.(type) {
 	case ast.Int:
 		t := builtinType(y.Typ)
 		if t.IsSigned() {
-			return shiftCountMustBeUnsignedInt()
+			return nil, &badShiftCountType{X: y}
 		}
 		s = uint64(v)
 	case ast.UntypedInt:
@@ -467,15 +466,15 @@ func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
 		// `uint64`.
 		panic("not reached")
 	default:
-		return shiftCountMustBeUnsignedInt()
+		return nil, &badShiftCountType{X: y}
 	}
 	if s > MaxShift {
-		return shiftCountTooBig()
+		return nil, &badShiftCountValue{X: s}
 	}
 	// Perform the shift.
 	switch v := x.Value.(type) {
 	case ast.Int:
-		if left {
+		if op == ast.SHL {
 			return ast.Int(v << s), nil
 		} else if builtinType(x.Typ).IsSigned() {
 			return ast.Int(int64(v) >> s), nil
@@ -483,7 +482,7 @@ func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
 			return ast.Int(v >> s), nil
 		}
 	case ast.UntypedInt:
-		if left {
+		if op == ast.SHL {
 			return ast.UntypedInt{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
 		} else {
 			return ast.UntypedInt{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
@@ -491,47 +490,73 @@ func shift(x *ast.ConstValue, y *ast.ConstValue, left bool) (ast.Value, error) {
 	case ast.UntypedFloat:
 		u, a := v.Int(new(big.Int))
 		if a != big.Exact {
-			return invalidShiftOperand()
+			return nil, &badOperandValue{Op: op, X: x}
 		}
-		if left {
+		if op == ast.SHL {
 			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
 		} else {
 			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
 		}
 	case ast.UntypedComplex:
 		if z, a := v.Im.Int64(); a != big.Exact || z != 0 {
-			return invalidShiftOperand()
+			return nil, &badOperandValue{Op: op, X: x}
 		}
 		u, a := v.Re.Int(new(big.Int))
 		if a != big.Exact {
-			return invalidShiftOperand()
+			return nil, &badOperandValue{Op: op, X: x}
 		}
-		if left {
+		if op == ast.SHL {
 			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
 		} else {
 			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
 		}
 	case ast.Rune:
-		if left {
+		if op == ast.SHL {
 			return ast.Rune{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
 		} else {
 			return ast.Rune{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
 		}
 	default:
-		return invalidShiftOperand()
+		return nil, &badOperandType{Op: op, Type: "integer type", X: x}
 	}
 }
 
-func shiftCountMustBeUnsignedInt() (ast.Value, error) {
-	return nil, errors.New("shift count must be unsigned integer")
+type badShiftCountType struct {
+	X *ast.ConstValue
 }
 
-func shiftCountTooBig() (ast.Value, error) {
-	return nil, errors.New("shift count too big")
+func (e *badShiftCountType) Error() string {
+	return fmt.Sprintf("shift count must be unsigned integer (`%s` given)",
+		valueToTypeString(e.X))
 }
 
-func invalidShiftOperand() (ast.Value, error) {
-	return nil, errors.New("shifted operand must have integer type")
+type badShiftCountValue struct {
+	X uint64
+}
+
+func (e *badShiftCountValue) Error() string {
+	return fmt.Sprintf("shift count too big: %d", e.X)
+}
+
+type badOperandValue struct {
+	Op uint
+	X  *ast.ConstValue
+}
+
+func (e *badOperandValue) Error() string {
+	return fmt.Sprintf("invalid operand to `%s`: `%s`",
+		opToString(e.Op), valueToString(builtinType(e.X.Typ), e.X.Value))
+}
+
+type badOperandType struct {
+	Op   uint
+	Type string
+	X    *ast.ConstValue
+}
+
+func (e *badOperandType) Error() string {
+	return fmt.Sprintf("invalid operand to `%s`: operand must have %s (`%s` given)",
+		opToString(e.Op), e.Type, valueToTypeString(e.X))
 }
 
 func untypedConvPanic(ast.Value) ast.Value { panic("not reached") }

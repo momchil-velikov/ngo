@@ -176,23 +176,23 @@ func TestShift(t *testing.T) {
 
 func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-1.go"},
-		"shift count must be unsigned integer")
+		"shift count must be unsigned integer (`int` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-2.go"},
 		"1.100000 (untyped) cannot be converted to uint64")
 	expectError(t, "_test/src/binary", []string{"shift-err-3.go"},
-		"shift count must be unsigned integer")
+		"shift count must be unsigned integer (`float32` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-4.go"},
-		"shift count too big")
+		"shift count too big: 512")
 	expectError(t, "_test/src/binary", []string{"shift-err-5.go"},
-		"shifted operand must have integer type")
+		"invalid operand to `<<`: `1.100000`")
 	expectError(t, "_test/src/binary", []string{"shift-err-6.go"},
-		"shifted operand must have integer type")
+		"invalid operand to `>>`: `(0 + 1.1i)`")
 	expectError(t, "_test/src/binary", []string{"shift-err-7.go"},
-		"shifted operand must have integer type")
+		"invalid operand to `<<`: operand must have integer type (`untyped bool` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-8.go"},
-		"shifted operand must have integer type")
+		"invalid operand to `<<`: operand must have integer type (`nil` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-9.go"},
-		"shifted operand must have integer type")
+		"invalid operand to `<<`: operand must have integer type (`untyped string` given")
 	expectError(t, "_test/src/binary", []string{"shift-err-10.go"},
 		"invalid operand to shift")
 	expectError(t, "_test/src/binary", []string{"shift-err-11.go"},

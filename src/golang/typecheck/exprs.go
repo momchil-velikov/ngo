@@ -1745,7 +1745,7 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	// Evaluate a constant shift expression.
 	if u, ok := x.X.(*ast.ConstValue); ok {
 		if s, ok := x.Y.(*ast.ConstValue); ok {
-			v, err := shift(u, s, x.Op == ast.SHL)
+			v, err := shift(u, s, x.Op)
 			if err != nil {
 				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 			}
