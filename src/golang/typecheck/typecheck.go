@@ -173,7 +173,6 @@ func checkIfaceMethodUniqueness(
 		if err := checkIfaceMethodUniqueness(set, dcl, ifc); err != nil {
 			return err
 		}
-
 	}
 	for _, m := range iface.Methods {
 		if d, ok := set[m.Name]; ok {
@@ -458,5 +457,156 @@ func _isAddressable(x ast.Expr) bool {
 		return _isAddressable(x.X)
 	default:
 		return false
+	}
+}
+
+// Returns the length of the array type T. It must be called only after the
+// length is a constant value.
+func getArrayLength(t *ast.ArrayType) int64 {
+	c, ok := t.Dim.(*ast.ConstValue)
+	if !ok || c.Typ != ast.BuiltinInt {
+		panic("not reached")
+	}
+	return int64(c.Value.(ast.Int))
+}
+
+// Returns the method set of the interface type T.
+func ifaceMethodSet(t *ast.InterfaceType) methodSet {
+	return ifaceMethodSetRec(make(methodSet), t)
+}
+
+func ifaceMethodSetRec(set methodSet, t *ast.InterfaceType) methodSet {
+	for _, e := range t.Embedded {
+		set = ifaceMethodSetRec(set, unnamedType(e).(*ast.InterfaceType))
+	}
+	for _, m := range t.Methods {
+		set[m.Name] = m
+	}
+	return set
+}
+
+// Returns true if types S and T are identical.
+// https://golang.org/ref/spec#Type_identity
+func identicalTypes(s ast.Type, t ast.Type) bool {
+	if s == t {
+		// "Two named types are identical if their type names originate in the
+		// same TypeSpec". Also fastpath for comparing a type to itself.
+		return true
+	}
+
+	switch s := s.(type) {
+	case *ast.TypeDecl:
+		// T is either an unnamed type, or does not originate from the same
+		// TypeSpec as S.
+		return false
+	case *ast.BuiltinType:
+		if t, ok := t.(*ast.BuiltinType); ok {
+			return s.Kind == t.Kind
+		}
+		return false
+	case *ast.ArrayType:
+		if t, ok := t.(*ast.ArrayType); ok {
+			return getArrayLength(s) == getArrayLength(t) && identicalTypes(s.Elt, t.Elt)
+		}
+		return false
+	case *ast.SliceType:
+		if t, ok := t.(*ast.SliceType); ok {
+			return identicalTypes(s.Elt, t.Elt)
+		}
+		return false
+	case *ast.PtrType:
+		if t, ok := t.(*ast.PtrType); ok {
+			return identicalTypes(s.Base, t.Base)
+		}
+		return false
+	case *ast.MapType:
+		if t, ok := t.(*ast.MapType); ok {
+			return identicalTypes(s.Key, t.Key) && identicalTypes(s.Elt, t.Elt)
+		}
+		return false
+	case *ast.ChanType:
+		if t, ok := t.(*ast.ChanType); ok {
+			return s.Send == t.Send && s.Recv == t.Recv && identicalTypes(s.Elt, t.Elt)
+		}
+		return false
+	case *ast.StructType:
+		if t, ok := t.(*ast.StructType); !ok {
+			return false
+		} else if len(s.Fields) != len(t.Fields) {
+			return false
+		} else {
+			for i := range s.Fields {
+				sf, tf := &s.Fields[i], &t.Fields[i]
+				// "corresponding fields [must] have the same names, [...],
+				// and identical tags. Two anonymous fields are considered to
+				// have the same name."
+				if sf.Name != tf.Name || sf.Tag != tf.Tag {
+					return false
+				}
+				// "Lower-case field names from different packages are always
+				// different."
+				if s.File == nil || t.File == nil || s.File.Pkg != t.File.Pkg &&
+					!ast.IsExported(sf.Name) {
+					return false
+				}
+				// "corresponding fields have [...] identical types"
+				if !identicalTypes(sf.Type, tf.Type) {
+					return false
+				}
+			}
+			return true
+		}
+	case *ast.FuncType:
+		if t, ok := t.(*ast.FuncType); !ok {
+			return false
+		} else if len(s.Params) != len(t.Params) || len(s.Returns) != len(t.Returns) ||
+			s.Var != t.Var {
+			// "the same number of parameters and result values, [...], and
+			// either both functions are variadic or neither is."
+			return false
+		} else {
+			// "corresponding parameter and result types are identical"
+			for i := range s.Params {
+				if !identicalTypes(s.Params[i].Type, t.Params[i].Type) {
+					return false
+				}
+			}
+			for i := range s.Returns {
+				if !identicalTypes(s.Returns[i].Type, t.Returns[i].Type) {
+					return false
+				}
+			}
+			return true
+		}
+	case *ast.InterfaceType:
+		if t, ok := t.(*ast.InterfaceType); !ok {
+			return false
+		} else {
+			// "Interface types are identical if they have the same set of methods ...
+			ss, st := ifaceMethodSet(s), ifaceMethodSet(t)
+			if len(ss) != len(st) {
+				return false
+			}
+			for name, ms := range ss {
+				mt := st[name]
+				// "... with the same name
+				if mt == nil {
+					return false
+				}
+				// "Lower-case method names from different packages are always
+				// different."
+				if ms.File == nil || mt.File == nil || ms.File.Pkg != mt.File.Pkg &&
+					!ast.IsExported(ms.Name) {
+					return false
+				}
+				//  "... "nd identical function types."
+				if !identicalTypes(ms.Func.Sig, mt.Func.Sig) {
+					return false
+				}
+			}
+			return true
+		}
+	default:
+		panic("not reached")
 	}
 }
