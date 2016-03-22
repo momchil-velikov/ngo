@@ -303,34 +303,89 @@ func TestWriteIfaceType1(t *testing.T) {
 }
 
 func TestWriteIfaceType2(t *testing.T) {
+	pkg := &ast.Package{
+		Path: "x/y/a",
+		Name: "a",
+		Syms: make(map[string]ast.Symbol),
+	}
+	files := []*ast.File{{Name: "a.go", Pkg: pkg}}
+	pkg.Files = files
 	F := &ast.FuncDecl{
+		Off:  22,
+		File: files[0],
 		Name: "F",
 		Func: ast.Func{Sig: &ast.FuncType{}},
 	}
 	F.Func.Decl = F
-	typ := &ast.InterfaceType{Embedded: nil, Methods: []*ast.FuncDecl{F}}
-	buf := keepEncoding(t, func(w *Writer) error { return w.writeType(nil, typ) })
-	expect_eq(t, "write iface type",
+	dcl := &ast.TypeDecl{
+		Off:  10,
+		File: files[0],
+		Name: "I",
+		Type: &ast.InterfaceType{Embedded: nil, Methods: []*ast.FuncDecl{F}},
+	}
+	pkg.Syms["I"] = dcl
+	G := &ast.FuncDecl{
+		Off:  44,
+		File: files[0],
+		Name: "G",
+		Func: ast.Func{Sig: &ast.FuncType{}},
+	}
+	G.Func.Decl = G
+	dcl = &ast.TypeDecl{
+		Off:  30,
+		File: files[0],
+		Name: "J",
+		Type: &ast.InterfaceType{Embedded: []ast.Type{dcl}, Methods: []*ast.FuncDecl{G}},
+	}
+	pkg.Syms["J"] = dcl
+
+	buf := keepEncoding(t, func(w *Writer) error { return w.writePkg(pkg) })
+	expect_eq(t, "write iface decl",
 		buf,
 		[]byte{
-			_IFACE,
+			VERSION,
+			1, 'a', // package name
+			// deps
 			0,
+			// files
 			1,
-			_FUNC_DECL, 0, 0, 1, 'F', _VOID, _FUNC, 0, 0, 0,
+			4, 'a', '.', 'g', 'o', 0,
+			// decls
+			_TYPE_DECL, 1, 10, 1, 'I',
+			_IFACE, 0,
+			1, _FUNC_DECL, 1, 22, 1, 'F', _VOID, _FUNC, 0, 0, 0,
+			_TYPE_DECL, 1, 30, 1, 'J',
+			_IFACE, 1,
+			_TYPENAME, 1, 1, 'I',
+			1, _FUNC_DECL, 1, 44, 1, 'G', _VOID, _FUNC, 0, 0, 0,
+			_END,
 		},
 	)
 
-	var dtyp *ast.InterfaceType
+	var dpkg *ast.Package
 	keepDecoding(t, buf, func(r *Reader) error {
-		t, err := r.readType(&ast.Package{})
+		var err error
+		dpkg, err = r.readPkg(nil)
 		if err != nil {
 			return err
 		}
-		dtyp = t.(*ast.InterfaceType)
 		return nil
 	})
-	if !reflect.DeepEqual(typ, dtyp) {
-		t.Error("read iface: types not equal")
+
+	I := pkg.Find("I").(*ast.TypeDecl).Type.(*ast.InterfaceType)
+	dI := dpkg.Find("I").(*ast.TypeDecl).Type.(*ast.InterfaceType)
+	if dI.Off != 0 || len(dI.Embedded) != 0 || len(dI.Methods) != 1 ||
+		dI.Methods[0].Name != "F" ||
+		!reflect.DeepEqual(I.Methods[0].Func.Sig, dI.Methods[0].Func.Sig) {
+		t.Error("decoded `I` not equal to original")
+	}
+	J := pkg.Find("J").(*ast.TypeDecl).Type.(*ast.InterfaceType)
+	dJ := dpkg.Find("J").(*ast.TypeDecl).Type.(*ast.InterfaceType)
+	if dJ.Off != 0 || len(dJ.Embedded) != 1 ||
+		dJ.Embedded[0].(*ast.TypeDecl).Name != "I" ||
+		len(dJ.Methods) != 1 || dJ.Methods[0].Name != "G" ||
+		!reflect.DeepEqual(J.Methods[0].Func.Sig, dJ.Methods[0].Func.Sig) {
+		t.Error("decoded `J` not equal to original")
 	}
 }
 

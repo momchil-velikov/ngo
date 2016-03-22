@@ -494,7 +494,10 @@ func (r *Reader) readIfaceType(pkg *ast.Package) (*ast.InterfaceType, error) {
 	if err != nil {
 		return nil, err
 	}
-	ifs := make([]*ast.TypeDecl, ni)
+	var ifs []ast.Type
+	if ni > 0 {
+		ifs = make([]ast.Type, ni)
+	}
 	for i := range ifs {
 		t, err := r.readType(pkg)
 		if err != nil {
@@ -525,5 +528,5 @@ func (r *Reader) readIfaceType(pkg *ast.Package) (*ast.InterfaceType, error) {
 		}
 		ms[i] = f
 	}
-	return &ast.InterfaceType{Methods: ms}, nil
+	return &ast.InterfaceType{Embedded: ifs, Methods: ms}, nil
 }
