@@ -610,3 +610,77 @@ func identicalTypes(s ast.Type, t ast.Type) bool {
 		panic("not reached")
 	}
 }
+
+// Returns true if TYP implements IFC.
+func implements(typ ast.Type, ifc *ast.InterfaceType) bool {
+	// Get the receiver base type.
+	ptr := false
+	if p, ok := typ.(*ast.PtrType); ok {
+		ptr = true
+		typ = p.Base
+	}
+	dcl, ok := typ.(*ast.TypeDecl)
+	if !ok {
+		// If the given type is not a (pointer to a) type name, the only
+		// implemented interface is `interface{}`.
+		return len(ifc.Embedded) == 0 && len(ifc.Methods) == 0
+	}
+
+	if impl, ok := dcl.Type.(*ast.InterfaceType); ok {
+		return !ptr && ifaceImplements(impl, ifc)
+	} else {
+		return typenameImplements(ptr, dcl, ifc)
+	}
+}
+
+func ifaceImplements(impl *ast.InterfaceType, ifc *ast.InterfaceType) bool {
+	implSet := ifaceMethodSet(impl)
+	for _, fn := range ifaceMethodSet(ifc) {
+		m := implSet[fn.Name]
+		if m == nil || !identicalTypes(m.Func.Sig, fn.Func.Sig) {
+			return false
+		}
+	}
+	return true
+}
+
+func typenameImplements(ptr bool, dcl *ast.TypeDecl, ifc *ast.InterfaceType) bool {
+	for _, fn := range ifaceMethodSet(ifc) {
+		// Look for an implementation among the methods with value receivers.
+		i := 0
+		for ; i < len(dcl.Methods); i++ {
+			m := dcl.Methods[i]
+			if fn.Name == m.Name {
+				if !identicalTypes(fn.Func.Sig, m.Func.Sig) {
+					return false
+				}
+				break
+			}
+		}
+		// Do not consider pointer receiver methods if the original type
+		// wasn't a pointer type.
+		if !ptr {
+			if i == len(dcl.Methods) {
+				// No method name matches.
+				return false
+			}
+			continue
+		}
+		// Look for an implementation among the methods with pointer
+		// receivers.
+		for i = 0; i < len(dcl.PMethods); i++ {
+			m := dcl.PMethods[i]
+			if fn.Name == m.Name {
+				if !identicalTypes(fn.Func.Sig, m.Func.Sig) {
+					return false
+				}
+				break
+			}
+		}
+		if i == len(dcl.PMethods) {
+			// No method name matches.
+			return false
+		}
+	}
+	return true
+}

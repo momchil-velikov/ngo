@@ -520,3 +520,74 @@ func TestTypeIdentity(t *testing.T) {
 		t.Error("`a.I7` and `b.I7` must have distinct underlying types")
 	}
 }
+
+func TestIfaceImpl(t *testing.T) {
+	p, err := compilePackage("_test/src/typ", []string{"iface-impl.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	I := p.Find("I").(*ast.TypeDecl)
+	ifc := I.Type.(*ast.InterfaceType)
+	if implements(ast.BuiltinInt, ifc) {
+		t.Error("`int` should not I")
+	}
+	if !implements(ast.BuiltinInt, &ast.InterfaceType{}) {
+		t.Error("anything should implement `interface{}`")
+	}
+	if implements(&ast.PtrType{Base: ast.BuiltinInt}, ifc) {
+		t.Error("`*int` should not implement `I`")
+	}
+	if !implements(&ast.PtrType{Base: ast.BuiltinInt}, &ast.InterfaceType{}) {
+		t.Error("`*int` should implement `interface{}`")
+	}
+
+	A := p.Find("A").(*ast.TypeDecl)
+	if !implements(A, ifc) {
+		t.Error("`A` should implement `I`")
+	}
+
+	B := p.Find("B").(*ast.TypeDecl)
+	if implements(B, ifc) {
+		t.Error("`B` should not implement `I`")
+	}
+	if !implements(&ast.PtrType{Base: B}, ifc) {
+		t.Error("`*B` should implement `I`")
+	}
+
+	C := p.Find("C").(*ast.TypeDecl)
+	if implements(C, ifc) {
+		t.Error("`C` should not implement `I`")
+	}
+
+	D := p.Find("D").(*ast.TypeDecl)
+	if implements(D, ifc) {
+		t.Error("`D` should not implement `I`")
+	}
+
+	J := p.Find("J").(*ast.TypeDecl)
+	if !implements(J, ifc) {
+		t.Error("`J` should implement `I`")
+	}
+	ifc = J.Type.(*ast.InterfaceType)
+	if implements(I, ifc) {
+		t.Error("`I` should not implement `I`")
+	}
+	if !implements(J, ifc) {
+		t.Error("`J` should implement itself")
+	}
+	J1 := p.Find("J1").(*ast.TypeDecl)
+	if implements(J1, ifc) {
+		t.Error("`J1` should not implement `J`")
+	}
+
+	E := p.Find("E").(*ast.TypeDecl)
+	if implements(&ast.PtrType{Base: E}, ifc) {
+		t.Error("`*E` shold not implement `J`")
+	}
+
+	F := p.Find("F").(*ast.TypeDecl)
+	if implements(&ast.PtrType{Base: F}, ifc) {
+		t.Error("`*F` shold not implement `J`")
+	}
+}
