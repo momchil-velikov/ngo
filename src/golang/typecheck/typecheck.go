@@ -676,3 +676,61 @@ func typenameImplements(ptr bool, dcl *ast.TypeDecl, ifc *ast.InterfaceType) boo
 	}
 	return true
 }
+
+// Checks whether the expression X is assignable to a variable of type DST. If
+// it is assignable, returns the expression itself and true. If the expression
+// is an untyped constant, representable by DST, returns the converted
+// constant and true. Otherwise, returns false.
+// https://golang.org/ref/spec#Assignability
+func isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool) {
+	if src := x.Type(); src == nil {
+		// "x is an untyped constant representable by a value of type T."
+		if c, ok := x.(*ast.ConstValue); !ok {
+			panic("not reached")
+		} else if t := builtinType(dst); t == nil {
+			return nil, false
+		} else if v := convertConst(t, nil, c.Value); v == nil {
+			return nil, false
+		} else {
+			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true
+		}
+	} else {
+		return x, isAssignableType(dst, src)
+	}
+}
+
+// Returns true, if a value of type SRC is assignable to a variable of type DST.
+func isAssignableType(dst ast.Type, src ast.Type) bool {
+	// "x's type is identical to T."
+	if identicalTypes(dst, src) {
+		return true
+	}
+	// "x's type V and T have identical underlying types and at least one of V
+	// or T is not a named type."
+	usrc, udst := unnamedType(src), unnamedType(dst)
+	if (usrc == src || udst == dst) && identicalTypes(usrc, udst) {
+		return true
+	}
+	// "T is an interface type and x implements T.
+	if ifc, ok := udst.(*ast.InterfaceType); ok && implements(src, ifc) {
+		return true
+	}
+	// "x is a bidirectional channel value, T is a channel type, x's type V
+	// and T have identical element types, and at least one of V or T is not a
+	// named type.
+	if ch, ok := usrc.(*ast.ChanType); ok && ch.Send && ch.Recv {
+		if dch, ok := udst.(*ast.ChanType); ok && (usrc == src || udst == dst) {
+			return identicalTypes(ch.Elt, dch.Elt)
+		}
+	}
+	// "x is the predeclared identifier nil and T is a pointer, function,
+	// slice, map, channel, or interface type."
+	if usrc == ast.BuiltinNilType {
+		switch udst.(type) {
+		case *ast.PtrType, *ast.FuncType, *ast.SliceType, *ast.MapType, *ast.ChanType,
+			*ast.InterfaceType:
+			return true
+		}
+	}
+	return false
+}

@@ -90,7 +90,13 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 		return err
 	}
 	c.Init = x
-	c.Type = x.Type()
+	if c.Type == nil {
+		c.Type = x.Type()
+	} else if y, ok := isAssignable(c.Type, x); ok {
+		c.Init = y
+	} else {
+		return &NotAssignable{Off: x.Position(), File: c.File, Type: c.Type, X: x}
+	}
 
 	if _, ok := x.(*ast.ConstValue); !ok {
 		return &NotConst{Off: c.Init.Position(), File: c.File, What: "const initializer"}
@@ -176,49 +182,72 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 			if v.Type == nil {
 				v.Type = tp.Type[i]
 				ev.Done[v] = struct{}{}
+			} else if !isAssignableType(v.Type, tp.Type[i]) {
+				return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type}
 			}
 		}
-	} else {
-		// If there are multiple expressions on the RHS they must be
-		// single-valued and the same number as the variables on the LHS.
-		if len(v.Init.LHS) != len(v.Init.RHS) {
-			return &BadMultiValueAssign{Off: v.Init.Off, File: v.File}
-		}
+		return nil
+	}
 
-		i := 0
-		for i = range v.Init.LHS {
-			op := v.Init.LHS[i].(*ast.OperandName)
-			if v == op.Decl {
-				break
-			}
-		}
+	// If there are multiple expressions on the RHS they must be single-valued
+	// and the same number as the variables on the LHS.
+	if len(v.Init.LHS) != len(v.Init.RHS) {
+		return &BadMultiValueAssign{Off: v.Init.Off, File: v.File}
+	}
 
-		// Check the initializer expression. If checking resulted in untyped
-		// constant, convert it to the default type.
-		ev.beginCheck(v, v.File)
-		x, err := ev.checkExpr(v.Init.RHS[i], tctx)
-		ev.endCheck()
-		if err != nil {
-			return err
-		}
-		if c, ok := x.(*ast.ConstValue); ok && c.Typ == nil {
-			x, err = ev.checkExpr(x, tctx)
-			if err != nil {
-				return err
-			}
-		}
-		v.Init.RHS[i] = x
-
-		t := singleValueType(x.Type())
-		if t == nil {
-			return &SingleValueContext{Off: x.Position(), File: v.File}
-		}
-		if v.Type == nil {
-			v.Type = t
-			ev.Done[v] = struct{}{}
+	i := 0
+	for i = range v.Init.LHS {
+		op := v.Init.LHS[i].(*ast.OperandName)
+		if v == op.Decl {
+			break
 		}
 	}
 
+	// Check the initializer expression.
+	ev.beginCheck(v, v.File)
+	x, err := ev.checkExpr(v.Init.RHS[i], tctx)
+	ev.endCheck()
+	if err != nil {
+		return err
+	}
+
+	// Handle constant initializers.
+	if c, ok := x.(*ast.ConstValue); ok && c.Typ == nil {
+		// If checking resulted in untyped constant, convert it either to the
+		// declared type, or to the default type.
+		if v.Type == nil {
+			x, err = ev.checkExpr(x, ast.BuiltinDefault)
+			if err != nil {
+				return err
+			}
+			v.Type = x.Type()
+		} else if x, ok = isAssignable(v.Type, x); !ok {
+			return &NotAssignable{Off: c.Off, File: v.File, Type: v.Type}
+		}
+		v.Init.RHS[i] = x
+		ev.Done[v] = struct{}{}
+		return nil
+	}
+
+	// If the initializer expression is `nil`, the variable must be declared
+	// with a type.
+	if x.Type() == ast.BuiltinNilType {
+		if v.Type == nil {
+			return &NilUse{Off: x.Position(), File: v.File}
+		}
+	}
+
+	t := singleValueType(x.Type())
+	if t == nil && x.Type() != nil {
+		return &SingleValueContext{Off: x.Position(), File: v.File}
+	}
+	if v.Type == nil {
+		v.Type = t
+	} else if _, ok := isAssignable(v.Type, x); !ok {
+		return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type, X: x}
+	}
+	v.Init.RHS[i] = x
+	ev.Done[v] = struct{}{}
 	return nil
 }
 

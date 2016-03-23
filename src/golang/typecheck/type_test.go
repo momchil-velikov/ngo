@@ -591,3 +591,20 @@ func TestIfaceImpl(t *testing.T) {
 		t.Error("`*F` shold not implement `J`")
 	}
 }
+
+func TestAssignable(t *testing.T) {
+	_, err := compilePackage("_test/src/typ", []string{"assignable.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+func TestAssignableErr(t *testing.T) {
+	expectError(t, "_test/src/typ", []string{"assign-err-01.go"},
+		"not assignable to `int8`")
+	expectError(t, "_test/src/typ", []string{"assign-err-02.go"},
+		"not assignable to `fixme`")
+	expectError(t, "_test/src/typ", []string{"assign-err-03.go"},
+		"use of builtin `nil`")
+}

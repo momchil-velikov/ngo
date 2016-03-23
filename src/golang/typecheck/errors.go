@@ -786,3 +786,35 @@ func (e *BadIota) Error() string {
 	return fmt.Sprintf("%s:%d:%d: `iota` used outside const declaration",
 		e.File.Name, ln, col)
 }
+
+// The NotAssignable error is returned when an expression is not asignable to
+// a given type.
+type NotAssignable struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+	X    ast.Expr
+}
+
+func (e *NotAssignable) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	desc := ""
+	if typ := builtinType(e.Type); typ == nil {
+		desc = "fixme"
+	} else {
+		desc = builtinTypeToString(typ)
+	}
+	return fmt.Sprintf("%s:%d:%d: expression is not assignable to `%s`",
+		e.File.Name, ln, col, desc)
+}
+
+// The NilUse error is returned on attemt to use the value `nil`
+type NilUse struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NilUse) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: use of builtin `nil`", e.File.Name, ln, col)
+}
