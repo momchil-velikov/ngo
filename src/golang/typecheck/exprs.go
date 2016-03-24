@@ -1,6 +1,9 @@
 package typecheck
 
-import "golang/ast"
+import (
+	"golang/ast"
+	"math/big"
+)
 
 type exprVerifier struct {
 	Pkg     *ast.Package
@@ -10,10 +13,11 @@ type exprVerifier struct {
 	Xs      []ast.Expr
 	Done    map[ast.Symbol]struct{}
 	TypeCtx ast.Type
+	Iota    int
 }
 
 func verifyExprs(pkg *ast.Package) error {
-	ev := exprVerifier{Pkg: pkg, Done: make(map[ast.Symbol]struct{})}
+	ev := exprVerifier{Pkg: pkg, Done: make(map[ast.Symbol]struct{}), Iota: -1}
 
 	for _, s := range pkg.Syms {
 		var err error
@@ -76,9 +80,12 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	}
 	ev.Done[c] = struct{}{}
 
+	iota := ev.Iota
+	ev.Iota = c.Iota
 	ev.beginCheck(c, c.File)
 	x, err := ev.checkExpr(c.Init, nil)
 	ev.endCheck()
+	ev.Iota = iota
 	if err != nil {
 		return err
 	}
@@ -874,8 +881,17 @@ func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 		return x, nil
 	case *ast.Const:
 		switch d.Init {
-		case ast.BuiltinTrue, ast.BuiltinFalse, ast.BuiltinIota:
+		case ast.BuiltinTrue, ast.BuiltinFalse:
 			return &ast.ConstValue{Off: x.Off, Value: d.Init.(*ast.ConstValue).Value}, nil
+		case ast.BuiltinIota:
+			if ev.Iota == -1 {
+				return nil, &BadIota{Off: x.Off, File: ev.File}
+			}
+			c := &ast.ConstValue{
+				Off:   x.Off,
+				Value: ast.UntypedInt{Int: big.NewInt(int64(ev.Iota))},
+			}
+			return ev.VisitConstValue(c)
 		}
 		if err := ev.checkConstDecl(d); err != nil {
 			return nil, err

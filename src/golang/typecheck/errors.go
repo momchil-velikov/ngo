@@ -773,3 +773,16 @@ func (e *BadShiftCount) Error() string {
 	return fmt.Sprintf("%s:%d:%d: shift count must be unsigned and integer",
 		e.File.Name, ln, col)
 }
+
+// The BadIota error is returned whan the predeclard `iota` was used outside a
+// const declaration
+type BadIota struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadIota) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: `iota` used outside const declaration",
+		e.File.Name, ln, col)
+}
