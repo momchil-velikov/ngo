@@ -214,6 +214,24 @@ func TestNot(t *testing.T) {
 		t.Error("`B` should have value false")
 	}
 
+	cB := p.Find("cB").(*ast.Const)
+	c = cB.Init.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinBool {
+		t.Error("`cB` shold have type `bool`")
+	}
+	if v = c.Value.(ast.Bool); v {
+		t.Error("`cB` should have value false")
+	}
+
+	cD := p.Find("cD").(*ast.Const)
+	c = cD.Init.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinBool {
+		t.Error("`cD` shold have type `bool`")
+	}
+	if v = c.Value.(ast.Bool); !v {
+		t.Error("`cD` should have value true")
+	}
+
 	D := p.Find("D").(*ast.Const)
 	c = D.Init.(*ast.ConstValue)
 	if c.Typ != nil {
