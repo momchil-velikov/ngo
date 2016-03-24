@@ -685,8 +685,6 @@ func compare(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
 			u, v ast.Value
 		)
 		switch x.Value.(type) {
-		case ast.BuiltinValue:
-			return nil, &invalidCompare{Op: op, Type: "nil"}
 		case ast.Bool:
 			if _, ok := y.Value.(ast.Bool); !ok {
 				return nil, &mismatchedTypes{Op: op, X: x, Y: y}

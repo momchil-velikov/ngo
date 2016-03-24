@@ -49,15 +49,7 @@ func defaultType(x ast.Expr) ast.Type {
 
 	// Only untyped constants can have a nil type.
 	c := x.(*ast.ConstValue)
-	switch v := c.Value.(type) {
-	case ast.BuiltinValue:
-		if v == ast.BUILTIN_NIL {
-			return ast.BuiltinNilType
-		} else if v == ast.BUILTIN_IOTA {
-			return ast.BuiltinInt
-		} else {
-			panic("not reached")
-		}
+	switch c.Value.(type) {
 	case ast.Bool:
 		return ast.BuiltinBool
 	case ast.Rune:

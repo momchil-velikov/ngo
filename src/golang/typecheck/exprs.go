@@ -85,7 +85,7 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	c.Init = x
 	c.Type = x.Type()
 
-	if v, ok := x.(*ast.ConstValue); !ok || v == ast.BuiltinNil {
+	if _, ok := x.(*ast.ConstValue); !ok {
 		return &NotConst{Off: c.Init.Position(), File: c.File, What: "const initializer"}
 	}
 
@@ -463,7 +463,7 @@ func (ev *exprVerifier) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	if x == ast.BuiltinNil || x.Typ != nil || ev.TypeCtx == nil {
+	if x.Typ != nil || ev.TypeCtx == nil {
 		return x, nil
 	}
 
@@ -874,8 +874,8 @@ func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 		return x, nil
 	case *ast.Const:
 		switch d.Init {
-		case ast.BuiltinNil, ast.BuiltinTrue, ast.BuiltinFalse, ast.BuiltinIota:
-			return d.Init, nil
+		case ast.BuiltinTrue, ast.BuiltinFalse, ast.BuiltinIota:
+			return &ast.ConstValue{Off: x.Off, Value: d.Init.(*ast.ConstValue).Value}, nil
 		}
 		if err := ev.checkConstDecl(d); err != nil {
 			return nil, err

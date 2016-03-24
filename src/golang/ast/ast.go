@@ -109,7 +109,6 @@ type Value interface {
 	value()
 }
 
-func (BuiltinValue) value()   {}
 func (Bool) value()           {}
 func (Rune) value()           {}
 func (UntypedInt) value()     {}
@@ -344,14 +343,6 @@ type ConstValue struct {
 
 func (c *ConstValue) Position() int { return c.Off }
 func (c *ConstValue) Type() Type    { return c.Typ }
-
-// Builtin values
-const (
-	BUILTIN_NIL = iota
-	BUILTIN_IOTA
-)
-
-type BuiltinValue uint
 
 type Bool bool
 

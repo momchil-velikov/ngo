@@ -501,19 +501,6 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 // Format expressions.
 //
 
-func (v BuiltinValue) formatBuiltinValue(ctx *FormatContext) {
-	var name string
-	switch v {
-	case BUILTIN_NIL:
-		name = "nil"
-	case BUILTIN_IOTA:
-		name = "iota"
-	default:
-		panic("not reached")
-	}
-	ctx.WriteString(name)
-}
-
 func formatInt(typ *BuiltinType, v uint64) string {
 	switch typ.Kind {
 	case BUILTIN_UINT8:
@@ -578,8 +565,6 @@ func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 		ctx.WriteV(0, "/* #", c.Off, " */")
 	}
 	switch v := c.Value.(type) {
-	case BuiltinValue:
-		v.formatBuiltinValue(ctx)
 	case Bool:
 		if bool(v) {
 			ctx.WriteString("true")

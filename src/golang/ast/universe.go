@@ -24,7 +24,7 @@ var (
 	BuiltinString     *BuiltinType
 	BuiltinDefault    *BuiltinType
 
-	BuiltinNil   *ConstValue
+	BuiltinNil   *Var
 	BuiltinTrue  *ConstValue
 	BuiltinFalse *ConstValue
 	BuiltinIota  *ConstValue
@@ -96,22 +96,23 @@ func init() {
 		UniverseScope.dcl[c.name] = &TypeDecl{Name: c.name, Type: c.typ}
 	}
 
-	BuiltinNil = &ConstValue{Value: BuiltinValue(BUILTIN_NIL)}
 	BuiltinTrue = &ConstValue{Value: Bool(true)}
 	BuiltinFalse = &ConstValue{Value: Bool(false)}
-	BuiltinIota = &ConstValue{Value: BuiltinValue(BUILTIN_IOTA)}
+	BuiltinIota = &ConstValue{}
 
 	for _, c := range []struct {
 		name string
 		x    Expr
 	}{
-		{"nil", BuiltinNil},
 		{"true", BuiltinTrue},
 		{"false", BuiltinFalse},
 		{"iota", BuiltinIota},
 	} {
 		UniverseScope.dcl[c.name] = &Const{Name: c.name, Init: c.x}
 	}
+
+	BuiltinNil = &Var{Name: "nil", Type: BuiltinNilType}
+	UniverseScope.dcl["nil"] = BuiltinNil
 
 	BuiltinAppend = &FuncDecl{Name: "append"}
 	BuiltinCap = &FuncDecl{Name: "cap"}

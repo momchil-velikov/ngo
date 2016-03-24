@@ -485,7 +485,7 @@ func valueToString(typ *ast.BuiltinType, val ast.Value) string {
 func builtinTypeToString(typ *ast.BuiltinType) string {
 	switch typ.Kind {
 	case ast.BUILTIN_NIL_TYPE:
-		return "#nil"
+		return "nil"
 	case ast.BUILTIN_BOOL:
 		return "bool"
 	case ast.BUILTIN_UINT8:
@@ -529,11 +529,7 @@ func valueToTypeString(c *ast.ConstValue) string {
 	if t := builtinType(c.Typ); t != nil {
 		return builtinTypeToString(t)
 	}
-	switch v := c.Value.(type) {
-	case ast.BuiltinValue:
-		if v == ast.BUILTIN_NIL {
-			return "nil"
-		}
+	switch c.Value.(type) {
 	case ast.Bool:
 		return "untyped bool"
 	case ast.Rune:
