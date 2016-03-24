@@ -43,3 +43,8 @@ var (
 	vA T
 	vB = ^vA
 )
+
+const (
+	z0 = ^i
+	z1
+)

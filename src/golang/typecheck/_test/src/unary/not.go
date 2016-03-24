@@ -18,3 +18,8 @@ var (
 	vA bool
 	vB = !vA
 )
+
+const (
+	z0 = !cA
+	z1
+)

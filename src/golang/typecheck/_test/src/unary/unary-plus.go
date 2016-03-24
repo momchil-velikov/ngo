@@ -26,3 +26,8 @@ var (
 	vE float64
 	vF = +vE
 )
+
+const (
+	z0 = +cA
+	z1
+)

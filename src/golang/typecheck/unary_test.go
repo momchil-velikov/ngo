@@ -90,6 +90,23 @@ func TestUnaryPlus(t *testing.T) {
 	if vF.Type != ast.BuiltinFloat64 {
 		t.Error("`vF` should have type `float64`")
 	}
+
+	z0 := p.Find("z0").(*ast.Const)
+	if z0.Type != ast.BuiltinInt {
+		t.Error("`z0` should have type `int`")
+	}
+	c = z0.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("`z0` should have value 1")
+	}
+	z1 := p.Find("z1").(*ast.Const)
+	if z1.Type != ast.BuiltinInt {
+		t.Error("`z1` should have type `int`")
+	}
+	c = z1.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || v != 1 {
+		t.Error("`z1` should have value 1")
+	}
 }
 
 func TestUnaryPlusErr(t *testing.T) {
@@ -187,6 +204,23 @@ func TestUnaryMinus(t *testing.T) {
 	if v.Type != ast.BuiltinUint {
 		t.Error("`v` should have type `uint`")
 	}
+
+	z0 := p.Find("z0").(*ast.Const)
+	if z0.Type != ast.BuiltinInt {
+		t.Error("`z0` should have type `int`")
+	}
+	c = z0.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || int64(v) != -1 {
+		t.Error("`z0` should have value -1")
+	}
+	z1 := p.Find("z1").(*ast.Const)
+	if z1.Type != ast.BuiltinInt {
+		t.Error("`z1` should have type `int`")
+	}
+	c = z1.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Int); !ok || int64(v) != -1 {
+		t.Error("`z1` should have value -1")
+	}
 }
 
 func TestUnaryMinusErr(t *testing.T) {
@@ -249,6 +283,24 @@ func TestNot(t *testing.T) {
 	if vB.Type != ast.BuiltinBool {
 		t.Error("`B` should have type `bool`")
 	}
+
+	z0 := p.Find("z0").(*ast.Const)
+	if z0.Type != ast.BuiltinBool {
+		t.Error("`z0` should have type `bool`")
+	}
+	c = z0.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Bool); !ok || v == true {
+		t.Error("`z0` should have value false")
+	}
+	z1 := p.Find("z1").(*ast.Const)
+	if z1.Type != ast.BuiltinBool {
+		t.Error("`z1` should have type `bool`")
+	}
+	c = z1.Init.(*ast.ConstValue)
+	if v, ok := c.Value.(ast.Bool); !ok || v == true {
+		t.Error("`z1` should have value false")
+	}
+
 }
 
 func TestNotErr(t *testing.T) {
@@ -407,6 +459,23 @@ func TestCompl(t *testing.T) {
 	vB := p.Find("vB").(*ast.Var)
 	if typ, ok := vB.Type.(*ast.TypeDecl); !ok || typ.Name != "T" {
 		t.Error("`vB` should have type `T`")
+	}
+
+	z0 := p.Find("z0").(*ast.Const)
+	c = z0.Init.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinInt {
+		t.Error("`z0` should have type `int`")
+	}
+	if v, ok := toInt(c); !ok || v != -2 {
+		t.Error("`z0` should have value -2")
+	}
+	z1 := p.Find("z1").(*ast.Const)
+	c = z1.Init.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinInt {
+		t.Error("`z1` should have type `int`")
+	}
+	if v, ok := toInt(c); !ok || v != -2 {
+		t.Error("`z1` should have value -2")
 	}
 }
 

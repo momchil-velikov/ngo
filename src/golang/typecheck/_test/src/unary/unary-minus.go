@@ -29,3 +29,8 @@ var (
 	u uint
 	v = -u
 )
+
+const (
+	z0 = -cA
+	z1
+)

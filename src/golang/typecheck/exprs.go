@@ -1055,7 +1055,6 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	x.X = y
 
 	if c, ok := y.(*ast.ConstValue); ok {
 		src := builtinType(c.Typ)
@@ -1070,6 +1069,8 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
 	}
+
+	x.X = y
 
 	// FIXME: check conversion is valid
 	return x, nil
@@ -1524,122 +1525,127 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	x.X = y
 
 	if _, ok := y.(*ast.ConstValue); !ok && y.Type() == nil {
-		y, err := ev.checkExpr(x.X, ev.TypeCtx)
+		y, err = ev.checkExpr(y, ev.TypeCtx)
 		if err != nil {
 			return nil, err
 		}
-		x.X = y
 	}
 
 	switch x.Op {
 	case '+':
-		return ev.checkUnaryPlus(x)
+		return ev.checkUnaryPlus(x, y)
 	case '-':
-		return ev.checkUnaryMinus(x)
+		return ev.checkUnaryMinus(x, y)
 	case '!':
-		return ev.checkNot(x)
+		return ev.checkNot(x, y)
 	case '^':
-		return ev.checkComplement(x)
+		return ev.checkComplement(x, y)
 	case '*':
-		return ev.checkIndirection(x)
+		return ev.checkIndirection(x, y)
 	case '&':
-		return ev.checkAddr(x)
+		return ev.checkAddr(x, y)
 	case ast.RECV:
-		return ev.checkRecv(x)
+		return ev.checkRecv(x, y)
 	default:
 		panic("not reached")
 	}
 }
 
-func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr) (ast.Expr, error) {
-	if definitelyNotArith(x.X) {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "unary plus"}
+func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	if definitelyNotArith(y) {
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "unary plus"}
 	}
-	if _, ok := x.X.(*ast.ConstValue); ok {
-		return x.X, nil
+	if _, ok := y.(*ast.ConstValue); ok {
+		return y, nil
 	} else {
-		x.Typ = x.X.Type()
+		x.X = y
+		x.Typ = y.Type()
 		return x, nil
 	}
 }
 
-func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr) (ast.Expr, error) {
-	if definitelyNotArith(x.X) {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "unary minus"}
+func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	if definitelyNotArith(y) {
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "unary minus"}
 	}
-	if c, ok := x.X.(*ast.ConstValue); ok {
+	if c, ok := y.(*ast.ConstValue); ok {
 		v := minus(builtinType(c.Typ), c.Value)
 		if v == nil {
 			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: "unary minus"}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
 	} else {
-		x.Typ = x.X.Type()
+		x.X = y
+		x.Typ = y.Type()
 		return x, nil
 	}
 }
 
-func (ev *exprVerifier) checkNot(x *ast.UnaryExpr) (ast.Expr, error) {
-	if x.X.Type() != nil {
-		if t := builtinType(x.X.Type()); t == nil || t.Kind != ast.BUILTIN_BOOL {
-			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "logical not"}
+func (ev *exprVerifier) checkNot(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	if y.Type() != nil {
+		if t := builtinType(y.Type()); t == nil || t.Kind != ast.BUILTIN_BOOL {
+			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "logical not"}
 		}
 	}
-	if c, ok := x.X.(*ast.ConstValue); ok {
+	if c, ok := y.(*ast.ConstValue); ok {
 		v, ok := c.Value.(ast.Bool)
 		if !ok {
-			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "logical not"}
+			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "logical not"}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: !v}, nil
 	} else {
+		x.X = y
 		x.Typ = ast.BuiltinBool
 		return x, nil
 	}
 }
 
-func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr) (ast.Expr, error) {
-	if x.X.Type() != nil {
-		if t := builtinType(x.X.Type()); t == nil || !t.IsInteger() {
-			return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "complement"}
+func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	if y.Type() != nil {
+		if t := builtinType(y.Type()); t == nil || !t.IsInteger() {
+			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "complement"}
 		}
 	}
-	if c, ok := x.X.(*ast.ConstValue); ok {
+	if c, ok := y.(*ast.ConstValue); ok {
 		v := complement(builtinType(c.Typ), c.Value)
 		if v == nil {
 			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: "complement"}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
 	} else {
-		x.Typ = x.X.Type()
+		x.X = y
+		x.Typ = y.Type()
 		return x, nil
 	}
 }
 
-func (ev *exprVerifier) checkIndirection(x *ast.UnaryExpr) (ast.Expr, error) {
-	ptr, ok := unnamedType(x.X.Type()).(*ast.PtrType)
+func (ev *exprVerifier) checkIndirection(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	ptr, ok := unnamedType(y.Type()).(*ast.PtrType)
 	if !ok {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "indirection"}
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "indirection"}
 	}
+	x.X = y
 	x.Typ = ptr.Base
 	return x, nil
 }
 
-func (ev *exprVerifier) checkAddr(x *ast.UnaryExpr) (ast.Expr, error) {
-	if !isAddressable(x.X) {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "address-of"}
+func (ev *exprVerifier) checkAddr(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	if !isAddressable(y) {
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "address-of"}
 	}
-	x.Typ = &ast.PtrType{Off: x.Off, Base: x.X.Type()}
+	x.X = y
+	x.Typ = &ast.PtrType{Off: x.Off, Base: y.Type()}
 	return x, nil
 }
 
-func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr) (ast.Expr, error) {
-	ch, ok := unnamedType(x.X.Type()).(*ast.ChanType)
+func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
+	ch, ok := unnamedType(y.Type()).(*ast.ChanType)
 	if !ok || !ch.Recv {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "receive"}
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: "receive"}
 	}
+	x.X = y
 	x.Typ = &ast.TupleType{Off: x.Off, Type: []ast.Type{ch.Elt, ast.BuiltinBool}}
 	return x, nil
 }
@@ -1652,36 +1658,30 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	// Check the operands without a type context first, as a type context from
 	// one operand takes precedene over type context passed by the parent
 	// expression.
-	y, err := ev.checkExpr(x.X, nil)
+	u, err := ev.checkExpr(x.X, nil)
 	if err != nil {
 		return nil, err
 	}
-	x.X = y
-	y, err = ev.checkExpr(x.Y, nil)
+	v, err := ev.checkExpr(x.Y, nil)
 	if err != nil {
 		return nil, err
 	}
-	x.Y = y
 
-	switch t0, t1 := x.X.Type(), x.Y.Type(); {
-	case t0 != nil && t1 == nil:
-		// If one operand is untyped, convert it to the type of the other operand
-		y, err := ev.checkExpr(x.Y, t0)
-		if err != nil {
-			return nil, err
-		}
-		x.Y = y
+	switch t0, t1 := u.Type(), v.Type(); {
 	case t0 == nil && t1 != nil:
-		y, err := ev.checkExpr(x.X, t1)
-		if err != nil {
+		// If one operand is untyped, convert it to the type of the other operand
+		if u, err = ev.checkExpr(u, t1); err != nil {
 			return nil, err
 		}
-		x.X = y
+	case t0 != nil && t1 == nil:
+		if v, err = ev.checkExpr(v, t0); err != nil {
+			return nil, err
+		}
 	}
 
 	// Evaluate constant binary expressions.
-	if u, ok := x.X.(*ast.ConstValue); ok {
-		if v, ok := x.Y.(*ast.ConstValue); ok {
+	if u, ok := u.(*ast.ConstValue); ok {
+		if v, ok := v.(*ast.ConstValue); ok {
 			switch x.Op {
 			case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
 				v, err := compare(u, v, x.Op)
@@ -1693,7 +1693,7 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		}
 	}
 
-	if x.X.Type() == nil && x.Y.Type() == nil {
+	if u.Type() == nil && v.Type() == nil {
 		// If both operands are without a type, retry with a type context,
 		// either parent type context if not nil, or with default type
 		// context.
@@ -1701,17 +1701,15 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		if ctx == nil {
 			ctx = ast.BuiltinDefault
 		}
-		y, err := ev.checkExpr(x.X, ctx)
-		if err != nil {
+		if u, err = ev.checkExpr(u, ctx); err != nil {
 			return nil, err
 		}
-		x.X = y
-		y, err = ev.checkExpr(x.Y, ctx)
-		if err != nil {
+		if v, err = ev.checkExpr(v, ctx); err != nil {
 			return nil, err
 		}
-		x.Y = y
 	}
+	x.X = u
+	x.Y = v
 
 	switch x.Op {
 	case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
@@ -1730,21 +1728,19 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	// Check the left operand without a type context as the whole shift
 	// expression might be a constant.
-	y, err := ev.checkExpr(x.X, nil)
+	u, err := ev.checkExpr(x.X, nil)
 	if err != nil {
 		return nil, err
 	}
-	x.X = y
 	// Check the right operand. Convert untyped constants at this point to
 	// `uint64`.
-	y, err = ev.checkExpr(x.Y, ast.BuiltinUint64)
+	v, err := ev.checkExpr(x.Y, ast.BuiltinUint64)
 	if err != nil {
 		return nil, err
 	}
-	x.Y = y
 	// Evaluate a constant shift expression.
-	if u, ok := x.X.(*ast.ConstValue); ok {
-		if s, ok := x.Y.(*ast.ConstValue); ok {
+	if u, ok := u.(*ast.ConstValue); ok {
+		if s, ok := v.(*ast.ConstValue); ok {
 			v, err := shift(u, s, x.Op)
 			if err != nil {
 				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
@@ -1753,25 +1749,25 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 		}
 	}
 	// The left operand is not a constant. Retry with a type context.
-	if x.X.Type() == nil && ev.TypeCtx != nil {
-		y, err = ev.checkExpr(x.X, ev.TypeCtx)
-		if err != nil {
+	if u.Type() == nil && ev.TypeCtx != nil {
+		if u, err = ev.checkExpr(x.X, ev.TypeCtx); err != nil {
 			return nil, err
 		}
-		x.X = y
 	}
 	// Return if we cannot yet determine the type of the left operand.
-	if x.X.Type() == nil {
+	if u.Type() == nil {
 		return x, nil
 	}
 	// The left operand should have integer type.
-	if t := builtinType(x.X.Type()); t == nil || !t.IsInteger() {
-		return nil, &BadOperand{Off: x.X.Position(), File: ev.File, Op: "shift"}
+	if t := builtinType(u.Type()); t == nil || !t.IsInteger() {
+		return nil, &BadOperand{Off: u.Position(), File: ev.File, Op: "shift"}
 	}
 	// The right operand should have unsigned integer type.
-	if t := builtinType(x.Y.Type()); t == nil || !t.IsInteger() || t.IsSigned() {
-		return nil, &BadShiftCount{Off: x.Y.Position(), File: ev.File}
+	if t := builtinType(v.Type()); t == nil || !t.IsInteger() || t.IsSigned() {
+		return nil, &BadShiftCount{Off: v.Position(), File: ev.File}
 	}
-	x.Typ = x.X.Type()
+	x.X = u
+	x.Y = v
+	x.Typ = u.Type()
 	return x, nil
 }
