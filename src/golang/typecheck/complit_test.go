@@ -132,21 +132,21 @@ func TestArrayLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"array-err-1.go"},
 		"unspecified array length not allowed")
 	expectError(t, "_test/src/comp", []string{"array-err-2.go"},
-		"2.100000 (untyped) cannot be converted to int")
+		"2.100000 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/comp", []string{"array-err-3.go"},
 		"array index must be a non-negative `int` constant")
 	expectError(t, "_test/src/comp", []string{"array-err-4.go"},
-		"1.200000 (untyped) cannot be converted to int")
+		"1.200000 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/comp", []string{"array-err-5.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-6.go"},
-		"index out of bounds")
+		"index `3` out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-7.go"},
-		"index out of bounds")
+		"index `3` out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-8.go"},
-		"duplicate index in array/slice literal: 1")
+		"duplicate index `1` in array/slice literal")
 	expectError(t, "_test/src/comp", []string{"array-err-9.go"},
-		"duplicate index in array/slice literal: 3")
+		"duplicate index `3` in array/slice literal")
 	expectError(t, "_test/src/comp", []string{"array-err-10.go"},
 		"unspecified array length not allowed")
 	expectError(t, "_test/src/comp", []string{"array-err-11.go"},
@@ -171,15 +171,15 @@ func TestMapLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"map-err-1.go"},
 		"all elements in a map composite literal must have a key")
 	expectError(t, "_test/src/comp", []string{"map-err-2.go"},
-		"duplicate key in map literal: true")
+		"duplicate key `true` in map literal")
 	expectError(t, "_test/src/comp", []string{"map-err-3.go"},
-		"duplicate key in map literal: -1")
+		"duplicate key `-1` in map literal")
 	expectError(t, "_test/src/comp", []string{"map-err-4.go"},
-		"duplicate key in map literal: 1")
+		"duplicate key `1` in map literal")
 	expectError(t, "_test/src/comp", []string{"map-err-5.go"},
-		"duplicate key in map literal: 5.8")
+		"duplicate key `5.25` in map literal")
 	expectError(t, "_test/src/comp", []string{"map-err-6.go"},
-		"duplicate key in map literal: foo")
+		"duplicate key `foo` in map literal")
 }
 
 func TestMapStructLiteral(t *testing.T) {
@@ -193,20 +193,20 @@ func TestStructLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"struct-err-1.go"},
 		"key is not a field name")
 	expectError(t, "_test/src/comp", []string{"struct-err-2.go"},
-		"type does not have a field named Z")
+		"type does not have a field named `Z`")
 	expectError(t, "_test/src/comp", []string{"struct-err-3.go"},
-		"type does not have a field named X")
+		"type does not have a field named `X`")
 	expectError(t, "_test/src/comp", []string{"struct-err-4.go"},
 		"struct literal mixes field:value and value initializers")
 	expectError(t, "_test/src/comp", []string{"struct-err-5.go"},
 		"the literal must contain exactly one element for each struct field")
 	expectError(t, "_test/src/comp", []string{"struct-err-6.go"},
-		"duplicate field name in struct literal: X")
+		"duplicate field name `X` in struct literal")
 	expectError(t, "_test/src/comp", []string{"struct-err-7.go"},
 		"missing type for composite literal")
 }
 
 func TestLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"lit-err.go"},
-		"invalid type for composite literal")
+		"`int` is not a valid type for composite literals")
 }

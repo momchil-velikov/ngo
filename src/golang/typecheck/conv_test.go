@@ -49,11 +49,11 @@ func TestConvBool(t *testing.T) {
 
 func TestConvBoolErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"bool-err-1.go"},
-		"true (untyped) cannot be converted to int")
+		"true (`untyped bool`) cannot be converted to `int`")
 	expectError(t, "_test/src/conv", []string{"bool-err-2.go"},
-		"invalid constant type")
+		"`*int` is not a valid constant type")
 	expectError(t, "_test/src/conv", []string{"bool-err-3.go"},
-		"true (untyped) cannot be converted to string")
+		"true (`untyped bool`) cannot be converted to `string`")
 }
 
 func TestConvInt(t *testing.T) {
@@ -119,7 +119,7 @@ func TestConvInt(t *testing.T) {
 		if name != c.typ {
 			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
-		s := valueToString(builtinType(x.Typ), x.Value)
+		s := valueToString(x)
 		if s != c.val {
 			t.Errorf("unexpected value `%s` for `%s`\n", s, n.Name)
 		}
@@ -129,56 +129,56 @@ func TestConvInt(t *testing.T) {
 func TestConvIntErr(t *testing.T) {
 	const dir = "_test/src/conv"
 	for i, e := range []string{
-		"1 (untyped) cannot be converted to bool",
-		"1 (type uint32) cannot be converted to bool",
-		"-129 (untyped) cannot be converted to int8",
-		"128 (untyped) cannot be converted to int8",
-		"-129 (type int32) cannot be converted to int8",
-		"128 (type uint32) cannot be converted to int8",
-		"128 (type int32) cannot be converted to int8",
-		"-1 (untyped) cannot be converted to uint8",
-		"256 (untyped) cannot be converted to uint8",
-		"-1 (type int32) cannot be converted to uint8",
-		"256 (type uint32) cannot be converted to uint8",
-		"256 (type int32) cannot be converted to uint8",
-		"-32769 (untyped) cannot be converted to int16",
-		"32768 (untyped) cannot be converted to int16",
-		"-32769 (type int32) cannot be converted to int16",
-		"32768 (type uint32) cannot be converted to int16",
-		"32768 (type int32) cannot be converted to int16",
-		"-1 (untyped) cannot be converted to uint16",
-		"65536 (untyped) cannot be converted to uint16",
-		"-1 (type int32) cannot be converted to uint16",
-		"65536 (type uint32) cannot be converted to uint16",
-		"65536 (type int32) cannot be converted to uint16",
-		"-2147483649 (untyped) cannot be converted to int32",
-		"2147483648 (untyped) cannot be converted to int32",
-		"-2147483649 (type int64) cannot be converted to int32",
-		"2147483648 (type uint32) cannot be converted to int32",
-		"2147483648 (type int64) cannot be converted to int32",
-		"-1 (untyped) cannot be converted to uint32",
-		"4294967296 (untyped) cannot be converted to uint32",
-		"-1 (type int64) cannot be converted to uint32",
-		"4294967296 (type uint64) cannot be converted to uint32",
-		"4294967296 (type int64) cannot be converted to uint32",
-		"-9223372036854775809 (untyped) cannot be converted to int64",
-		"9223372036854775808 (untyped) cannot be converted to int64",
-		"9223372036854775808 (type uint64) cannot be converted to int64",
-		"-1 (untyped) cannot be converted to uint64",
-		"18446744073709551616 (untyped) cannot be converted to uint64",
-		"-1 (type int64) cannot be converted to uint64",
-		"-9223372036854775809 (untyped) cannot be converted to int",
-		"9223372036854775808 (untyped) cannot be converted to int",
-		"9223372036854775808 (type uint) cannot be converted to int",
-		"-1 (untyped) cannot be converted to uint",
-		"18446744073709551616 (untyped) cannot be converted to uint",
-		"-1 (type int) cannot be converted to uint",
-		"-1 (untyped) cannot be converted to uintptr",
-		"18446744073709551616 (untyped) cannot be converted to uintptr",
-		"-1 (type int) cannot be converted to uintptr",
-		"1000000000000000000000000000000000000000 (untyped) cannot be converted to float32",
+		"1 (`untyped int`) cannot be converted to `bool`",
+		"1 (`uint32`) cannot be converted to `bool`",
+		"-129 (`untyped int`) cannot be converted to `int8`",
+		"128 (`untyped int`) cannot be converted to `int8`",
+		"-129 (`int32`) cannot be converted to `int8`",
+		"128 (`uint32`) cannot be converted to `int8`",
+		"128 (`int32`) cannot be converted to `int8`",
+		"-1 (`untyped int`) cannot be converted to `uint8`",
+		"256 (`untyped int`) cannot be converted to `uint8`",
+		"-1 (`int32`) cannot be converted to `uint8`",
+		"256 (`uint32`) cannot be converted to `uint8`",
+		"256 (`int32`) cannot be converted to `uint8`",
+		"-32769 (`untyped int`) cannot be converted to `int16`",
+		"32768 (`untyped int`) cannot be converted to `int16`",
+		"-32769 (`int32`) cannot be converted to `int16`",
+		"32768 (`uint32`) cannot be converted to `int16`",
+		"32768 (`int32`) cannot be converted to `int16`",
+		"-1 (`untyped int`) cannot be converted to `uint16`",
+		"65536 (`untyped int`) cannot be converted to `uint16`",
+		"-1 (`int32`) cannot be converted to `uint16`",
+		"65536 (`uint32`) cannot be converted to `uint16`",
+		"65536 (`int32`) cannot be converted to `uint16`",
+		"-2147483649 (`untyped int`) cannot be converted to `int32`",
+		"2147483648 (`untyped int`) cannot be converted to `int32`",
+		"-2147483649 (`int64`) cannot be converted to `int32`",
+		"2147483648 (`uint32`) cannot be converted to `int32`",
+		"2147483648 (`int64`) cannot be converted to `int32`",
+		"-1 (`untyped int`) cannot be converted to `uint32`",
+		"4294967296 (`untyped int`) cannot be converted to `uint32`",
+		"-1 (`int64`) cannot be converted to `uint32`",
+		"4294967296 (`uint64`) cannot be converted to `uint32`",
+		"4294967296 (`int64`) cannot be converted to `uint32`",
+		"-9223372036854775809 (`untyped int`) cannot be converted to `int64`",
+		"9223372036854775808 (`untyped int`) cannot be converted to `int64`",
+		"9223372036854775808 (`uint64`) cannot be converted to `int64`",
+		"-1 (`untyped int`) cannot be converted to `uint64`",
+		"18446744073709551616 (`untyped int`) cannot be converted to `uint64`",
+		"-1 (`int64`) cannot be converted to `uint64`",
+		"-9223372036854775809 (`untyped int`) cannot be converted to `int`",
+		"9223372036854775808 (`untyped int`) cannot be converted to `int`",
+		"9223372036854775808 (`uint`) cannot be converted to `int`",
+		"-1 (`untyped int`) cannot be converted to `uint`",
+		"18446744073709551616 (`untyped int`) cannot be converted to `uint`",
+		"-1 (`int`) cannot be converted to `uint`",
+		"-1 (`untyped int`) cannot be converted to `uintptr`",
+		"18446744073709551616 (`untyped int`) cannot be converted to `uintptr`",
+		"-1 (`int`) cannot be converted to `uintptr`",
+		"1000000000000000000000000000000000000000 (`untyped int`) cannot be converted to `float32`",
 
-		"1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 (untyped) cannot be converted to float64",
+		"1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 (`untyped int`) cannot be converted to `float64`",
 	} {
 		expectError(t, dir, []string{fmt.Sprintf("int-err-%02d.go", i+1)}, e)
 	}
@@ -224,7 +224,7 @@ func TestConvFloat(t *testing.T) {
 		if name != c.typ {
 			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
-		s := valueToString(builtinType(x.Typ), x.Value)
+		s := valueToString(x)
 		if s != c.val {
 			t.Errorf("unexpected value `%s` for `%s`\n", s, n.Name)
 		}
@@ -235,16 +235,16 @@ func TestConvFloatErr(t *testing.T) {
 
 	const dir = "_test/src/conv"
 	for i, e := range []string{
-		"1.100000 (untyped) cannot be converted to bool",
-		"1.100000 (type float32) cannot be converted to bool",
-		"1.100000 (untyped) cannot be converted to string",
-		"1.100000 (type float64) cannot be converted to string",
-		"1.100000 (untyped) cannot be converted to int",
-		"1.100000 (type float64) cannot be converted to int",
-		"9223372036854777856.000000 (type float64) cannot be converted to int64",
-		"18446744073709555712.000000 (type float64) cannot be converted to uint64",
-		"-9223372036854779904.000000 (type float64) cannot be converted to int64",
-		"179769313486231589999999999999999999999999999999999999999999999999999999999999777816481292516925359185725128383638673141453317136668426630023755954681353297585823163889595831750739892328339287594669941410908927299736853716969618046803012291434577195764887115186790482212808716743819624705152288329332701528064.000000 (untyped) cannot be converted to float64",
+		"1.100000 (`untyped float`) cannot be converted to `bool`",
+		"1.100000 (`float32`) cannot be converted to `bool`",
+		"1.100000 (`untyped float`) cannot be converted to `string`",
+		"1.100000 (`float64`) cannot be converted to `string`",
+		"1.100000 (`untyped float`) cannot be converted to `int`",
+		"1.100000 (`float64`) cannot be converted to `int`",
+		"9223372036854777856.000000 (`float64`) cannot be converted to `int64`",
+		"18446744073709555712.000000 (`float64`) cannot be converted to `uint64`",
+		"-9223372036854779904.000000 (`float64`) cannot be converted to `int64`",
+		"179769313486231589999999999999999999999999999999999999999999999999999999999999777816481292516925359185725128383638673141453317136668426630023755954681353297585823163889595831750739892328339287594669941410908927299736853716969618046803012291434577195764887115186790482212808716743819624705152288329332701528064.000000 (`untyped float`) cannot be converted to `float64`",
 	} {
 		expectError(t, dir, []string{fmt.Sprintf("float-err-%02d.go", i+1)}, e)
 	}

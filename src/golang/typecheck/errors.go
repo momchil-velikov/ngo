@@ -44,13 +44,13 @@ func (e *DupFieldName) Error() string {
 type BadAnonType struct {
 	Off  int
 	File *ast.File
-	What string
+	Type ast.Type
 }
 
 func (e *BadAnonType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: embedded type cannot be a %s",
-		e.File.Name, ln, col, e.What)
+	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid anonymous field type",
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 type TypeCheckLoop struct {
@@ -65,9 +65,9 @@ func (e *TypeCheckLoop) Error() string {
 	fmt.Fprintf(&b, "%s:%d:%d: invalid recursive type\n", e.File.Name, ln, col)
 	i := 0
 	for ; i < len(e.Loop)-1; i++ {
-		fmt.Fprintf(&b, "\t %s depends on %s\n", e.Loop[i].Name, e.Loop[i+1].Name)
+		fmt.Fprintf(&b, "\t `%s` depends on `%s`\n", e.Loop[i].Name, e.Loop[i+1].Name)
 	}
-	fmt.Fprintf(&b, "\t %s depends on %s", e.Loop[i].Name, e.Loop[0].Name)
+	fmt.Fprintf(&b, "\t `%s` depends on `%s`", e.Loop[i].Name, e.Loop[0].Name)
 	return b.String()
 }
 
@@ -78,7 +78,7 @@ type BadEmbed struct {
 func (e *BadEmbed) Error() string {
 	file := e.Type.File
 	ln, col := file.SrcMap.Position(e.Type.Off)
-	return fmt.Sprintf("%s:%d:%d: interace embeds non-interface type %s",
+	return fmt.Sprintf("%s:%d:%d: interace embeds non-interface type `%s`",
 		file.Name, ln, col, e.Type.Name)
 }
 
@@ -92,8 +92,8 @@ type BadConstType struct {
 
 func (e *BadConstType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid constant type",
-		e.File.Name, ln, col) // FIXME: describe the type
+	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid constant type",
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 // The DupMethodName error is returned whenever a method name is not unique
@@ -106,7 +106,7 @@ func (e *DupMethodName) Error() string {
 	off, f := e.M0.DeclaredAt()
 	ln, col := f.SrcMap.Position(off)
 	txt := bytes.Buffer{}
-	fmt.Fprintf(&txt, "%s:%d:%d: duplicate method name %s\n",
+	fmt.Fprintf(&txt, "%s:%d:%d: duplicate method name `%s`\n",
 		f.Name, ln, col, e.M0.Name)
 	off, f = e.M1.DeclaredAt()
 	ln, col = f.SrcMap.Position(off)
@@ -125,11 +125,11 @@ func (e *DupFieldMethodName) Error() string {
 	off, f := e.M.DeclaredAt()
 	ln, col := f.SrcMap.Position(off)
 	txt := bytes.Buffer{}
-	fmt.Fprintf(&txt, "%s:%d:%d: method name %s conflicts with field name\n",
+	fmt.Fprintf(&txt, "%s:%d:%d: method name `%s` conflicts with field name\n",
 		f.Name, ln, col, e.M.Name)
 	off, f = e.S.DeclaredAt()
 	ln, col = f.SrcMap.Position(off)
-	fmt.Fprintf(&txt, "%s:%d:%d: in the declaration of type %s",
+	fmt.Fprintf(&txt, "%s:%d:%d: in the declaration of type `%s`",
 		f.Name, ln, col, e.S.Name)
 	return txt.String()
 }
@@ -146,7 +146,7 @@ type DupIfaceMethodName struct {
 func (e *DupIfaceMethodName) Error() string {
 	ln, col := e.Decl.File.SrcMap.Position(e.Decl.Off)
 	txt := bytes.Buffer{}
-	fmt.Fprintf(&txt, "%s:%d:%d: in declaration of %s: duplicate method name %s\n",
+	fmt.Fprintf(&txt, "%s:%d:%d: in declaration of `%s`: duplicate method name `%s`\n",
 		e.Decl.File.Name, ln, col, e.Decl.Name, e.Name)
 	ln, col = e.File0.SrcMap.Position(e.Off0)
 	fmt.Fprintf(&txt, "%s:%d:%d: declared here\n", e.File0.Name, ln, col)
@@ -204,7 +204,7 @@ type AmbiguousSelector struct {
 
 func (e *AmbiguousSelector) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: ambiguous selector %s\n", e.File.Name, ln, col, e.Name)
+	return fmt.Sprintf("%s:%d:%d: ambiguous selector `%s`\n", e.File.Name, ln, col, e.Name)
 }
 
 // The BadReceiverType error is returned whenever a type does not have the
@@ -230,7 +230,7 @@ type NotFound struct {
 
 func (e *NotFound) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: type does not have a %s named %s",
+	return fmt.Sprintf("%s:%d:%d: type does not have a %s named `%s`",
 		e.File.Name, ln, col, e.What, e.Name)
 }
 
@@ -260,7 +260,7 @@ type BadTypeAssertion struct {
 
 func (e *BadTypeAssertion) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid use if .(type) outside type switch",
+	return fmt.Sprintf("%s:%d:%d: invalid use if `.(type)` outside type switch",
 		e.File.Name, ln, col)
 }
 
@@ -298,7 +298,7 @@ type BadArgNumber struct {
 
 func (e *BadArgNumber) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: argument count mismatch allowed", e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: argument count mismatch", e.File.Name, ln, col)
 }
 
 // The TypeInferLoop error is returned for when an expression type depends
@@ -319,7 +319,7 @@ func (e *TypeInferLoop) Error() string {
 		next := e.Loop[i]
 		off, file := prev.DeclaredAt()
 		ln, col := file.SrcMap.Position(off)
-		fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n",
+		fmt.Fprintf(&txt, "\t%s:%d:%d: `%s`uses `%s`\n",
 			file.Name, ln, col, prev.Id(), next.Id())
 		prev = next
 	}
@@ -327,7 +327,8 @@ func (e *TypeInferLoop) Error() string {
 	next := e.Loop[0]
 	off, file := prev.DeclaredAt()
 	ln, col := file.SrcMap.Position(off)
-	fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n", file.Name, ln, col, prev.Id(), next.Id())
+	fmt.Fprintf(&txt, "\t%s:%d:%d: `%s` uses `%s`\n",
+		file.Name, ln, col, prev.Id(), next.Id())
 	return txt.String()
 
 }
@@ -361,7 +362,7 @@ func (e *EvalLoop) Error() string {
 		next := e.Loop[i]
 		off, file := prev.DeclaredAt()
 		ln, col := file.SrcMap.Position(off)
-		fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n",
+		fmt.Fprintf(&txt, "\t%s:%d:%d: `%s` uses `%s`\n",
 			file.Name, ln, col, prev.Id(), next.Id())
 		prev = next
 	}
@@ -369,30 +370,26 @@ func (e *EvalLoop) Error() string {
 	next := e.Loop[0]
 	off, file := prev.DeclaredAt()
 	ln, col := file.SrcMap.Position(off)
-	fmt.Fprintf(&txt, "\t%s:%d:%d: %s uses %s\n", file.Name, ln, col, prev.Id(), next.Id())
+	fmt.Fprintf(&txt, "\t%s:%d:%d: `%s` uses `%s`\n",
+		file.Name, ln, col, prev.Id(), next.Id())
 	return txt.String()
 }
 
 // The BadConversion error is returned when the destination type cannot
 // represent the value of the converted constant.
-type BadConversion struct {
+type BadConstConversion struct {
 	Off  int
 	File *ast.File
 	Dst  *ast.BuiltinType
-	Src  *ast.BuiltinType
-	Val  ast.Value
+	Src  *ast.ConstValue
 }
 
-func (e *BadConversion) Error() string {
+func (e *BadConstConversion) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	var typ string
-	if e.Src == nil {
-		typ = "untyped"
-	} else {
-		typ = fmt.Sprintf("type %s", builtinTypeToString(e.Src))
-	}
-	return fmt.Sprintf("%s:%d:%d: %s (%s) cannot be converted to %s",
-		e.File.Name, ln, col, valueToString(e.Src, e.Val), typ, builtinTypeToString(e.Dst))
+	val := valueToString(e.Src)
+	typ := valueToTypeString(e.Src)
+	return fmt.Sprintf("%s:%d:%d: %s (`%s`) cannot be converted to `%s`",
+		e.File.Name, ln, col, val, typ, builtinTypeToString(e.Dst))
 }
 
 // The BadOperand error is returned whan an operation is not applicable to the
@@ -400,12 +397,13 @@ func (e *BadConversion) Error() string {
 type BadOperand struct {
 	Off  int
 	File *ast.File
-	Op   string
+	Op   uint
 }
 
 func (e *BadOperand) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid operand to %s", e.File.Name, ln, col, e.Op)
+	return fmt.Sprintf("%s:%d:%d: invalid operand to `%s`", e.File.Name, ln, col,
+		opToString(e.Op))
 }
 
 func intToString(typ *ast.BuiltinType, v uint64) string {
@@ -453,8 +451,8 @@ func complexToString(typ *ast.BuiltinType, v complex128) string {
 	}
 }
 
-func valueToString(typ *ast.BuiltinType, val ast.Value) string {
-	switch v := val.(type) {
+func valueToString(c *ast.ConstValue) string {
+	switch v := c.Value.(type) {
 	case ast.Bool:
 		if bool(v) {
 			return "true"
@@ -466,15 +464,15 @@ func valueToString(typ *ast.BuiltinType, val ast.Value) string {
 	case ast.UntypedInt:
 		return v.String()
 	case ast.Int:
-		return intToString(typ, uint64(v))
+		return intToString(builtinType(c.Typ), uint64(v))
 	case ast.UntypedFloat:
 		return v.Text('f', 6)
 	case ast.Float:
-		return floatToString(typ, float64(v))
+		return floatToString(builtinType(c.Typ), float64(v))
 	case ast.UntypedComplex:
 		return fmt.Sprintf("(%s + %si)", v.Re.String(), v.Im.String())
 	case ast.Complex:
-		return complexToString(typ, complex128(v))
+		return complexToString(builtinType(c.Typ), complex128(v))
 	case ast.String:
 		return "\"" + string(v) + "\""
 	default:
@@ -525,6 +523,92 @@ func builtinTypeToString(typ *ast.BuiltinType) string {
 	}
 }
 
+func typeToString(typ ast.Type) string {
+	if typ == nil {
+		return "unknown"
+	}
+	switch typ := typ.(type) {
+	case *ast.Error:
+		return "<error>"
+	case *ast.QualifiedId:
+		if len(typ.Pkg) > 0 {
+			return typ.Pkg + "." + typ.Id
+		} else {
+			return typ.Id
+		}
+	case *ast.TypeDecl:
+		return typ.Name
+	case *ast.BuiltinType:
+		return builtinTypeToString(typ)
+	case *ast.ArrayType:
+		n := typ.Dim.(*ast.ConstValue)
+		return fmt.Sprintf("[%s]%s", valueToString(n), typeToString(typ.Elt))
+	case *ast.SliceType:
+		return fmt.Sprintf("[]%s", typeToString(typ.Elt))
+	case *ast.PtrType:
+		return fmt.Sprintf("*%s", typeToString(typ.Base))
+	case *ast.MapType:
+		return fmt.Sprintf("map[%s]%s", typeToString(typ.Key), typeToString(typ.Elt))
+	case *ast.ChanType:
+		var ch string
+		if typ.Send && typ.Recv {
+			ch = "chan"
+		} else if typ.Send {
+			ch = "chan<-"
+		} else {
+			ch = "<-chan"
+		}
+		return fmt.Sprintf("%s %s", ch, typeToString(typ.Elt))
+	case *ast.StructType:
+		if len(typ.Fields) == 0 {
+			return "struct{}"
+		} else {
+			return "struct{...}"
+		}
+	case *ast.TupleType:
+		if n := len(typ.Type); n > 0 {
+			b := bytes.Buffer{}
+			fmt.Fprintf(&b, "<%s", typeToString(typ.Type[0]))
+			for i := 1; i < n; i++ {
+				fmt.Fprintf(&b, ", %s", typeToString(typ.Type[i]))
+			}
+			fmt.Fprint(&b, ">")
+			return b.String()
+		} else {
+			return "<>"
+		}
+	case *ast.FuncType:
+		b := bytes.Buffer{}
+		if n := len(typ.Params); n > 0 {
+			fmt.Fprintf(&b, "func (%s", typeToString(typ.Params[0].Type))
+			for i := 1; i < n; i++ {
+				fmt.Fprintf(&b, ", %s", typeToString(typ.Params[i].Type))
+			}
+			fmt.Fprint(&b, ")")
+		} else {
+			fmt.Fprint(&b, "func()")
+		}
+		if n := len(typ.Returns); n > 1 {
+			fmt.Fprintf(&b, "(%s", typeToString(typ.Returns[0].Type))
+			for i := 1; i < n; i++ {
+				fmt.Fprintf(&b, ", %s", typeToString(typ.Returns[i].Type))
+			}
+			fmt.Fprint(&b, ")")
+		} else if n == 1 {
+			fmt.Fprintf(&b, "%s", typeToString(typ.Returns[0].Type))
+		}
+		return b.String()
+	case *ast.InterfaceType:
+		if len(typ.Embedded) == 0 && len(typ.Methods) == 0 {
+			return "interface{}"
+		} else {
+			return "interface{...}"
+		}
+	default:
+		panic("not reached")
+	}
+}
+
 func valueToTypeString(c *ast.ConstValue) string {
 	if t := builtinType(c.Typ); t != nil {
 		return builtinTypeToString(t)
@@ -546,6 +630,55 @@ func valueToTypeString(c *ast.ConstValue) string {
 	panic("not reached")
 }
 
+func opToString(op uint) string {
+	switch op {
+	case ast.PLUS:
+		return "+"
+	case ast.MINUS:
+		return "-"
+	case ast.MUL:
+		return "*"
+	case ast.DIV:
+		return "/"
+	case ast.REM:
+		return "%"
+	case ast.BITAND:
+		return "&"
+	case ast.BITOR:
+		return "|"
+	case ast.BITXOR:
+		return "^"
+	case ast.LT:
+		return "<"
+	case ast.GT:
+		return ">"
+	case ast.NOT:
+		return "!"
+	case ast.SHL:
+		return "<<"
+	case ast.SHR:
+		return ">>"
+	case ast.ANDN:
+		return "&^"
+	case ast.AND:
+		return "&&"
+	case ast.OR:
+		return "||"
+	case ast.RECV:
+		return "<-"
+	case ast.EQ:
+		return "=="
+	case ast.NE:
+		return "!="
+	case ast.LE:
+		return "<="
+	case ast.GE:
+		return "=>"
+	default:
+		panic("not reached")
+	}
+}
+
 // The NegArrayLen error is returned when an array is declared of negetive
 // length.
 type NegArrayLen struct {
@@ -564,12 +697,13 @@ func (e *NegArrayLen) Error() string {
 type BadLiteralType struct {
 	Off  int
 	File *ast.File
+	Type ast.Type
 }
 
 func (e *BadLiteralType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid type for composite literal",
-		e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid type for composite literals",
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 // The MissingLiteralType error is returned when a composite literal elides
@@ -644,11 +778,12 @@ func (e *BadArraySize) Error() string {
 type IndexOutOfBounds struct {
 	Off  int
 	File *ast.File
+	Idx  int64
 }
 
 func (e *IndexOutOfBounds) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: index out of bounds", e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: index `%d` out of bounds", e.File.Name, ln, col, e.Idx)
 }
 
 // The MixedStructLiteral is returned when a struct literal mixes keyed and
@@ -689,7 +824,7 @@ type DupLitField struct {
 
 func (e *DupLitField) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: duplicate field name in struct literal: %s",
+	return fmt.Sprintf("%s:%d:%d: duplicate field name `%s` in struct literal",
 		e.File.Name, ln, col, e.Name)
 }
 
@@ -703,7 +838,7 @@ type DupLitIndex struct {
 
 func (e *DupLitIndex) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: duplicate index in array/slice literal: %d",
+	return fmt.Sprintf("%s:%d:%d: duplicate index `%d` in array/slice literal",
 		e.File.Name, ln, col, e.Idx)
 }
 
@@ -717,7 +852,7 @@ type DupLitKey struct {
 
 func (e *DupLitKey) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: duplicate key in map literal: %v",
+	return fmt.Sprintf("%s:%d:%d: duplicate key `%v` in map literal",
 		e.File.Name, ln, col, e.Key)
 }
 
@@ -727,12 +862,13 @@ func (e *DupLitKey) Error() string {
 type BadIndexedType struct {
 	Off  int
 	File *ast.File
+	Type ast.Type
 }
 
 func (e *BadIndexedType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: type does not support indexing or slicing",
-		e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: type `%s` does not support indexing or slicing",
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 // The BadSliceExpr error is returned for a slice expression with capacity
@@ -744,7 +880,7 @@ type BadSliceExpr struct {
 
 func (e *BadSliceExpr) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: string type does not support 3-index slicing",
+	return fmt.Sprintf("%s:%d:%d: `string` type does not support 3-index slicing",
 		e.File.Name, ln, col)
 }
 
@@ -753,11 +889,13 @@ func (e *BadSliceExpr) Error() string {
 type NotInteger struct {
 	Off  int
 	File *ast.File
+	Type ast.Type
 }
 
 func (e *NotInteger) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: index must be of integer type", e.File.Name, ln, col)
+	return fmt.Sprintf("%s:%d:%d: index must be of integer type (given `%s`)",
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 // The BadShiftCount error is returned when the right operand of a shift
@@ -798,14 +936,8 @@ type NotAssignable struct {
 
 func (e *NotAssignable) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	desc := ""
-	if typ := builtinType(e.Type); typ == nil {
-		desc = "fixme"
-	} else {
-		desc = builtinTypeToString(typ)
-	}
 	return fmt.Sprintf("%s:%d:%d: expression is not assignable to `%s`",
-		e.File.Name, ln, col, desc)
+		e.File.Name, ln, col, typeToString(e.Type))
 }
 
 // The NilUse error is returned on attemt to use the value `nil`

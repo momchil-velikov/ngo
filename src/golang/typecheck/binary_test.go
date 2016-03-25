@@ -178,7 +178,7 @@ func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-1.go"},
 		"shift count must be unsigned integer (`int` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-2.go"},
-		"1.100000 (untyped) cannot be converted to uint64")
+		"1.100000 (`untyped float`) cannot be converted to `uint64`")
 	expectError(t, "_test/src/binary", []string{"shift-err-3.go"},
 		"shift count must be unsigned integer (`float32` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-4.go"},
@@ -194,9 +194,9 @@ func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-9.go"},
 		"invalid operand to `<<`: operand must have integer type (`untyped string` given")
 	expectError(t, "_test/src/binary", []string{"shift-err-10.go"},
-		"invalid operand to shift")
+		"invalid operand to `<<`")
 	expectError(t, "_test/src/binary", []string{"shift-err-11.go"},
-		"invalid operand to shift")
+		"invalid operand to `<<`")
 	expectError(t, "_test/src/binary", []string{"shift-err-12.go"},
 		"shift count must be unsigned and integer")
 	expectError(t, "_test/src/binary", []string{"shift-err-13.go"},

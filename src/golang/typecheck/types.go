@@ -318,13 +318,11 @@ func (tv *typeVerifier) VisitStructType(t *ast.StructType) (ast.Type, error) {
 		if ptr, ok := f.Type.(*ast.PtrType); ok {
 			dcl = ptr.Base.(*ast.TypeDecl)
 			if _, ok := unnamedType(dcl.Type).(*ast.InterfaceType); ok {
-				return nil, &BadAnonType{
-					Off: f.Off, File: tv.File, What: "pointer to interface type"}
+				return nil, &BadAnonType{Off: f.Off, File: tv.File, Type: f.Type}
 			}
 		}
 		if _, ok := unnamedType(dcl.Type).(*ast.PtrType); ok {
-			return nil, &BadAnonType{
-				Off: f.Off, File: tv.File, What: "pointer type"}
+			return nil, &BadAnonType{Off: f.Off, File: tv.File, Type: f.Type}
 		}
 	}
 	return t, nil

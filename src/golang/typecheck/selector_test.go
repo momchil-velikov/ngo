@@ -252,7 +252,7 @@ func TestSelectorNonExported(t *testing.T) {
 	loc.pkgs["sel/a"] = pa
 
 	expectErrorWithLoc(t, "_test/src/sel/b", []string{"b-err-1.go"}, loc,
-		"ambiguous selector X")
+		"ambiguous selector `X`")
 
 	pb, err := compilePackage("_test/src/sel/b", []string{"b.go"}, loc)
 	if err != nil {
@@ -270,13 +270,13 @@ func TestSelectorNonExported(t *testing.T) {
 	}
 
 	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-4.go"}, loc,
-		"type does not have a field or method named y")
+		"type does not have a field or method named `y`")
 	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-5.go"}, loc,
-		"type does not have a field or method named y")
+		"type does not have a field or method named `y`")
 	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-6.go"}, loc,
-		"ambiguous selector X")
+		"ambiguous selector `X`")
 	expectErrorWithLoc(t, "_test/src/sel", []string{"selector-7.go"}, loc,
-		"type does not have a field or method named y")
+		"type does not have a field or method named `y`")
 }
 
 func TestMethodExpr(t *testing.T) {
@@ -465,7 +465,7 @@ func TestMethodExprErr(t *testing.T) {
 	loc.pkgs["sel/a"] = pa
 
 	expectErrorWithLoc(t, "_test/src/sel/b", []string{"b-err-2.go"}, loc,
-		"ambiguous selector F")
+		"ambiguous selector `F`")
 
 	pb, err := compilePackage("_test/src/sel/b", []string{"b.go"}, loc)
 	if err != nil {
@@ -478,9 +478,9 @@ func TestMethodExprErr(t *testing.T) {
 	loc.pkgs["sel/b"] = pb
 
 	expectErrorWithLoc(t, "_test/src/sel", []string{"method-expr-err-3.go"}, loc,
-		"type does not have a method named g")
+		"type does not have a method named `g`")
 	expectErrorWithLoc(t, "_test/src/sel", []string{"method-expr-err-4.go"}, loc,
-		"ambiguous selector F")
+		"ambiguous selector `F`")
 	expectErrorWithLoc(t, "_test/src/sel", []string{"method-expr-err-5.go"}, loc,
-		"type does not have a method named g")
+		"type does not have a method named `g`")
 }

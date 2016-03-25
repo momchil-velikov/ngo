@@ -74,7 +74,7 @@ func TestArrayErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"array-err-1.go"},
 		"array length is not a constant")
 	expectError(t, "_test/src/typ", []string{"array-err-2.go"},
-		"cannot be converted to int")
+		"cannot be converted to `int`")
 	expectError(t, "_test/src/typ", []string{"array-err-3.go"},
 		"array length must be non-negative")
 	expectError(t, "_test/src/typ", []string{"array-err-4.go"},
@@ -120,11 +120,11 @@ func TestStructErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"struct-dup-2.go"},
 		"non-unique field name `X`")
 	expectError(t, "_test/src/typ", []string{"struct-anon-1.go"},
-		"embedded type cannot be a pointer type")
+		"`PP` is not a valid anonymous field type")
 	expectError(t, "_test/src/typ", []string{"struct-anon-2.go"},
-		"embedded type cannot be a pointer type")
+		"`*PP` is not a valid anonymous field type")
 	expectError(t, "_test/src/typ", []string{"struct-anon-3.go"},
-		"embedded type cannot be a pointer to interface type")
+		"`*J` is not a valid anonymous field type")
 }
 
 func TestMapType(t *testing.T) {
@@ -172,25 +172,25 @@ func TestIfaceErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"iface-err-1.go"},
 		"invalid type for map key")
 	expectError(t, "_test/src/typ", []string{"method-dup-1.go"},
-		"in declaration of J: duplicate method name F")
+		"in declaration of `J`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-2.go"},
-		"in declaration of K: duplicate method name F")
+		"in declaration of `K`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-3.go"},
-		"in declaration of K: duplicate method name F")
+		"in declaration of `K`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-4.go"},
-		"in declaration of K: duplicate method name F")
+		"in declaration of `K`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-5.go"},
-		": duplicate method name F")
+		": duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-6.go"},
-		": duplicate method name F")
+		": duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-7.go"},
-		"F conflicts with field name")
+		"`F` conflicts with field name")
 	expectError(t, "_test/src/typ", []string{"method-dup-8.go"},
-		"F conflicts with field name")
+		"`F` conflicts with field name")
 	expectError(t, "_test/src/typ", []string{"method-dup-9.go"},
-		"F conflicts with field name")
+		"`F` conflicts with field name")
 	expectError(t, "_test/src/typ", []string{"method-dup-10.go"},
-		"in declaration of J: duplicate method name F")
+		"in declaration of `J`: duplicate method name `F`")
 }
 
 func TestConstType(t *testing.T) {
@@ -201,7 +201,7 @@ func TestConstType(t *testing.T) {
 }
 
 func TestConstTypeErr(t *testing.T) {
-	expectError(t, "_test/src/typ", []string{"const-err.go"}, "invalid constant type")
+	expectError(t, "_test/src/typ", []string{"const-err.go"}, "`[]int` is not a valid constant type")
 }
 
 func TestTypeIdentity(t *testing.T) {
@@ -604,7 +604,7 @@ func TestAssignableErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"assign-err-01.go"},
 		"not assignable to `int8`")
 	expectError(t, "_test/src/typ", []string{"assign-err-02.go"},
-		"not assignable to `fixme`")
+		"not assignable to `S`")
 	expectError(t, "_test/src/typ", []string{"assign-err-03.go"},
 		"use of builtin `nil`")
 }

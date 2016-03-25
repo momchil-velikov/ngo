@@ -545,7 +545,7 @@ type badOperandValue struct {
 
 func (e *badOperandValue) Error() string {
 	return fmt.Sprintf("invalid operand to `%s`: `%s`",
-		opToString(e.Op), valueToString(builtinType(e.X.Typ), e.X.Value))
+		opToString(e.Op), valueToString(e.X))
 }
 
 type badOperandType struct {
@@ -821,56 +821,6 @@ func cmpToBool(c int, op uint) ast.Bool {
 		return ast.Bool(c <= 0)
 	case ast.GE:
 		return ast.Bool(c >= 0)
-	default:
-		panic("not reached")
-	}
-}
-
-func opToString(op uint) string {
-
-	switch op {
-	case ast.PLUS:
-		return "+"
-	case ast.MINUS:
-		return "-"
-	case ast.MUL:
-		return "*"
-	case ast.DIV:
-		return "/"
-	case ast.REM:
-		return "%"
-	case ast.BITAND:
-		return "&"
-	case ast.BITOR:
-		return "|"
-	case ast.BITXOR:
-		return "^"
-	case ast.LT:
-		return "<"
-	case ast.GT:
-		return ">"
-	case ast.NOT:
-		return "!"
-	case ast.SHL:
-		return "<<"
-	case ast.SHR:
-		return ">>"
-	case ast.ANDN:
-		return "&^"
-	case ast.AND:
-		return "&&"
-	case ast.OR:
-		return "||"
-	case ast.RECV:
-		return "<-"
-	case ast.EQ:
-		return "=="
-	case ast.NE:
-		return "!="
-	case ast.LE:
-		return "<="
-	case ast.GE:
-		return "=>"
 	default:
 		panic("not reached")
 	}

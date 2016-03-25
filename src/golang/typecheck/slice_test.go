@@ -46,53 +46,53 @@ func TestSliceExprErr(t *testing.T) {
 	expectError(t, "_test/src/slice", []string{"slice-err-2.go"},
 		"does not support 3-index slicing")
 	expectError(t, "_test/src/slice", []string{"slice-err-3.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-4.go"},
-		"index out of bounds")
+		"index `1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-5.go"},
-		"index out of bounds")
+		"index `6` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-6.go"},
-		"index out of bounds")
+		"index `6` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-7.go"},
 		"index must be of integer type")
 	expectError(t, "_test/src/slice", []string{"slice-err-8.go"},
 		"index must be of integer type")
 	expectError(t, "_test/src/slice", []string{"slice-err-9.go"},
-		"type does not support indexing or slicing")
+		"type `*int` does not support indexing or slicing")
 	expectError(t, "_test/src/slice", []string{"slice-err-10.go"},
-		"type does not support indexing or slicing")
+		"type `*[]int` does not support indexing or slicing")
 	expectError(t, "_test/src/slice", []string{"slice-err-11.go"},
-		"type does not support indexing or slicing")
+		"type `chan int` does not support indexing or slicing")
 	expectError(t, "_test/src/slice", []string{"slice-err-12.go"},
-		"index out of bounds")
+		"index `6` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-13.go"},
-		"index out of bounds")
+		"index `6` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-14.go"},
-		"index out of bounds")
+		"index `6` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-15.go"},
-		"index out of bounds")
+		"index `2` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-16.go"},
-		"index out of bounds")
+		"index `2` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-17.go"},
-		"index out of bounds")
+		"index `2` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-18.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-19.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-20.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-21.go"},
-		"index out of bounds")
+		"index `1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-22.go"},
-		"index out of bounds")
+		"index `1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-23.go"},
-		"index out of bounds")
+		"index `1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-24.go"},
-		"type does not support indexing or slicing")
+		"type `int` does not support indexing or slicing")
 	expectError(t, "_test/src/slice", []string{"slice-err-25.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-26.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-27.go"},
-		"index out of bounds")
+		"index `-1` out of bounds")
 }
