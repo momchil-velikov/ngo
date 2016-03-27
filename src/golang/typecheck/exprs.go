@@ -92,10 +92,12 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	c.Init = x
 	if c.Type == nil {
 		c.Type = x.Type()
-	} else if y, ok := isAssignable(c.Type, x); ok {
-		c.Init = y
-	} else {
+	} else if y, ok, err := ev.isAssignable(c.Type, x); err != nil {
+		return err
+	} else if !ok {
 		return &NotAssignable{Off: x.Position(), File: c.File, Type: c.Type, X: x}
+	} else {
+		c.Init = y
 	}
 
 	if _, ok := x.(*ast.ConstValue); !ok {
@@ -182,7 +184,9 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 			if v.Type == nil {
 				v.Type = tp.Type[i]
 				ev.Done[v] = struct{}{}
-			} else if !isAssignableType(v.Type, tp.Type[i]) {
+			} else if ok, err := ev.isAssignableType(v.Type, tp.Type[i]); err != nil {
+				return err
+			} else if !ok {
 				return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type}
 			}
 		}
@@ -216,12 +220,13 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 		// If checking resulted in untyped constant, convert it either to the
 		// declared type, or to the default type.
 		if v.Type == nil {
-			x, err = ev.checkExpr(x, ast.BuiltinDefault)
-			if err != nil {
+			if x, err = ev.checkExpr(x, ast.BuiltinDefault); err != nil {
 				return err
 			}
 			v.Type = x.Type()
-		} else if x, ok = isAssignable(v.Type, x); !ok {
+		} else if x, ok, err = ev.isAssignable(v.Type, x); err != nil {
+			return err
+		} else if !ok {
 			return &NotAssignable{Off: c.Off, File: v.File, Type: v.Type}
 		}
 		v.Init.RHS[i] = x
@@ -243,7 +248,9 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 	}
 	if v.Type == nil {
 		v.Type = t
-	} else if _, ok := isAssignable(v.Type, x); !ok {
+	} else if _, ok, err := ev.isAssignable(v.Type, x); err != nil {
+		return err
+	} else if !ok {
 		return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type, X: x}
 	}
 	v.Init.RHS[i] = x
@@ -1808,4 +1815,309 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	x.Y = v
 	x.Typ = u.Type()
 	return x, nil
+}
+
+// Returns the length of the array type T.
+func (ev *exprVerifier) getArrayLength(t *ast.ArrayType) (int64, error) {
+	var err error
+	c, ok := t.Dim.(*ast.ConstValue)
+	if !ok || c.Typ == nil {
+		if c, err = ev.checkArrayLength(t); err != nil {
+			return 0, err
+		}
+	}
+	return int64(c.Value.(ast.Int)), nil
+}
+
+// Returns true if types S and T are identical.
+// https://golang.org/ref/spec#Type_identity
+func (ev *exprVerifier) identicalTypes(s ast.Type, t ast.Type) (bool, error) {
+	if s == t {
+		// "Two named types are identical if their type names originate in the
+		// same TypeSpec". Also fastpath for comparing a type to itself.
+		return true, nil
+	}
+
+	switch s := s.(type) {
+	case *ast.TypeDecl:
+		// T is either an unnamed type, or does not originate from the same
+		// TypeSpec as S.
+		return false, nil
+	case *ast.BuiltinType:
+		if t, ok := t.(*ast.BuiltinType); ok {
+			return s.Kind == t.Kind, nil
+		}
+		return false, nil
+	case *ast.ArrayType:
+		if t, ok := t.(*ast.ArrayType); ok {
+			ns, err := ev.getArrayLength(s)
+			if err != nil {
+				return false, err
+			}
+			nt, err := ev.getArrayLength(t)
+			if err != nil {
+				return false, err
+			}
+			if ns == nt {
+				return ev.identicalTypes(s.Elt, t.Elt)
+			}
+		}
+		return false, nil
+	case *ast.SliceType:
+		if t, ok := t.(*ast.SliceType); ok {
+			return ev.identicalTypes(s.Elt, t.Elt)
+		}
+		return false, nil
+	case *ast.PtrType:
+		if t, ok := t.(*ast.PtrType); ok {
+			return ev.identicalTypes(s.Base, t.Base)
+		}
+		return false, nil
+	case *ast.MapType:
+		if t, ok := t.(*ast.MapType); ok {
+			if ok, err := ev.identicalTypes(s.Key, t.Key); err != nil || !ok {
+				return false, err
+			}
+			return ev.identicalTypes(s.Elt, t.Elt)
+		}
+		return false, nil
+	case *ast.ChanType:
+		if t, ok := t.(*ast.ChanType); ok {
+			if s.Send == t.Send && s.Recv == t.Recv {
+				return ev.identicalTypes(s.Elt, t.Elt)
+			}
+		}
+		return false, nil
+	case *ast.StructType:
+		if t, ok := t.(*ast.StructType); !ok {
+			return false, nil
+		} else if len(s.Fields) != len(t.Fields) {
+			return false, nil
+		} else {
+			for i := range s.Fields {
+				sf, tf := &s.Fields[i], &t.Fields[i]
+				// "corresponding fields [must] have the same names, [...],
+				// and identical tags. Two anonymous fields are considered to
+				// have the same name."
+				if sf.Name != tf.Name || sf.Tag != tf.Tag {
+					return false, nil
+				}
+				// "Lower-case field names from different packages are always
+				// different."
+				if s.File == nil || t.File == nil || s.File.Pkg != t.File.Pkg &&
+					!ast.IsExported(sf.Name) {
+					return false, nil
+				}
+				// "corresponding fields have [...] identical types"
+				if ok, err := ev.identicalTypes(sf.Type, tf.Type); err != nil || !ok {
+					return false, err
+				}
+			}
+			return true, nil
+		}
+	case *ast.FuncType:
+		if t, ok := t.(*ast.FuncType); !ok {
+			return false, nil
+		} else if len(s.Params) != len(t.Params) || len(s.Returns) != len(t.Returns) ||
+			s.Var != t.Var {
+			// "the same number of parameters and result values, [...], and
+			// either both functions are variadic or neither is."
+			return false, nil
+		} else {
+			// "corresponding parameter and result types are identical"
+			for i := range s.Params {
+				ok, err := ev.identicalTypes(s.Params[i].Type, t.Params[i].Type)
+				if err != nil || !ok {
+					return false, err
+				}
+			}
+			for i := range s.Returns {
+				ok, err := ev.identicalTypes(s.Returns[i].Type, t.Returns[i].Type)
+				if err != nil || !ok {
+					return false, err
+				}
+			}
+			return true, nil
+		}
+	case *ast.InterfaceType:
+		if t, ok := t.(*ast.InterfaceType); !ok {
+			return false, nil
+		} else {
+			// "Interface types are identical if they have the same set of methods ...
+			ss, st := ifaceMethodSet(s), ifaceMethodSet(t)
+			if len(ss) != len(st) {
+				return false, nil
+			}
+			for name, ms := range ss {
+				mt := st[name]
+				// "... with the same name
+				if mt == nil {
+					return false, nil
+				}
+				// "Lower-case method names from different packages are always
+				// different."
+				if ms.File == nil || mt.File == nil || ms.File.Pkg != mt.File.Pkg &&
+					!ast.IsExported(ms.Name) {
+					return false, nil
+				}
+				//  "... "and identical function types."
+				ok, err := ev.identicalTypes(ms.Func.Sig, mt.Func.Sig)
+				if err != nil || !ok {
+					return false, err
+				}
+			}
+			return true, nil
+		}
+	default:
+		panic("not reached")
+	}
+}
+
+// Returns true if TYP implements IFC.
+func (ev *exprVerifier) implements(typ ast.Type, ifc *ast.InterfaceType) (bool, error) {
+	// Get the receiver base type.
+	ptr := false
+	if p, ok := typ.(*ast.PtrType); ok {
+		ptr = true
+		typ = p.Base
+	}
+	dcl, ok := typ.(*ast.TypeDecl)
+	if !ok {
+		// If the given type is not a (pointer to a) type name, the only
+		// implemented interface is `interface{}`.
+		return len(ifc.Embedded) == 0 && len(ifc.Methods) == 0, nil
+	}
+
+	if impl, ok := dcl.Type.(*ast.InterfaceType); ok {
+		if ptr {
+			return false, nil
+		}
+		return ev.ifaceImplements(impl, ifc)
+	} else {
+		return ev.typenameImplements(ptr, dcl, ifc)
+	}
+}
+
+func (ev *exprVerifier) ifaceImplements(
+	impl *ast.InterfaceType, ifc *ast.InterfaceType) (bool, error) {
+
+	implSet := ifaceMethodSet(impl)
+	for _, fn := range ifaceMethodSet(ifc) {
+		m := implSet[fn.Name]
+		if m == nil {
+			return false, nil
+		}
+		if ok, err := ev.identicalTypes(m.Func.Sig, fn.Func.Sig); err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (ev *exprVerifier) typenameImplements(
+	ptr bool, dcl *ast.TypeDecl, ifc *ast.InterfaceType) (bool, error) {
+
+	for _, fn := range ifaceMethodSet(ifc) {
+		// Look for an implementation among the methods with value receivers.
+		i := 0
+		for ; i < len(dcl.Methods); i++ {
+			m := dcl.Methods[i]
+			if fn.Name == m.Name {
+				ok, err := ev.identicalTypes(fn.Func.Sig, m.Func.Sig)
+				if err != nil || !ok {
+					return false, err
+				}
+				break
+			}
+		}
+		// Do not consider pointer receiver methods if the original type
+		// wasn't a pointer type.
+		if !ptr {
+			if i == len(dcl.Methods) {
+				// No method name matches.
+				return false, nil
+			}
+			continue
+		}
+		// Look for an implementation among the methods with pointer
+		// receivers.
+		for i = 0; i < len(dcl.PMethods); i++ {
+			m := dcl.PMethods[i]
+			if fn.Name == m.Name {
+				ok, err := ev.identicalTypes(fn.Func.Sig, m.Func.Sig)
+				if err != nil || !ok {
+					return false, err
+				}
+				break
+			}
+		}
+		if i == len(dcl.PMethods) {
+			// No method name matches.
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// Checks whether the expression X is assignable to a variable of type DST. If
+// it is assignable, returns the expression itself and true. If the expression
+// is an untyped constant, representable by DST, returns the converted
+// constant and true. Otherwise, returns false.
+// https://golang.org/ref/spec#Assignability
+func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool, error) {
+	if src := x.Type(); src == nil {
+		// "x is an untyped constant representable by a value of type T."
+		if c, ok := x.(*ast.ConstValue); !ok {
+			panic("not reached")
+		} else if t := builtinType(dst); t == nil {
+			return nil, false, nil
+		} else if v := convertConst(t, nil, c.Value); v == nil {
+			return nil, false, nil
+		} else {
+			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true, nil
+		}
+	} else {
+		ok, err := ev.isAssignableType(dst, src)
+		return x, ok, err
+	}
+}
+
+// Returns true, if a value of type SRC is assignable to a variable of type DST.
+func (ev *exprVerifier) isAssignableType(dst ast.Type, src ast.Type) (bool, error) {
+	// "x's type is identical to T."
+	if ok, err := ev.identicalTypes(dst, src); err != nil || ok {
+		return ok, err
+	}
+	// "x's type V and T have identical underlying types and at least one of V
+	// or T is not a named type."
+	usrc, udst := unnamedType(src), unnamedType(dst)
+	if usrc == src || udst == dst {
+		if ok, err := ev.identicalTypes(usrc, udst); err != nil || ok {
+			return ok, err
+		}
+	}
+	// "T is an interface type and x implements T.
+	if ifc, ok := udst.(*ast.InterfaceType); ok {
+		if ok, err := ev.implements(src, ifc); err != nil || ok {
+			return ok, err
+		}
+	}
+	// "x is a bidirectional channel value, T is a channel type, x's type V
+	// and T have identical element types, and at least one of V or T is not a
+	// named type.
+	if ch, ok := usrc.(*ast.ChanType); ok && ch.Send && ch.Recv {
+		if dch, ok := udst.(*ast.ChanType); ok && (usrc == src || udst == dst) {
+			return ev.identicalTypes(ch.Elt, dch.Elt)
+		}
+	}
+	// "x is the predeclared identifier nil and T is a pointer, function,
+	// slice, map, channel, or interface type."
+	if usrc == ast.BuiltinNilType {
+		switch udst.(type) {
+		case *ast.PtrType, *ast.FuncType, *ast.SliceType, *ast.MapType, *ast.ChanType,
+			*ast.InterfaceType:
+			return true, nil
+		}
+	}
+	return false, nil
 }

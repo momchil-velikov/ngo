@@ -10,10 +10,12 @@ type (
 	I    interface {
 		F()
 	}
-	A struct{}
+	A struct{ X [2]int }
 )
 
 func (A) F()
+
+func F() [2]int
 
 var (
 	v0  int
@@ -38,4 +40,12 @@ var (
 	z4 chan A         = nil
 	z5 I              = nil
 	z6 interface{}    = nil
+
+	a A
+	b [2]int = a.X
+
+	u [2]int = F()
+
+	s chan [2]int
+	r chan [2]int = s
 )
