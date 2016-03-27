@@ -301,3 +301,12 @@ func TestCompareErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"cmp-err-20.go"},
 		"values of type `Vec` are not ordered")
 }
+
+func TestBinaryErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"bin-err-01.go"},
+		"operation `+` not supported for `int` and `int64`")
+	expectError(t, "_test/src/binary", []string{"bin-err-02.go"},
+		"operation `+` not supported for `int` and `Int`")
+	expectError(t, "_test/src/binary", []string{"bin-err-03.go"},
+		"operation `+` not supported for `Int` and `Int32`")
+}

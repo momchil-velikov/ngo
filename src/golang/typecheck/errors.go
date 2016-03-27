@@ -1013,3 +1013,19 @@ func (e *NotSupportedOperation) Error() string {
 	return fmt.Sprintf("%s:%d:%d: operation `%s` not supported for `%s`",
 		e.File.Name, ln, col, opToString(e.Op), typeToString(e.Type))
 }
+
+// The BadBinaryOperands error is returned when the types of a binary
+// expression (other than comparison ) are not identical.
+type BadBinaryOperands struct {
+	Off          int
+	File         *ast.File
+	Op           uint
+	XType, YType ast.Type
+}
+
+func (e *BadBinaryOperands) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: operation `%s` not supported for `%s` and `%s`",
+		e.File.Name, ln, col, opToString(e.Op), typeToString(e.XType),
+		typeToString(e.YType))
+}

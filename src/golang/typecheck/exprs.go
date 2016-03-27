@@ -1806,8 +1806,13 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		x.Typ = ast.BuiltinBool
 	default:
 		// For other operators, the operand types must be identical.
-		// FIXME: check type identity.
-		x.Typ = x.X.Type()
+		if ok, err := ev.identicalTypes(u.Type(), v.Type()); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, &BadBinaryOperands{
+				Off: x.Off, File: ev.File, Op: x.Op, XType: u.Type(), YType: v.Type()}
+		}
+		x.Typ = u.Type()
 	}
 	x.X = u
 	x.Y = v
