@@ -91,3 +91,75 @@ const (
 	grf = 'a' >= 2.1
 	hrf = 1.1 <= 'b'
 )
+
+type (
+	I interface {
+		F()
+	}
+	J interface {
+		F()
+		G()
+	}
+	S struct {
+		X int
+	}
+
+	Int     int16
+	Float   float32
+	Complex complex64
+	String  string
+	PInt    *Int
+	Vec     [4]float32
+)
+
+var (
+	A I
+
+	x0 = A == nil
+	x1 = nil == A
+
+	B  J
+	x2 = A != B
+
+	B0, B1 bool
+	x3     = B0 == B1
+
+	I0 Int
+	I1 int16
+	x4 = I0 == I1
+	x5 = I1 <= I0
+
+	F0 Float
+	F1 float32
+	x6 = F0 == F1
+	x7 = F1 > F0
+
+	C0 Complex
+	C1 complex64
+	x8 = C0 == C1
+	x9 = C1 != C0
+
+	T0  String
+	T1  string
+	x10 = T0 == T1
+	x11 = T1 < T0
+
+	P0  PInt
+	P1  *Int
+	x12 = P0 == P1
+	x13 = P1 != P0
+	x14 = P0 == nil
+	x15 = nil != P1
+
+	Ch0, Ch1 chan []int
+	x16      = Ch0 == Ch1
+
+	S0  S
+	S1  struct{ X int }
+	x17 = S0 == S1
+
+	U   Vec
+	V   [4]float32
+	x18 = V == U
+	x19 = U != V
+)

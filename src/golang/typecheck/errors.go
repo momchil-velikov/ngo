@@ -18,16 +18,6 @@ func (e *ErrorPos) Error() string {
 	return fmt.Sprintf("%s:%d:%d: %s", e.File.Name, ln, col, e.Err.Error())
 }
 
-type BadMapKey struct {
-	Off  int
-	File *ast.File
-}
-
-func (e *BadMapKey) Error() string {
-	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid type for map key", e.File.Name, ln, col)
-}
-
 type DupFieldName struct {
 	Field *ast.Field
 	File  *ast.File
@@ -949,4 +939,77 @@ type NilUse struct {
 func (e *NilUse) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: use of builtin `nil`", e.File.Name, ln, col)
+}
+
+// The BadCompareOperands error is returned for comparison expressions, where
+// neither operand is assignable to the type of the other one.
+type BadCompareOperands struct {
+	Off          int
+	File         *ast.File
+	XType, YType ast.Type
+}
+
+func (e *BadCompareOperands) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: neither `%s` nor `%s` is assignable to the other",
+		e.File.Name, ln, col, typeToString(e.XType), typeToString(e.YType))
+}
+
+// The NotNilComparable error is returned for comparison expressions, where
+// one of the operands if` nil` and the other operand is not of a pointer,
+// slice, map, channel type, function, or interface type.
+type NotNilComparable struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+}
+
+func (e *NotNilComparable) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: `%s` is not comparable to `nil`",
+		e.File.Name, ln, col, typeToString(e.Type))
+}
+
+// The NotComparable error is returned when a type is required by the context
+// to be equality comparable and it isn't.
+type NotComparable struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+}
+
+func (e *NotComparable) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: values of type `%s` cannot be compared for equality",
+		e.File.Name, ln, col, typeToString(e.Type))
+}
+
+// The NotOrderede error is returned when a value is used as an operand to onr
+// of the oderding operators `<`, `>`, `<=` or `>=` and the type is not
+// "ordered".
+type NotOrdered struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+}
+
+func (e *NotOrdered) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: values of type `%s` are not ordered",
+		e.File.Name, ln, col, typeToString(e.Type))
+}
+
+// The NotSupportedOperation error is returned when an operator is not
+// applicable to an operand of the given type.
+type NotSupportedOperation struct {
+	Off  int
+	File *ast.File
+	Op   uint
+	Type ast.Type
+}
+
+func (e *NotSupportedOperation) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: operation `%s` not supported for `%s`",
+		e.File.Name, ln, col, opToString(e.Op), typeToString(e.Type))
 }

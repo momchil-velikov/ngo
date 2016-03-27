@@ -1753,20 +1753,64 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 			return nil, err
 		}
 	}
-	x.X = u
-	x.Y = v
 
 	switch x.Op {
 	case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
 		// For comparison operators, one of the operands must be assignable to
 		// the type of the other operand.
-		// FIXME: check assignability
+		if ok, err := ev.isAssignableType(u.Type(), v.Type()); err != nil {
+			return nil, err
+		} else if !ok {
+			if ok, err := ev.isAssignableType(v.Type(), u.Type()); err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &BadCompareOperands{
+					Off: x.Off, File: ev.File, XType: u.Type(), YType: v.Type()}
+			}
+		}
+		utyp, vtyp := unnamedType(u.Type()), unnamedType(v.Type())
+		if x.Op == ast.EQ || x.Op == ast.NE {
+			// If one of the operands is `nil` and the other is not comparable
+			// to `nil`, then the above check for assignability would have
+			// failed, therefore no need to check it, except for the special
+			// case of comparing `nil` to `nil`.
+			if utyp == ast.BuiltinNilType && vtyp == ast.BuiltinNilType {
+				return nil, &NotSupportedOperation{
+					Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
+				// Check equality comparison when one of the operands is of an
+				// interface type and the other isn't.
+			} else if _, ok := utyp.(*ast.InterfaceType); ok {
+				if _, ok := vtyp.(*ast.InterfaceType); !ok && !isEqualityComparable(vtyp) {
+					return nil, &NotComparable{
+						Off: v.Position(), File: ev.File, Type: v.Type()}
+				}
+			} else if _, ok := vtyp.(*ast.InterfaceType); ok {
+				if _, ok := utyp.(*ast.InterfaceType); !ok && !isEqualityComparable(utyp) {
+					return nil, &NotComparable{
+						Off: u.Position(), File: ev.File, Type: u.Type()}
+				}
+				// Comparability check with only one of the operands is
+				// sufficient, following the above assignability check.
+			} else if !isEqualityComparable(utyp) {
+				return nil, &NotComparable{Off: x.Off, File: ev.File, Type: u.Type()}
+			}
+		} else {
+			// Ordering check with only one of the operands is sufficient,
+			// following the above assignability check.
+			if !isOrdered(utyp) {
+				return nil, &NotOrdered{Off: u.Position(), File: ev.File, Type: u.Type()}
+			}
+		}
+		// Spec says comparison operators yield an untyped boolean value
+		// (sic). We yield a typed boolean value.
 		x.Typ = ast.BuiltinBool
 	default:
 		// For other operators, the operand types must be identical.
 		// FIXME: check type identity.
 		x.Typ = x.X.Type()
 	}
+	x.X = u
+	x.Y = v
 	return x, nil
 }
 

@@ -263,7 +263,7 @@ func (tv *typeVerifier) VisitMapType(t *ast.MapType) (ast.Type, error) {
 		return nil, err
 	}
 	if !isEqualityComparable(t.Key) {
-		return nil, &BadMapKey{Off: t.Position(), File: tv.File}
+		return nil, &NotComparable{Off: t.Position(), File: tv.File, Type: t.Key}
 	}
 	tv.breakEmbedChain()
 	err := tv.checkType(t.Elt)

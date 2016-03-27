@@ -138,12 +138,18 @@ func TestMapErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"map-loop-1.go"}, "invalid recursive")
 	expectError(t, "_test/src/typ", []string{"map-loop-2.go"}, "invalid recursive")
 	expectError(t, "_test/src/typ", []string{"map-loop-3.go"}, "invalid recursive")
-	expectError(t, "_test/src/typ", []string{"map-eq-1.go"}, "invalid type for map key")
-	expectError(t, "_test/src/typ", []string{"map-eq-2.go"}, "invalid type for map key")
-	expectError(t, "_test/src/typ", []string{"map-eq-3.go"}, "invalid type for map key")
-	expectError(t, "_test/src/typ", []string{"map-eq-4.go"}, "invalid type for map key")
-	expectError(t, "_test/src/typ", []string{"map-eq-5.go"}, "invalid type for map key")
-	expectError(t, "_test/src/typ", []string{"map-eq-6.go"}, "invalid type for map key")
+	expectError(t, "_test/src/typ", []string{"map-eq-1.go"},
+		"cannot be compared for equality")
+	expectError(t, "_test/src/typ", []string{"map-eq-2.go"},
+		"cannot be compared for equality")
+	expectError(t, "_test/src/typ", []string{"map-eq-3.go"},
+		"cannot be compared for equality")
+	expectError(t, "_test/src/typ", []string{"map-eq-4.go"},
+		"cannot be compared for equality")
+	expectError(t, "_test/src/typ", []string{"map-eq-5.go"},
+		"cannot be compared for equality")
+	expectError(t, "_test/src/typ", []string{"map-eq-6.go"},
+		"cannot be compared for equality")
 }
 
 func TestFuncType(t *testing.T) {
@@ -170,7 +176,7 @@ func TestIfaceErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"iface-embad-4.go"},
 		"invalid recursive type")
 	expectError(t, "_test/src/typ", []string{"iface-err-1.go"},
-		"invalid type for map key")
+		"cannot be compared for equality")
 	expectError(t, "_test/src/typ", []string{"method-dup-1.go"},
 		"in declaration of `J`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-2.go"},

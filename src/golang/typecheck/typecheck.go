@@ -106,6 +106,28 @@ func isEqualityComparable(t ast.Type) bool {
 	}
 }
 
+// Returns true if values of the type can be compared with operators `<`, `>`,
+// `<=`, or `>=`
+// https://golang.org/ref/spec#Comparison_operators
+func isOrdered(typ ast.Type) bool {
+	t := builtinType(typ)
+	if t == nil {
+		return false
+	}
+	return t.IsOrdered()
+}
+
+// Return true if the type TYP is equality comparable to `nil`.
+func isNilComparable(typ ast.Type) bool {
+	switch unnamedType(typ).(type) {
+	case *ast.PtrType, *ast.SliceType, *ast.MapType, *ast.ChanType,
+		*ast.FuncType, *ast.InterfaceType:
+		return true
+	default:
+		return false
+	}
+}
+
 // Checks for uniqueness of method names in the method set of the typename
 // DCL.
 // IMPORTANT: Callers must have ensured that type is not an invalid recursive

@@ -549,6 +549,11 @@ func (t *BuiltinType) IsArith() bool {
 	return t.Kind >= BUILTIN_UINT8 && t.Kind <= BUILTIN_UINTPTR
 }
 
+func (t *BuiltinType) IsOrdered() bool {
+	return t.Kind > BUILTIN_BOOL && t.Kind != BUILTIN_COMPLEX64 &&
+		t.Kind != BUILTIN_COMPLEX128
+}
+
 type ArrayType struct {
 	Off int // position of the opening bracket
 	Dim Expr

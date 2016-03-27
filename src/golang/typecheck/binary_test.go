@@ -260,9 +260,8 @@ func TestCompareExpr(t *testing.T) {
 }
 
 func TestCompareErr(t *testing.T) {
-	// FIXME
-	// expectError(t, "_test/src/binary", []string{"cmp-err-01.go"},
-	// 	"operation `==` not supported for `nil`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-01.go"},
+		"operation `==` not supported for `nil`")
 	expectError(t, "_test/src/binary", []string{"cmp-err-02.go"},
 		"mismatched types `int` and `uint`")
 	expectError(t, "_test/src/binary", []string{"cmp-err-03.go"},
@@ -273,4 +272,32 @@ func TestCompareErr(t *testing.T) {
 		"operation `>` not supported for `untyped bool`")
 	expectError(t, "_test/src/binary", []string{"cmp-err-06.go"},
 		"mismatched types `untyped string` and `untyped float`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-07.go"},
+		"neither `int` nor `int32` is assignable to the other")
+	expectError(t, "_test/src/binary", []string{"cmp-err-08.go"},
+		"neither `int` nor `nil` is assignable to the other")
+	expectError(t, "_test/src/binary", []string{"cmp-err-09.go"},
+		"values of type `S` cannot be compared for equality")
+	expectError(t, "_test/src/binary", []string{"cmp-err-10.go"},
+		"values of type `S` cannot be compared for equality")
+	expectError(t, "_test/src/binary", []string{"cmp-err-11.go"},
+		"neither `S` nor `I` is assignable to the other")
+	expectError(t, "_test/src/binary", []string{"cmp-err-12.go"},
+		"neither `I` nor `J` is assignable to the other")
+	expectError(t, "_test/src/binary", []string{"cmp-err-13.go"},
+		"values of type `S` cannot be compared for equality")
+	expectError(t, "_test/src/binary", []string{"cmp-err-14.go"},
+		"values of type `bool` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-15.go"},
+		"values of type `Complex` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-16.go"},
+		"values of type `*int` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-17.go"},
+		"values of type `chan int` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-18.go"},
+		"values of type `interface{...}` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-19.go"},
+		"values of type `S` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-20.go"},
+		"values of type `Vec` are not ordered")
 }
