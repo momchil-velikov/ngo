@@ -54,7 +54,7 @@ func TestIndexExprErrr(t *testing.T) {
 	expectError(t, "_test/src/index", []string{"index-err-6.go"},
 		"index `-1` out of bounds")
 	expectError(t, "_test/src/index", []string{"index-err-7.go"},
-		"1.100000 (`untyped float`) cannot be converted to `int`")
+		"1.1 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/index", []string{"index-err-8.go"},
 		"index `2` out of bounds")
 	expectError(t, "_test/src/index", []string{"index-err-9.go"},

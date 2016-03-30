@@ -273,50 +273,7 @@ func (t *QualifiedId) Format(ctx *FormatContext, n uint) {
 }
 
 func (t *BuiltinType) Format(ctx *FormatContext, _ uint) {
-	var name string
-	switch t.Kind {
-	case BUILTIN_VOID_TYPE:
-		name = "#void"
-	case BUILTIN_NIL_TYPE:
-		name = "#nil"
-	case BUILTIN_BOOL:
-		name = "bool"
-	case BUILTIN_UINT8:
-		name = "uint8"
-	case BUILTIN_UINT16:
-		name = "uint16"
-	case BUILTIN_UINT32:
-		name = "uint32"
-	case BUILTIN_UINT64:
-		name = "uint64"
-	case BUILTIN_INT8:
-		name = "int8"
-	case BUILTIN_INT16:
-		name = "int16"
-	case BUILTIN_INT32:
-		name = "int32"
-	case BUILTIN_INT64:
-		name = "int64"
-	case BUILTIN_FLOAT32:
-		name = "float32"
-	case BUILTIN_FLOAT64:
-		name = "float64"
-	case BUILTIN_COMPLEX64:
-		name = "complex64"
-	case BUILTIN_COMPLEX128:
-		name = "complex128"
-	case BUILTIN_UINT:
-		name = "uint"
-	case BUILTIN_INT:
-		name = "int"
-	case BUILTIN_UINTPTR:
-		name = "uintptr"
-	case BUILTIN_STRING:
-		name = "string"
-	default:
-		panic("not reached")
-	}
-	ctx.WriteString(name)
+	ctx.WriteString(t.String())
 }
 
 func (t *ArrayType) Format(ctx *FormatContext, n uint) {
@@ -501,99 +458,12 @@ func (t *InterfaceType) Format(ctx *FormatContext, n uint) {
 // Format expressions.
 //
 
-func formatInt(typ *BuiltinType, v uint64) string {
-	switch typ.Kind {
-	case BUILTIN_UINT8:
-		return fmt.Sprintf("%d", uint8(v))
-	case BUILTIN_UINT16:
-		return fmt.Sprintf("%d", uint16(v))
-	case BUILTIN_UINT32:
-		return fmt.Sprintf("%d", uint32(v))
-	case BUILTIN_UINT64:
-		return fmt.Sprintf("%d", v)
-	case BUILTIN_INT8:
-		return fmt.Sprintf("%d", int8(v))
-	case BUILTIN_INT16:
-		return fmt.Sprintf("%d", int16(v))
-	case BUILTIN_INT32:
-		return fmt.Sprintf("%d", int32(v))
-	case BUILTIN_INT64:
-		return fmt.Sprintf("%d", int64(v))
-	case BUILTIN_UINT:
-		return fmt.Sprintf("%d", uint64(v)) // XXX: assumes uint is 64-bit
-	case BUILTIN_INT:
-		return fmt.Sprintf("%d", int64(v)) // XXX: assumes int is 64-bit
-	case BUILTIN_UINTPTR:
-		return fmt.Sprintf("%d", v) // XXX: assumes uintptr is 64-bit
-	default:
-		panic("not reached")
-	}
-}
-
-func formatFloat(typ *BuiltinType, v float64) string {
-	if typ.Kind == BUILTIN_FLOAT64 {
-		return fmt.Sprintf("%f", v)
-	} else {
-		return fmt.Sprintf("%f", float32(v))
-	}
-}
-
-func formatComplex(typ *BuiltinType, v complex128) string {
-	if typ.Kind == BUILTIN_COMPLEX128 {
-		return fmt.Sprintf("(%f+%fi)", real(v), imag(v))
-	} else {
-		return fmt.Sprintf("(%f+%fi)", float32(real(v)), float32(imag(v)))
-	}
-}
-
-func builtinType(typ Type) *BuiltinType {
-	for {
-		switch t := typ.(type) {
-		case *BuiltinType:
-			return t
-		case *TypeDecl:
-			typ = t.Type
-		default:
-			panic("not reached")
-		}
-	}
-}
-
 // FIXME: consider escaping string/rune literals
 func (c *ConstValue) Format(ctx *FormatContext, _ uint) {
 	if ctx.exprPositions() {
 		ctx.WriteV(0, "/* #", c.Off, " */")
 	}
-	switch v := c.Value.(type) {
-	case Bool:
-		if bool(v) {
-			ctx.WriteString("true")
-		} else {
-			ctx.WriteString("false")
-		}
-	case Rune:
-		ctx.WriteString(fmt.Sprintf("'%c'", v.Int64()))
-	case UntypedInt:
-		ctx.WriteString(v.String())
-	case Int:
-		ctx.WriteString(formatInt(builtinType(c.Typ), uint64(v)))
-	case UntypedFloat:
-		ctx.WriteString(v.String())
-	case Float:
-		ctx.WriteString(formatFloat(builtinType(c.Typ), float64(v)))
-	case UntypedComplex:
-		if v.Re.String() == "0" {
-			ctx.WriteV(0, v.Im.String(), "i")
-		} else {
-			ctx.WriteV(0, "(", v.Re.String(), "+", v.Im.String(), "i)")
-		}
-	case Complex:
-		ctx.WriteString(formatComplex(builtinType(c.Typ), complex128(v)))
-	case String:
-		ctx.WriteV(0, "\"", string(v), "\"")
-	default:
-		panic("not reached")
-	}
+	ctx.WriteString(c.String())
 }
 
 func (x *OperandName) Format(ctx *FormatContext, _ uint) {
@@ -734,12 +604,12 @@ func (e *UnaryExpr) Format(ctx *FormatContext, n uint) {
 	if ctx.exprPositions() {
 		ctx.WriteV(n, "/* #", e.Off, " */")
 	}
-	ctx.WriteString(scanner.TokenNames[e.Op])
+	ctx.WriteString(scanner.TokenNames[uint(e.Op)])
 	e.X.Format(ctx, n)
 }
 
 func (e *BinaryExpr) Format(ctx *FormatContext, n uint) {
-	ctx.WriteV(n, e.X.Format, " ", scanner.TokenNames[e.Op], " ", e.Y.Format)
+	ctx.WriteV(n, e.X.Format, " ", scanner.TokenNames[uint(e.Op)], " ", e.Y.Format)
 }
 
 func (b *Block) Format(ctx *FormatContext, n uint) {

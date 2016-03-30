@@ -26,6 +26,7 @@ func (FuncDecl) decl()       {}
 
 type Type interface {
 	Node
+	String() string
 	TraverseType(TypeVisitor) (Type, error)
 	typ()
 }
@@ -312,6 +313,8 @@ const (
 	GE   = scanner.GE
 )
 
+type Operation uint
+
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
 	'*':  5,
@@ -476,7 +479,7 @@ func (x *SliceExpr) Type() Type    { return x.Typ }
 
 type UnaryExpr struct {
 	Off int // position of the unary operator
-	Op  uint
+	Op  Operation
 	X   Expr
 	Typ Type
 }
@@ -486,7 +489,7 @@ func (x *UnaryExpr) Type() Type    { return x.Typ }
 
 type BinaryExpr struct {
 	Off  int // position of the left operand
-	Op   uint
+	Op   Operation
 	X, Y Expr
 	Typ  Type
 }

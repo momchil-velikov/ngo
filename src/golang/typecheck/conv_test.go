@@ -87,40 +87,30 @@ func TestConvInt(t *testing.T) {
 		{"y", "string", "\"\ufffd\""},
 		{"z0", "string", "\"\ufffd\""},
 		{"z1", "string", "\"\ufffd\""},
-		{"f32", "float32", "-128.000000"},
-		{"f64", "float64", "-128.000000"},
-		{"g32", "float32", "128.000000"},
-		{"g64", "float64", "128.000000"},
-		{"h32", "float32", "-128.000000"},
-		{"h64", "float64", "128.000000"},
-		{"p32", "float32", "16777216.000000"},
-		{"p64", "float64", "4503599627370497.000000"},
-		{"q32", "float32", "2147483648.000000"},
-		{"q64", "float64", "9223372036854775808.000000"},
-		{"c64", "complex64", "(-128.000000+0.000000i)"},
-		{"c128", "complex128", "(-128.000000+0.000000i)"},
-		{"d64", "complex64", "(128.000000+0.000000i)"},
-		{"d128", "complex128", "(128.000000+0.000000i)"},
-		{"e64", "complex64", "(-128.000000+0.000000i)"},
-		{"e128", "complex128", "(128.000000+0.000000i)"},
+		{"f32", "float32", "-128.0"},
+		{"f64", "float64", "-128.0"},
+		{"g32", "float32", "128.0"},
+		{"g64", "float64", "128.0"},
+		{"h32", "float32", "-128.0"},
+		{"h64", "float64", "128.0"},
+		{"p32", "float32", "16777216.0"},
+		{"p64", "float64", "4503599627370497.0"},
+		{"q32", "float32", "2147483648.0"},
+		{"q64", "float64", "9223372036854775808.0"},
+		{"c64", "complex64", "(-128.0 + 0.0i)"},
+		{"c128", "complex128", "(-128.0 + 0.0i)"},
+		{"d64", "complex64", "(128.0 + 0.0i)"},
+		{"d128", "complex128", "(128.0 + 0.0i)"},
+		{"e64", "complex64", "(-128.0 + 0.0i)"},
+		{"e128", "complex128", "(128.0 + 0.0i)"},
 	} {
 		n := p.Find(c.name).(*ast.Const)
 		x := n.Init.(*ast.ConstValue)
 
-		var name string
-		if typ, ok := x.Typ.(*ast.BuiltinType); ok {
-			name = builtinTypeToString(typ)
-		} else if typ, ok := x.Typ.(*ast.TypeDecl); ok {
-			name = typ.Name
-		} else {
-			t.Fatalf("underlying type of %s is not a builtin type", n.Name)
-		}
-
-		if name != c.typ {
+		if name := x.Typ.String(); name != c.typ {
 			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
-		s := valueToString(x)
-		if s != c.val {
+		if s := x.String(); s != c.val {
 			t.Errorf("unexpected value `%s` for `%s`\n", s, n.Name)
 		}
 	}
@@ -197,35 +187,26 @@ func TestConvFloat(t *testing.T) {
 		{"A1", "int16", "-128"},
 		{"B0", "int16", "128"},
 		{"B1", "int16", "128"},
-		{"C0", "float32", "2.000000"},
-		{"C1", "float32", "2.000000"},
+		{"C0", "float32", "2.0"},
+		{"C1", "float32", "2.0"},
 		{"D0", "float64", "1.999999"},
-		{"D1", "float64", "2.000000"},
-		{"D2", "float64", "2.000000"},
-		{"E0", "complex64", "(2.000000+0.000000i)"},
-		{"E1", "complex64", "(2.000000+0.000000i)"},
-		{"F0", "complex128", "(1.999999+0.000000i)"},
-		{"F1", "complex128", "(2.000000+0.000000i)"},
+		{"D1", "float64", "2.0"},
+		{"D2", "float64", "2.0"},
+		{"E0", "complex64", "(2.0 + 0.0i)"},
+		{"E1", "complex64", "(2.0 + 0.0i)"},
+		{"F0", "complex128", "(1.999999 + 0.0i)"},
+		{"F1", "complex128", "(2.0 + 0.0i)"},
 		{"G0", "int64", "6755399441055745"},
 		{"G1", "uint64", "9223372036854777856"},
 	} {
 		n := p.Find(c.name).(*ast.Const)
 		x := n.Init.(*ast.ConstValue)
 
-		var name string
-		if typ, ok := x.Typ.(*ast.BuiltinType); ok {
-			name = builtinTypeToString(typ)
-		} else if typ, ok := x.Typ.(*ast.TypeDecl); ok {
-			name = typ.Name
-		} else {
-			t.Fatalf("underlying type of %s is not a builtin type", n.Name)
-		}
-
-		if name != c.typ {
+		if name := x.Typ.String(); name != c.typ {
 			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
 		}
-		s := valueToString(x)
-		if s != c.val {
+
+		if s := x.String(); s != c.val {
 			t.Errorf("unexpected value `%s` for `%s`\n", s, n.Name)
 		}
 	}
@@ -235,16 +216,16 @@ func TestConvFloatErr(t *testing.T) {
 
 	const dir = "_test/src/conv"
 	for i, e := range []string{
-		"1.100000 (`untyped float`) cannot be converted to `bool`",
-		"1.100000 (`float32`) cannot be converted to `bool`",
-		"1.100000 (`untyped float`) cannot be converted to `string`",
-		"1.100000 (`float64`) cannot be converted to `string`",
-		"1.100000 (`untyped float`) cannot be converted to `int`",
-		"1.100000 (`float64`) cannot be converted to `int`",
-		"9223372036854777856.000000 (`float64`) cannot be converted to `int64`",
-		"18446744073709555712.000000 (`float64`) cannot be converted to `uint64`",
-		"-9223372036854779904.000000 (`float64`) cannot be converted to `int64`",
-		"179769313486231589999999999999999999999999999999999999999999999999999999999999777816481292516925359185725128383638673141453317136668426630023755954681353297585823163889595831750739892328339287594669941410908927299736853716969618046803012291434577195764887115186790482212808716743819624705152288329332701528064.000000 (`untyped float`) cannot be converted to `float64`",
+		"1.1 (`untyped float`) cannot be converted to `bool`",
+		"1.1 (`float32`) cannot be converted to `bool`",
+		"1.1 (`untyped float`) cannot be converted to `string`",
+		"1.1 (`float64`) cannot be converted to `string`",
+		"1.1 (`untyped float`) cannot be converted to `int`",
+		"1.1 (`float64`) cannot be converted to `int`",
+		"9223372036854777856.0 (`float64`) cannot be converted to `int64`",
+		"18446744073709555712.0 (`float64`) cannot be converted to `uint64`",
+		"-9223372036854779904.0 (`float64`) cannot be converted to `int64`",
+		"179769313486231589999999999999999999999999999999999999999999999999999999999999777816481292516925359185725128383638673141453317136668426630023755954681353297585823163889595831750739892328339287594669941410908927299736853716969618046803012291434577195764887115186790482212808716743819624705152288329332701528064.0 (`untyped float`) cannot be converted to `float64`",
 	} {
 		expectError(t, dir, []string{fmt.Sprintf("float-err-%02d.go", i+1)}, e)
 	}

@@ -451,7 +451,7 @@ func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
 	}
 }
 
-func shift(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
+func shift(x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (ast.Value, error) {
 	// Get the shift count in a native uint.
 	var s uint64
 	switch v := y.Value.(type) {
@@ -527,7 +527,7 @@ type badShiftCountType struct {
 
 func (e *badShiftCountType) Error() string {
 	return fmt.Sprintf("shift count must be unsigned integer (`%s` given)",
-		valueToTypeString(e.X))
+		e.X.TypeString())
 }
 
 type badShiftCountValue struct {
@@ -539,24 +539,23 @@ func (e *badShiftCountValue) Error() string {
 }
 
 type badOperandValue struct {
-	Op uint
+	Op ast.Operation
 	X  *ast.ConstValue
 }
 
 func (e *badOperandValue) Error() string {
-	return fmt.Sprintf("invalid operand to `%s`: `%s`",
-		opToString(e.Op), valueToString(e.X))
+	return fmt.Sprintf("invalid operand to `%s`: `%s`", e.Op, e.X)
 }
 
 type badOperandType struct {
-	Op   uint
+	Op   ast.Operation
 	Type string
 	X    *ast.ConstValue
 }
 
 func (e *badOperandType) Error() string {
 	return fmt.Sprintf("invalid operand to `%s`: operand must have %s (`%s` given)",
-		opToString(e.Op), e.Type, valueToTypeString(e.X))
+		e.Op, e.Type, e.X.TypeString())
 }
 
 func untypedConvPanic(ast.Value) ast.Value { panic("not reached") }
@@ -668,13 +667,13 @@ func untypedConvert(x ast.Value, y ast.Value) (untypedKind, ast.Value, ast.Value
 	return j, x, y
 }
 
-func compare(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
+func compare(x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (ast.Value, error) {
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil {
 		if t != builtinType(y.Typ) {
 			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
 		}
-		return compareTyped(t.Kind, x.Value, y.Value, op)
+		return compareTyped(t, x.Value, y.Value, op)
 	} else {
 		// If the operands are untyped, they must either both be bool,
 		// or strings, or use the type later in the sequence int, rune, float,
@@ -702,9 +701,11 @@ func compare(x *ast.ConstValue, y *ast.ConstValue, op uint) (ast.Value, error) {
 	}
 }
 
-func compareTyped(typ int, x ast.Value, y ast.Value, op uint) (ast.Value, error) {
+func compareTyped(
+	typ *ast.BuiltinType, x ast.Value, y ast.Value, op ast.Operation) (ast.Value, error) {
+
 	c := 0
-	switch typ {
+	switch typ.Kind {
 	case ast.BUILTIN_BOOL:
 		u, v := x.(ast.Bool), y.(ast.Bool)
 		switch op {
@@ -713,7 +714,7 @@ func compareTyped(typ int, x ast.Value, y ast.Value, op uint) (ast.Value, error)
 		case ast.NE:
 			return ast.Bool(u != v), nil
 		default:
-			return nil, &invalidCompare{Op: op, Type: "bool"}
+			return nil, &invalidOperation{Op: op, Type: typ}
 		}
 	case ast.BUILTIN_UINT8, ast.BUILTIN_UINT16, ast.BUILTIN_UINT32,
 		ast.BUILTIN_UINT64, ast.BUILTIN_UINT, ast.BUILTIN_UINTPTR:
@@ -746,7 +747,7 @@ func compareTyped(typ int, x ast.Value, y ast.Value, op uint) (ast.Value, error)
 		case ast.NE:
 			return ast.Bool(u != v), nil
 		default:
-			return nil, &invalidCompare{Op: op, Type: "complex64/128"}
+			return nil, &invalidOperation{Op: op, Type: typ}
 		}
 	case ast.BUILTIN_STRING:
 		u, v := x.(ast.String), y.(ast.String)
@@ -761,7 +762,9 @@ func compareTyped(typ int, x ast.Value, y ast.Value, op uint) (ast.Value, error)
 	return cmpToBool(c, op), nil
 }
 
-func compareUntyped(t untypedKind, x ast.Value, y ast.Value, op uint) (ast.Value, error) {
+func compareUntyped(
+	t untypedKind, x ast.Value, y ast.Value, op ast.Operation) (ast.Value, error) {
+
 	c := 0
 	switch t {
 	case _UNTYPED_INT:
@@ -775,7 +778,7 @@ func compareUntyped(t untypedKind, x ast.Value, y ast.Value, op uint) (ast.Value
 		c = x.Cmp(y.Float)
 	case _UNTYPED_COMPLEX:
 		if op != ast.EQ && op != ast.NE {
-			return nil, &invalidCompare{Op: op, Type: "untyped complex"}
+			return nil, &invalidOperation{Op: op, Value: x}
 		}
 		x, y := x.(ast.UntypedComplex), y.(ast.UntypedComplex)
 		u, v := x.Re.Cmp(y.Re), x.Im.Cmp(y.Im)
@@ -786,7 +789,7 @@ func compareUntyped(t untypedKind, x ast.Value, y ast.Value, op uint) (ast.Value
 		}
 	case _UNTYPED_BOOL:
 		if op != ast.EQ && op != ast.NE {
-			return nil, &invalidCompare{Op: op, Type: "untyped bool"}
+			return nil, &invalidOperation{Op: op, Value: x}
 		}
 		x, y := x.(ast.Bool), y.(ast.Bool)
 		if op == ast.EQ {
@@ -807,7 +810,7 @@ func compareUntyped(t untypedKind, x ast.Value, y ast.Value, op uint) (ast.Value
 	return cmpToBool(c, op), nil
 }
 
-func cmpToBool(c int, op uint) ast.Bool {
+func cmpToBool(c int, op ast.Operation) ast.Bool {
 	switch op {
 	case ast.LT:
 		return ast.Bool(c == -1)
@@ -826,21 +829,24 @@ func cmpToBool(c int, op uint) ast.Bool {
 	}
 }
 
-type invalidCompare struct {
-	Op   uint
-	Type string
+type invalidOperation struct {
+	Op    ast.Operation
+	Type  *ast.BuiltinType
+	Value ast.Value
 }
 
-func (e *invalidCompare) Error() string {
-	return fmt.Sprintf("operation `%s` not supported for `%s`", opToString(e.Op), e.Type)
+func (e *invalidOperation) Error() string {
+	c := ast.ConstValue{Typ: e.Type, Value: e.Value}
+	return fmt.Sprintf("operation `%s` not supported for `%s`",
+		e.Op, c.TypeString())
 }
 
 type mismatchedTypes struct {
-	Op   uint
+	Op   ast.Operation
 	X, Y *ast.ConstValue
 }
 
 func (e *mismatchedTypes) Error() string {
 	return fmt.Sprintf("invalid operation `%s`: mismatched types `%s` and `%s`",
-		opToString(e.Op), valueToTypeString(e.X), valueToTypeString(e.Y))
+		e.Op, e.X.TypeString(), e.Y.TypeString())
 }

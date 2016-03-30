@@ -40,7 +40,7 @@ type BadAnonType struct {
 func (e *BadAnonType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid anonymous field type",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 type TypeCheckLoop struct {
@@ -83,7 +83,7 @@ type BadConstType struct {
 func (e *BadConstType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid constant type",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The DupMethodName error is returned whenever a method name is not unique
@@ -376,10 +376,8 @@ type BadConstConversion struct {
 
 func (e *BadConstConversion) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	val := valueToString(e.Src)
-	typ := valueToTypeString(e.Src)
 	return fmt.Sprintf("%s:%d:%d: %s (`%s`) cannot be converted to `%s`",
-		e.File.Name, ln, col, val, typ, builtinTypeToString(e.Dst))
+		e.File.Name, ln, col, e.Src, e.Src.TypeString(), e.Dst)
 }
 
 // The BadOperand error is returned whan an operation is not applicable to the
@@ -387,286 +385,12 @@ func (e *BadConstConversion) Error() string {
 type BadOperand struct {
 	Off  int
 	File *ast.File
-	Op   uint
+	Op   ast.Operation
 }
 
 func (e *BadOperand) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid operand to `%s`", e.File.Name, ln, col,
-		opToString(e.Op))
-}
-
-func intToString(typ *ast.BuiltinType, v uint64) string {
-	switch typ.Kind {
-	case ast.BUILTIN_UINT8:
-		return fmt.Sprintf("%d", uint8(v))
-	case ast.BUILTIN_UINT16:
-		return fmt.Sprintf("%d", uint16(v))
-	case ast.BUILTIN_UINT32:
-		return fmt.Sprintf("%d", uint32(v))
-	case ast.BUILTIN_UINT64:
-		return fmt.Sprintf("%d", v)
-	case ast.BUILTIN_INT8:
-		return fmt.Sprintf("%d", int8(v))
-	case ast.BUILTIN_INT16:
-		return fmt.Sprintf("%d", int16(v))
-	case ast.BUILTIN_INT32:
-		return fmt.Sprintf("%d", int32(v))
-	case ast.BUILTIN_INT64:
-		return fmt.Sprintf("%d", int64(v))
-	case ast.BUILTIN_UINT:
-		return fmt.Sprintf("%d", uint64(v)) // XXX: assumes uint is 64-bit
-	case ast.BUILTIN_INT:
-		return fmt.Sprintf("%d", int64(v)) // XXX: assumes int is 64-bit
-	case ast.BUILTIN_UINTPTR:
-		return fmt.Sprintf("%d", v) // XXX: assumes uintptr is 64-bit
-	default:
-		panic("not reached")
-	}
-}
-
-func floatToString(typ *ast.BuiltinType, v float64) string {
-	if typ.Kind == ast.BUILTIN_FLOAT64 {
-		return fmt.Sprintf("%f", v)
-	} else {
-		return fmt.Sprintf("%f", float32(v))
-	}
-}
-
-func complexToString(typ *ast.BuiltinType, v complex128) string {
-	if typ.Kind == ast.BUILTIN_COMPLEX128 {
-		return fmt.Sprintf("(%f+%fi)", real(v), imag(v))
-	} else {
-		return fmt.Sprintf("(%f+%fi)", float32(real(v)), float32(imag(v)))
-	}
-}
-
-func valueToString(c *ast.ConstValue) string {
-	switch v := c.Value.(type) {
-	case ast.Bool:
-		if bool(v) {
-			return "true"
-		} else {
-			return "false"
-		}
-	case ast.Rune:
-		return fmt.Sprintf("'%c'", v.Int64())
-	case ast.UntypedInt:
-		return v.String()
-	case ast.Int:
-		return intToString(builtinType(c.Typ), uint64(v))
-	case ast.UntypedFloat:
-		return v.Text('f', 6)
-	case ast.Float:
-		return floatToString(builtinType(c.Typ), float64(v))
-	case ast.UntypedComplex:
-		return fmt.Sprintf("(%s + %si)", v.Re.String(), v.Im.String())
-	case ast.Complex:
-		return complexToString(builtinType(c.Typ), complex128(v))
-	case ast.String:
-		return "\"" + string(v) + "\""
-	default:
-		panic("not reached")
-	}
-}
-
-func builtinTypeToString(typ *ast.BuiltinType) string {
-	switch typ.Kind {
-	case ast.BUILTIN_NIL_TYPE:
-		return "nil"
-	case ast.BUILTIN_BOOL:
-		return "bool"
-	case ast.BUILTIN_UINT8:
-		return "uint8"
-	case ast.BUILTIN_UINT16:
-		return "uint16"
-	case ast.BUILTIN_UINT32:
-		return "uint32"
-	case ast.BUILTIN_UINT64:
-		return "uint64"
-	case ast.BUILTIN_INT8:
-		return "int8"
-	case ast.BUILTIN_INT16:
-		return "int16"
-	case ast.BUILTIN_INT32:
-		return "int32"
-	case ast.BUILTIN_INT64:
-		return "int64"
-	case ast.BUILTIN_FLOAT32:
-		return "float32"
-	case ast.BUILTIN_FLOAT64:
-		return "float64"
-	case ast.BUILTIN_COMPLEX64:
-		return "complex64"
-	case ast.BUILTIN_COMPLEX128:
-		return "complex128"
-	case ast.BUILTIN_UINT:
-		return "uint"
-	case ast.BUILTIN_INT:
-		return "int"
-	case ast.BUILTIN_UINTPTR:
-		return "uintptr"
-	case ast.BUILTIN_STRING:
-		return "string"
-	default:
-		panic("not reached")
-	}
-}
-
-func typeToString(typ ast.Type) string {
-	if typ == nil {
-		return "unknown"
-	}
-	switch typ := typ.(type) {
-	case *ast.Error:
-		return "<error>"
-	case *ast.QualifiedId:
-		if len(typ.Pkg) > 0 {
-			return typ.Pkg + "." + typ.Id
-		} else {
-			return typ.Id
-		}
-	case *ast.TypeDecl:
-		return typ.Name
-	case *ast.BuiltinType:
-		return builtinTypeToString(typ)
-	case *ast.ArrayType:
-		n := typ.Dim.(*ast.ConstValue)
-		return fmt.Sprintf("[%s]%s", valueToString(n), typeToString(typ.Elt))
-	case *ast.SliceType:
-		return fmt.Sprintf("[]%s", typeToString(typ.Elt))
-	case *ast.PtrType:
-		return fmt.Sprintf("*%s", typeToString(typ.Base))
-	case *ast.MapType:
-		return fmt.Sprintf("map[%s]%s", typeToString(typ.Key), typeToString(typ.Elt))
-	case *ast.ChanType:
-		var ch string
-		if typ.Send && typ.Recv {
-			ch = "chan"
-		} else if typ.Send {
-			ch = "chan<-"
-		} else {
-			ch = "<-chan"
-		}
-		return fmt.Sprintf("%s %s", ch, typeToString(typ.Elt))
-	case *ast.StructType:
-		if len(typ.Fields) == 0 {
-			return "struct{}"
-		} else {
-			return "struct{...}"
-		}
-	case *ast.TupleType:
-		if n := len(typ.Type); n > 0 {
-			b := bytes.Buffer{}
-			fmt.Fprintf(&b, "<%s", typeToString(typ.Type[0]))
-			for i := 1; i < n; i++ {
-				fmt.Fprintf(&b, ", %s", typeToString(typ.Type[i]))
-			}
-			fmt.Fprint(&b, ">")
-			return b.String()
-		} else {
-			return "<>"
-		}
-	case *ast.FuncType:
-		b := bytes.Buffer{}
-		if n := len(typ.Params); n > 0 {
-			fmt.Fprintf(&b, "func (%s", typeToString(typ.Params[0].Type))
-			for i := 1; i < n; i++ {
-				fmt.Fprintf(&b, ", %s", typeToString(typ.Params[i].Type))
-			}
-			fmt.Fprint(&b, ")")
-		} else {
-			fmt.Fprint(&b, "func()")
-		}
-		if n := len(typ.Returns); n > 1 {
-			fmt.Fprintf(&b, "(%s", typeToString(typ.Returns[0].Type))
-			for i := 1; i < n; i++ {
-				fmt.Fprintf(&b, ", %s", typeToString(typ.Returns[i].Type))
-			}
-			fmt.Fprint(&b, ")")
-		} else if n == 1 {
-			fmt.Fprintf(&b, "%s", typeToString(typ.Returns[0].Type))
-		}
-		return b.String()
-	case *ast.InterfaceType:
-		if len(typ.Embedded) == 0 && len(typ.Methods) == 0 {
-			return "interface{}"
-		} else {
-			return "interface{...}"
-		}
-	default:
-		panic("not reached")
-	}
-}
-
-func valueToTypeString(c *ast.ConstValue) string {
-	if t := builtinType(c.Typ); t != nil {
-		return builtinTypeToString(t)
-	}
-	switch c.Value.(type) {
-	case ast.Bool:
-		return "untyped bool"
-	case ast.Rune:
-		return "untyped rune"
-	case ast.UntypedInt:
-		return "untyped int"
-	case ast.UntypedFloat:
-		return "untyped float"
-	case ast.UntypedComplex:
-		return "untyped complex"
-	case ast.String:
-		return "untyped string"
-	}
-	panic("not reached")
-}
-
-func opToString(op uint) string {
-	switch op {
-	case ast.PLUS:
-		return "+"
-	case ast.MINUS:
-		return "-"
-	case ast.MUL:
-		return "*"
-	case ast.DIV:
-		return "/"
-	case ast.REM:
-		return "%"
-	case ast.BITAND:
-		return "&"
-	case ast.BITOR:
-		return "|"
-	case ast.BITXOR:
-		return "^"
-	case ast.LT:
-		return "<"
-	case ast.GT:
-		return ">"
-	case ast.NOT:
-		return "!"
-	case ast.SHL:
-		return "<<"
-	case ast.SHR:
-		return ">>"
-	case ast.ANDN:
-		return "&^"
-	case ast.AND:
-		return "&&"
-	case ast.OR:
-		return "||"
-	case ast.RECV:
-		return "<-"
-	case ast.EQ:
-		return "=="
-	case ast.NE:
-		return "!="
-	case ast.LE:
-		return "<="
-	case ast.GE:
-		return "=>"
-	default:
-		panic("not reached")
-	}
+	return fmt.Sprintf("%s:%d:%d: invalid operand to `%s`", e.File.Name, ln, col, e.Op)
 }
 
 // The NegArrayLen error is returned when an array is declared of negetive
@@ -693,7 +417,7 @@ type BadLiteralType struct {
 func (e *BadLiteralType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: `%s` is not a valid type for composite literals",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The MissingLiteralType error is returned when a composite literal elides
@@ -858,7 +582,7 @@ type BadIndexedType struct {
 func (e *BadIndexedType) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: type `%s` does not support indexing or slicing",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The BadSliceExpr error is returned for a slice expression with capacity
@@ -885,7 +609,7 @@ type NotInteger struct {
 func (e *NotInteger) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: index must be of integer type (given `%s`)",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The BadShiftCount error is returned when the right operand of a shift
@@ -927,7 +651,7 @@ type NotAssignable struct {
 func (e *NotAssignable) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: expression is not assignable to `%s`",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The NilUse error is returned on attemt to use the value `nil`
@@ -952,7 +676,7 @@ type BadCompareOperands struct {
 func (e *BadCompareOperands) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: neither `%s` nor `%s` is assignable to the other",
-		e.File.Name, ln, col, typeToString(e.XType), typeToString(e.YType))
+		e.File.Name, ln, col, e.XType, e.YType)
 }
 
 // The NotNilComparable error is returned for comparison expressions, where
@@ -967,7 +691,7 @@ type NotNilComparable struct {
 func (e *NotNilComparable) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: `%s` is not comparable to `nil`",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The NotComparable error is returned when a type is required by the context
@@ -981,7 +705,7 @@ type NotComparable struct {
 func (e *NotComparable) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: values of type `%s` cannot be compared for equality",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The NotOrderede error is returned when a value is used as an operand to onr
@@ -996,7 +720,7 @@ type NotOrdered struct {
 func (e *NotOrdered) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: values of type `%s` are not ordered",
-		e.File.Name, ln, col, typeToString(e.Type))
+		e.File.Name, ln, col, e.Type)
 }
 
 // The NotSupportedOperation error is returned when an operator is not
@@ -1004,14 +728,14 @@ func (e *NotOrdered) Error() string {
 type NotSupportedOperation struct {
 	Off  int
 	File *ast.File
-	Op   uint
+	Op   ast.Operation
 	Type ast.Type
 }
 
 func (e *NotSupportedOperation) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: operation `%s` not supported for `%s`",
-		e.File.Name, ln, col, opToString(e.Op), typeToString(e.Type))
+		e.File.Name, ln, col, e.Op, e.Type)
 }
 
 // The BadBinaryOperands error is returned when the types of a binary
@@ -1019,13 +743,12 @@ func (e *NotSupportedOperation) Error() string {
 type BadBinaryOperands struct {
 	Off          int
 	File         *ast.File
-	Op           uint
+	Op           ast.Operation
 	XType, YType ast.Type
 }
 
 func (e *BadBinaryOperands) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: operation `%s` not supported for `%s` and `%s`",
-		e.File.Name, ln, col, opToString(e.Op), typeToString(e.XType),
-		typeToString(e.YType))
+	return fmt.Sprintf("%s:%d:%d: invalid operation `%s`: mismatched types `%s` and `%s`",
+		e.File.Name, ln, col, e.Op, e.XType, e.YType)
 }

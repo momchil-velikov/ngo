@@ -178,15 +178,15 @@ func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-1.go"},
 		"shift count must be unsigned integer (`int` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-2.go"},
-		"1.100000 (`untyped float`) cannot be converted to `uint64`")
+		"1.1 (`untyped float`) cannot be converted to `uint64`")
 	expectError(t, "_test/src/binary", []string{"shift-err-3.go"},
 		"shift count must be unsigned integer (`float32` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-4.go"},
 		"shift count too big: 512")
 	expectError(t, "_test/src/binary", []string{"shift-err-5.go"},
-		"invalid operand to `<<`: `1.100000`")
+		"invalid operand to `<<`: `1.1`")
 	expectError(t, "_test/src/binary", []string{"shift-err-6.go"},
-		"invalid operand to `>>`: `(0 + 1.1i)`")
+		"invalid operand to `>>`: `1.1i`")
 	expectError(t, "_test/src/binary", []string{"shift-err-7.go"},
 		"invalid operand to `<<`: operand must have integer type (`untyped bool` given)")
 	expectError(t, "_test/src/binary", []string{"shift-err-8.go"},
@@ -304,9 +304,9 @@ func TestCompareErr(t *testing.T) {
 
 func TestBinaryErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"bin-err-01.go"},
-		"operation `+` not supported for `int` and `int64`")
+		"invalid operation `+`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"bin-err-02.go"},
-		"operation `+` not supported for `int` and `Int`")
+		"invalid operation `+`: mismatched types `int` and `Int`")
 	expectError(t, "_test/src/binary", []string{"bin-err-03.go"},
-		"operation `+` not supported for `Int` and `Int32`")
+		"invalid operation `+`: mismatched types `Int` and `Int32`")
 }

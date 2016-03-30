@@ -996,7 +996,7 @@ func (p *parser) parseCompareExprOrType() (ast.Expr, ast.Type) {
 		return nil, t
 	}
 	for isRelOp(p.token) {
-		op := p.token
+		op := ast.Operation(p.token)
 		p.next()
 		y, _ := p.parseAddExprOrType()
 		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
@@ -1013,7 +1013,7 @@ func (p *parser) parseAddExprOrType() (ast.Expr, ast.Type) {
 		return nil, t
 	}
 	for isAddOp(p.token) {
-		op := p.token
+		op := ast.Operation(p.token)
 		p.next()
 		y, _ := p.parseMulExprOrType()
 		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
@@ -1030,7 +1030,7 @@ func (p *parser) parseMulExprOrType() (ast.Expr, ast.Type) {
 		return nil, t
 	}
 	for isMulOp(p.token) {
-		op := p.token
+		op := ast.Operation(p.token)
 		p.next()
 		y, _ := p.parseUnaryExprOrType()
 		x = &ast.BinaryExpr{Off: x.Position(), Op: op, X: x, Y: y}
@@ -1109,7 +1109,7 @@ func (p *parser) parseUnaryExprOrType() (ast.Expr, ast.Type) {
 
 	switch p.token {
 	case '+', '-', '!', '^', '&':
-		op := p.token
+		op := ast.Operation(p.token)
 		off := p.next()
 		x, _ := p.parseUnaryExprOrType()
 		return &ast.UnaryExpr{Off: off, Op: op, X: x}, nil

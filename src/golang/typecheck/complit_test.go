@@ -132,11 +132,11 @@ func TestArrayLiteralErr(t *testing.T) {
 	expectError(t, "_test/src/comp", []string{"array-err-1.go"},
 		"unspecified array length not allowed")
 	expectError(t, "_test/src/comp", []string{"array-err-2.go"},
-		"2.100000 (`untyped float`) cannot be converted to `int`")
+		"2.1 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/comp", []string{"array-err-3.go"},
 		"array index must be a non-negative `int` constant")
 	expectError(t, "_test/src/comp", []string{"array-err-4.go"},
-		"1.200000 (`untyped float`) cannot be converted to `int`")
+		"1.2 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/comp", []string{"array-err-5.go"},
 		"index `-1` out of bounds")
 	expectError(t, "_test/src/comp", []string{"array-err-6.go"},
