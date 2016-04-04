@@ -3,26 +3,32 @@ package ast
 var UniverseScope *_UniverseScope
 
 var (
-	BuiltinVoidType   *BuiltinType
-	BuiltinNilType    *BuiltinType
-	BuiltinBool       *BuiltinType
-	BuiltinUint8      *BuiltinType
-	BuiltinUint16     *BuiltinType
-	BuiltinUint32     *BuiltinType
-	BuiltinUint64     *BuiltinType
-	BuiltinInt8       *BuiltinType
-	BuiltinInt16      *BuiltinType
-	BuiltinInt32      *BuiltinType
-	BuiltinInt64      *BuiltinType
-	BuiltinFloat32    *BuiltinType
-	BuiltinFloat64    *BuiltinType
-	BuiltinComplex64  *BuiltinType
-	BuiltinComplex128 *BuiltinType
-	BuiltinUint       *BuiltinType
-	BuiltinInt        *BuiltinType
-	BuiltinUintptr    *BuiltinType
-	BuiltinString     *BuiltinType
-	BuiltinDefault    *BuiltinType
+	BuiltinVoidType       *BuiltinType
+	BuiltinNilType        *BuiltinType
+	BuiltinBool           *BuiltinType
+	BuiltinUint8          *BuiltinType
+	BuiltinUint16         *BuiltinType
+	BuiltinUint32         *BuiltinType
+	BuiltinUint64         *BuiltinType
+	BuiltinInt8           *BuiltinType
+	BuiltinInt16          *BuiltinType
+	BuiltinInt32          *BuiltinType
+	BuiltinInt64          *BuiltinType
+	BuiltinFloat32        *BuiltinType
+	BuiltinFloat64        *BuiltinType
+	BuiltinComplex64      *BuiltinType
+	BuiltinComplex128     *BuiltinType
+	BuiltinUint           *BuiltinType
+	BuiltinInt            *BuiltinType
+	BuiltinUintptr        *BuiltinType
+	BuiltinString         *BuiltinType
+	BuiltinUntypedBool    *BuiltinType
+	BuiltinUntypedRune    *BuiltinType
+	BuiltinUntypedInt     *BuiltinType
+	BuiltinUntypedFloat   *BuiltinType
+	BuiltinUntypedComplex *BuiltinType
+	BuiltinUntypedString  *BuiltinType
+	BuiltinDefault        *BuiltinType
 
 	BuiltinNil   *Var
 	BuiltinTrue  *ConstValue
@@ -66,6 +72,12 @@ func init() {
 	BuiltinInt = &BuiltinType{BUILTIN_INT}
 	BuiltinUintptr = &BuiltinType{BUILTIN_UINTPTR}
 	BuiltinString = &BuiltinType{BUILTIN_STRING}
+	BuiltinUntypedBool = &BuiltinType{BUILTIN_UNTYPED_BOOL}
+	BuiltinUntypedRune = &BuiltinType{BUILTIN_UNTYPED_RUNE}
+	BuiltinUntypedInt = &BuiltinType{BUILTIN_UNTYPED_INT}
+	BuiltinUntypedFloat = &BuiltinType{BUILTIN_UNTYPED_FLOAT}
+	BuiltinUntypedComplex = &BuiltinType{BUILTIN_UNTYPED_COMPLEX}
+	BuiltinUntypedString = &BuiltinType{BUILTIN_UNTYPED_STRING}
 	BuiltinDefault = &BuiltinType{BUILTIN_DEFAULT}
 
 	UniverseScope = &_UniverseScope{dcl: make(map[string]Symbol)}

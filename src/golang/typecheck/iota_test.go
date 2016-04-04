@@ -62,7 +62,7 @@ func TestIota(t *testing.T) {
 
 	N := p.Find("N").(*ast.Const)
 	c = N.Init.(*ast.ConstValue)
-	if N.Type != nil || c.Typ != nil {
+	if !isUntyped(N.Type) {
 		t.Error("`N` should be untyped")
 	}
 	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 0 {

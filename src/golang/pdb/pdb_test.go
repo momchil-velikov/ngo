@@ -87,6 +87,12 @@ func TestWriteBuiltinType(t *testing.T) {
 		ast.BuiltinInt,
 		ast.BuiltinUintptr,
 		ast.BuiltinString,
+		ast.BuiltinUntypedBool,
+		ast.BuiltinUntypedRune,
+		ast.BuiltinUntypedInt,
+		ast.BuiltinUntypedFloat,
+		ast.BuiltinUntypedComplex,
+		ast.BuiltinUntypedString,
 	}
 
 	tk := []byte{
@@ -107,6 +113,12 @@ func TestWriteBuiltinType(t *testing.T) {
 		_INT,
 		_UINTPTR,
 		_STRING,
+		_UNTYPED_BOOL,
+		_UNTYPED_RUNE,
+		_UNTYPED_INT,
+		_UNTYPED_FLOAT,
+		_UNTYPED_COMPLEX,
+		_UNTYPED_STRING,
 	}
 
 	exp := []byte{0}

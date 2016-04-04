@@ -216,7 +216,7 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 	}
 
 	// Handle constant initializers.
-	if c, ok := x.(*ast.ConstValue); ok && c.Typ == nil {
+	if c, ok := x.(*ast.ConstValue); ok && isUntyped(c.Typ) {
 		// If checking resulted in untyped constant, convert it either to the
 		// declared type, or to the default type.
 		if v.Type == nil {
@@ -504,12 +504,12 @@ func (ev *exprVerifier) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	if x.Typ != nil || ev.TypeCtx == nil {
+	src := builtinType(x.Typ)
+	if !src.IsUntyped() || ev.TypeCtx == nil {
 		return x, nil
 	}
 
-	var src, dst *ast.BuiltinType
-	src = builtinType(x.Typ)
+	var dst *ast.BuiltinType
 	if ev.TypeCtx == ast.BuiltinDefault {
 		dst = builtinType(defaultType(x))
 	} else {
@@ -914,13 +914,18 @@ func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 	case *ast.Const:
 		switch d.Init {
 		case ast.BuiltinTrue, ast.BuiltinFalse:
-			return &ast.ConstValue{Off: x.Off, Value: d.Init.(*ast.ConstValue).Value}, nil
+			return &ast.ConstValue{
+				Off:   x.Off,
+				Typ:   ast.BuiltinUntypedBool,
+				Value: d.Init.(*ast.ConstValue).Value,
+			}, nil
 		case ast.BuiltinIota:
 			if ev.Iota == -1 {
 				return nil, &BadIota{Off: x.Off, File: ev.File}
 			}
 			c := &ast.ConstValue{
 				Off:   x.Off,
+				Typ:   ast.BuiltinUntypedInt,
 				Value: ast.UntypedInt{Int: big.NewInt(int64(ev.Iota))},
 			}
 			return ev.VisitConstValue(c)
@@ -1576,6 +1581,9 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		if y.Type() == nil {
+			return x, nil
+		}
 	}
 
 	switch x.Op {
@@ -1599,7 +1607,7 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if definitelyNotArith(y) {
+	if !isArith(y) {
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '+'}
 	}
 	if _, ok := y.(*ast.ConstValue); ok {
@@ -1612,7 +1620,7 @@ func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, 
 }
 
 func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if definitelyNotArith(y) {
+	if !isArith(y) {
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '-'}
 	}
 	if c, ok := y.(*ast.ConstValue); ok {
@@ -1629,10 +1637,9 @@ func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr,
 }
 
 func (ev *exprVerifier) checkNot(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if y.Type() != nil {
-		if t := builtinType(y.Type()); t == nil || t.Kind != ast.BUILTIN_BOOL {
-			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '!'}
-		}
+	if t := builtinType(y.Type()); t == nil ||
+		t.Kind != ast.BUILTIN_BOOL && t.Kind != ast.BUILTIN_UNTYPED_BOOL {
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '!'}
 	}
 	if c, ok := y.(*ast.ConstValue); ok {
 		v, ok := c.Value.(ast.Bool)
@@ -1648,10 +1655,8 @@ func (ev *exprVerifier) checkNot(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error)
 }
 
 func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if y.Type() != nil {
-		if t := builtinType(y.Type()); t == nil || !t.IsInteger() {
-			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '^'}
-		}
+	if t := builtinType(y.Type()); t == nil || !t.IsUntyped() && !t.IsInteger() {
+		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '^'}
 	}
 	if c, ok := y.(*ast.ConstValue); ok {
 		v := complement(builtinType(c.Typ), c.Value)
@@ -1701,7 +1706,7 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	}
 
 	// Check the operands without a type context first, as a type context from
-	// one operand takes precedene over type context passed by the parent
+	// one operand takes precedence over type context passed by the parent
 	// expression.
 	u, err := ev.checkExpr(x.X, nil)
 	if err != nil {
@@ -1713,12 +1718,12 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	}
 
 	switch t0, t1 := u.Type(), v.Type(); {
-	case t0 == nil && t1 != nil:
+	case isUntyped(t0) && !isUntyped(t1):
 		// If one operand is untyped, convert it to the type of the other operand
 		if u, err = ev.checkExpr(u, t1); err != nil {
 			return nil, err
 		}
-	case t0 != nil && t1 == nil:
+	case !isUntyped(t0) && isUntyped(t1):
 		if v, err = ev.checkExpr(v, t0); err != nil {
 			return nil, err
 		}
@@ -1733,24 +1738,30 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 				if err != nil {
 					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 				}
-				return &ast.ConstValue{Off: x.Off, Value: v}, nil
+				return &ast.ConstValue{
+					Off:   x.Off,
+					Typ:   ast.BuiltinUntypedBool,
+					Value: v,
+				}, nil
+			default:
+				panic("FIXME")
 			}
 		}
 	}
 
-	if u.Type() == nil && v.Type() == nil {
-		// If both operands are without a type, retry with a type context,
-		// either parent type context if not nil, or with default type
-		// context.
-		ctx := ev.TypeCtx
-		if ctx == nil {
-			ctx = ast.BuiltinDefault
+	// If both operands are without a type, retry with the type context.
+	if isUntyped(u.Type()) && isUntyped(v.Type()) {
+		if ev.TypeCtx == nil {
+			return x, nil
 		}
-		if u, err = ev.checkExpr(u, ctx); err != nil {
+		if u, err = ev.checkExpr(u, ev.TypeCtx); err != nil {
 			return nil, err
 		}
-		if v, err = ev.checkExpr(v, ctx); err != nil {
+		if v, err = ev.checkExpr(v, ev.TypeCtx); err != nil {
 			return nil, err
+		}
+		if isUntyped(u.Type()) && isUntyped(v.Type()) {
+			return x, nil
 		}
 	}
 
@@ -1832,26 +1843,32 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// Evaluate a constant shift expression.
 	if u, ok := u.(*ast.ConstValue); ok {
 		if s, ok := v.(*ast.ConstValue); ok {
-			v, err := shift(u, s, x.Op)
+			c, err := shift(u, s, x.Op)
 			if err != nil {
 				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 			}
-			return &ast.ConstValue{Off: x.Off, Typ: u.Typ, Value: v}, nil
+			return c, nil
 		}
 	}
-	// The left operand is not a constant. Retry with a type context.
-	if u.Type() == nil && ev.TypeCtx != nil {
-		if u, err = ev.checkExpr(x.X, ev.TypeCtx); err != nil {
+
+	// If the type of the left operand is unknown or untyped, retry with a
+	// type context.
+	if isUntyped(u.Type()) {
+		if ev.TypeCtx == nil {
+			return x, nil
+		}
+		if u, err = ev.checkExpr(u, ev.TypeCtx); err != nil {
 			return nil, err
 		}
+		if isUntyped(u.Type()) {
+			return x, nil
+		}
 	}
-	// Return if we cannot yet determine the type of the left operand.
-	if u.Type() == nil {
-		return x, nil
-	}
+
 	// The left operand should have integer type.
 	if t := builtinType(u.Type()); t == nil || !t.IsInteger() {
 		return nil, &BadOperand{Off: u.Position(), File: ev.File, Op: x.Op}
@@ -1870,7 +1887,7 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 func (ev *exprVerifier) getArrayLength(t *ast.ArrayType) (int64, error) {
 	var err error
 	c, ok := t.Dim.(*ast.ConstValue)
-	if !ok || c.Typ == nil {
+	if !ok || isUntyped(c.Typ) {
 		if c, err = ev.checkArrayLength(t); err != nil {
 			return 0, err
 		}
@@ -2114,13 +2131,13 @@ func (ev *exprVerifier) typenameImplements(
 // constant and true. Otherwise, returns false.
 // https://golang.org/ref/spec#Assignability
 func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool, error) {
-	if src := x.Type(); src == nil {
+	if src := x.Type(); isUntyped(src) {
 		// "x is an untyped constant representable by a value of type T."
 		if c, ok := x.(*ast.ConstValue); !ok {
 			panic("not reached")
 		} else if t := builtinType(dst); t == nil {
 			return nil, false, nil
-		} else if v := convertConst(t, nil, c.Value); v == nil {
+		} else if v := convertConst(t, builtinType(c.Typ), c.Value); v == nil {
 			return nil, false, nil
 		} else {
 			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true, nil

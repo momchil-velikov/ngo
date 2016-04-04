@@ -624,7 +624,6 @@ func TestAssignable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestAssignableErr(t *testing.T) {

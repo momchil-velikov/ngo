@@ -203,7 +203,6 @@ func (w *Writer) writedcl(
 
 const (
 	_VOID byte = iota
-	_NIL
 	_BOOL
 	_UINT8
 	_UINT16
@@ -221,6 +220,12 @@ const (
 	_INT
 	_UINTPTR
 	_STRING
+	_UNTYPED_BOOL
+	_UNTYPED_RUNE
+	_UNTYPED_INT
+	_UNTYPED_FLOAT
+	_UNTYPED_COMPLEX
+	_UNTYPED_STRING
 	_ARRAY
 	_SLICE
 	_STRUCT
@@ -335,6 +340,18 @@ func (w *Writer) writeBuiltinType(k int) error {
 		b = _UINTPTR
 	case ast.BUILTIN_STRING:
 		b = _STRING
+	case ast.BUILTIN_UNTYPED_BOOL:
+		b = _UNTYPED_BOOL
+	case ast.BUILTIN_UNTYPED_RUNE:
+		b = _UNTYPED_RUNE
+	case ast.BUILTIN_UNTYPED_INT:
+		b = _UNTYPED_INT
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		b = _UNTYPED_FLOAT
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		b = _UNTYPED_COMPLEX
+	case ast.BUILTIN_UNTYPED_STRING:
+		b = _UNTYPED_STRING
 	default:
 		panic("not reached")
 	}

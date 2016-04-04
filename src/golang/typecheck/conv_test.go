@@ -32,7 +32,7 @@ func TestConvBool(t *testing.T) {
 		t.Fatal("initializer of `A` is not a ConstValue")
 	}
 	b, ok = c.Value.(ast.Bool)
-	if !ok || c.Typ != nil || !bool(b) {
+	if !ok || c.Typ != ast.BuiltinUntypedBool || !bool(b) {
 		t.Fatal("expected untyped boolean value `true` after evaluation of `A`")
 	}
 

@@ -309,16 +309,15 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 	}
 
 	var res ast.Value
-	switch v := val.(type) {
-	case ast.Bool:
-		res = convertBool(dst, v)
-	case ast.Rune:
-		res = convertUntypedInt(dst, v.Int)
-	case ast.UntypedInt:
-		res = convertUntypedInt(dst, v.Int)
-	case ast.Int:
-		res = convertInt(dst, src, uint64(v))
-	case ast.UntypedFloat:
+	switch src.Kind {
+	case ast.BUILTIN_BOOL, ast.BUILTIN_UNTYPED_BOOL:
+		res = convertBool(dst, val.(ast.Bool))
+	case ast.BUILTIN_UNTYPED_RUNE:
+		res = convertUntypedInt(dst, val.(ast.Rune).Int)
+	case ast.BUILTIN_UNTYPED_INT:
+		res = convertUntypedInt(dst, val.(ast.UntypedInt).Int)
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		v := val.(ast.UntypedFloat)
 		if dst.IsInteger() {
 			if v.IsInt() {
 				i, _ := v.Int(nil)
@@ -330,9 +329,10 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 				res = convertFloat(dst, x)
 			}
 		}
-	case ast.Float:
-		res = convertFloat(dst, float64(v))
-	case ast.UntypedComplex:
+	case ast.BUILTIN_FLOAT32, ast.BUILTIN_FLOAT64:
+		res = convertFloat(dst, float64(val.(ast.Float)))
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		v := val.(ast.UntypedComplex)
 		if dst.IsInteger() {
 			if v.Re.IsInt() && v.Im.Sign() == 0 {
 				i, _ := v.Re.Int(nil)
@@ -349,24 +349,28 @@ func convertConst(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 				res = convertComplex(dst, re, im)
 			}
 		}
-	case ast.Complex:
+	case ast.BUILTIN_COMPLEX64, ast.BUILTIN_COMPLEX128:
+		v := val.(ast.Complex)
 		re, im := real(v), imag(v)
 		res = convertComplex(dst, re, im)
-	case ast.String:
+	case ast.BUILTIN_STRING, ast.BUILTIN_UNTYPED_STRING:
 		if dst.Kind == ast.BUILTIN_STRING {
-			res = v
+			res = val
 		} else {
 			res = nil
 		}
 	default:
-		panic("not reached")
+		if !src.IsInteger() {
+			panic("not reached")
+		}
+		res = convertInt(dst, src, uint64(val.(ast.Int)))
 	}
 	return res
 }
 
 func toInt(c *ast.ConstValue) (int64, bool) {
 	src := builtinType(c.Typ)
-	if src == nil && c.Typ != nil {
+	if src == nil {
 		return 0, false
 	}
 	v := convertConst(ast.BuiltinInt, src, c.Value)
@@ -378,7 +382,7 @@ func toInt(c *ast.ConstValue) (int64, bool) {
 
 func toFloat(c *ast.ConstValue) (float64, bool) {
 	src := builtinType(c.Typ)
-	if src == nil && c.Typ != nil {
+	if src == nil {
 		return 0, false
 	}
 	v := convertConst(ast.BuiltinFloat64, src, c.Value)
@@ -389,39 +393,52 @@ func toFloat(c *ast.ConstValue) (float64, bool) {
 }
 
 func minus(typ *ast.BuiltinType, val ast.Value) ast.Value {
-	switch v := val.(type) {
-	case ast.Bool:
+	switch typ.Kind {
+	case ast.BUILTIN_BOOL, ast.BUILTIN_UNTYPED_BOOL:
 		return nil
-	case ast.Rune:
-		return ast.Rune{Int: new(big.Int).Neg(v.Int)}
-	case ast.UntypedInt:
-		return ast.UntypedInt{Int: new(big.Int).Neg(v.Int)}
-	case ast.Int:
-		if !typ.IsSigned() {
-			return nil
-		}
-		return ast.Int(-int64(v))
-	case ast.UntypedFloat:
-		return ast.UntypedFloat{Float: new(big.Float).Neg(v.Float)}
-	case ast.Float:
-		return ast.Float(-float64(v))
-	case ast.UntypedComplex:
+	case ast.BUILTIN_UNTYPED_RUNE:
+		return ast.Rune{Int: new(big.Int).Neg(val.(ast.Rune).Int)}
+	case ast.BUILTIN_UNTYPED_INT:
+		return ast.UntypedInt{Int: new(big.Int).Neg(val.(ast.UntypedInt).Int)}
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		return ast.UntypedFloat{Float: new(big.Float).Neg(val.(ast.UntypedFloat).Float)}
+	case ast.BUILTIN_FLOAT32, ast.BUILTIN_FLOAT64:
+		return ast.Float(-float64(val.(ast.Float)))
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		v := val.(ast.UntypedComplex)
 		return ast.UntypedComplex{
 			Re: new(big.Float).Neg(v.Re),
 			Im: new(big.Float).Neg(v.Im),
 		}
-	case ast.Complex:
+	case ast.BUILTIN_COMPLEX64, ast.BUILTIN_COMPLEX128:
+		v := val.(ast.Complex)
 		return ast.Complex(complex(-real(v), -imag(v)))
-	case ast.String:
+	case ast.BUILTIN_STRING, ast.BUILTIN_UNTYPED_STRING:
 		return nil
 	default:
-		panic("not reached")
+		if !typ.IsInteger() {
+			panic("not reached")
+		}
+		if !typ.IsSigned() {
+			return nil
+		}
+		return ast.Int(-int64(val.(ast.Int)))
 	}
 }
 
 func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
-	switch v := val.(type) {
-	case ast.Int:
+	switch typ.Kind {
+	case ast.BUILTIN_UNTYPED_INT:
+		v := val.(ast.UntypedInt)
+		return ast.UntypedInt{Int: new(big.Int).Not(v.Int)}
+	case ast.BUILTIN_UNTYPED_RUNE:
+		v := val.(ast.Rune)
+		return ast.Rune{Int: new(big.Int).Not(v.Int)}
+	default:
+		if !typ.IsInteger() {
+			return nil
+		}
+		v := val.(ast.Int)
 		switch typ.Kind {
 		case ast.BUILTIN_INT8:
 			return ast.Int(^int8(v))
@@ -442,62 +459,47 @@ func complement(typ *ast.BuiltinType, val ast.Value) ast.Value {
 		default:
 			panic("not reached")
 		}
-	case ast.UntypedInt:
-		return ast.UntypedInt{Int: new(big.Int).Not(v.Int)}
-	case ast.Rune:
-		return ast.Rune{Int: new(big.Int).Not(v.Int)}
-	default:
-		return nil
 	}
 }
 
-func shift(x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (ast.Value, error) {
-	// Get the shift count in a native uint.
-	var s uint64
-	switch v := y.Value.(type) {
-	case ast.Int:
-		t := builtinType(y.Typ)
-		if t.IsSigned() {
-			return nil, &badShiftCountType{X: y}
-		}
-		s = uint64(v)
-	case ast.UntypedInt:
-		// The expression verifier converts the untyped shift count to
-		// `uint64`.
-		panic("not reached")
-	default:
+func shift(
+	x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (*ast.ConstValue, error) {
+
+	// The shift count must be unsigned integer type. An untyped integer is
+	// already converted to `uint64` by the expression verifier.
+	if t := builtinType(y.Typ); t == nil || !t.IsInteger() || t.IsSigned() {
 		return nil, &badShiftCountType{X: y}
 	}
+	// Get the shift count in a native uint.
+	s := uint64(y.Value.(ast.Int))
 	if s > MaxShift {
 		return nil, &badShiftCountValue{X: s}
 	}
 	// Perform the shift.
-	switch v := x.Value.(type) {
-	case ast.Int:
+	var res ast.Value
+	switch t := builtinType(x.Typ); t.Kind {
+	case ast.BUILTIN_UNTYPED_INT:
+		v := x.Value.(ast.UntypedInt)
 		if op == ast.SHL {
-			return ast.Int(v << s), nil
-		} else if builtinType(x.Typ).IsSigned() {
-			return ast.Int(int64(v) >> s), nil
+			res = ast.UntypedInt{Int: new(big.Int).Lsh(v.Int, uint(s))}
 		} else {
-			return ast.Int(v >> s), nil
+			res = ast.UntypedInt{Int: new(big.Int).Rsh(v.Int, uint(s))}
 		}
-	case ast.UntypedInt:
-		if op == ast.SHL {
-			return ast.UntypedInt{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
-		} else {
-			return ast.UntypedInt{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
-		}
-	case ast.UntypedFloat:
+		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedInt, Value: res}, nil
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		v := x.Value.(ast.UntypedFloat)
 		u, a := v.Int(new(big.Int))
 		if a != big.Exact {
 			return nil, &badOperandValue{Op: op, X: x}
 		}
 		if op == ast.SHL {
-			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
+			res = ast.UntypedInt{Int: u.Lsh(u, uint(s))}
 		} else {
-			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
+			res = ast.UntypedInt{Int: u.Rsh(u, uint(s))}
 		}
-	case ast.UntypedComplex:
+		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedInt, Value: res}, nil
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		v := x.Value.(ast.UntypedComplex)
 		if z, a := v.Im.Int64(); a != big.Exact || z != 0 {
 			return nil, &badOperandValue{Op: op, X: x}
 		}
@@ -506,18 +508,33 @@ func shift(x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (ast.Value, e
 			return nil, &badOperandValue{Op: op, X: x}
 		}
 		if op == ast.SHL {
-			return ast.UntypedInt{Int: u.Lsh(u, uint(s))}, nil
+			res = ast.UntypedInt{Int: u.Lsh(u, uint(s))}
 		} else {
-			return ast.UntypedInt{Int: u.Rsh(u, uint(s))}, nil
+			res = ast.UntypedInt{Int: u.Rsh(u, uint(s))}
 		}
-	case ast.Rune:
+		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedInt, Value: res}, nil
+	case ast.BUILTIN_UNTYPED_RUNE:
+		v := x.Value.(ast.Rune)
 		if op == ast.SHL {
-			return ast.Rune{Int: new(big.Int).Lsh(v.Int, uint(s))}, nil
+			res = ast.Rune{Int: new(big.Int).Lsh(v.Int, uint(s))}
 		} else {
-			return ast.Rune{Int: new(big.Int).Rsh(v.Int, uint(s))}, nil
+			res = ast.Rune{Int: new(big.Int).Rsh(v.Int, uint(s))}
 		}
+		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedRune, Value: res}, nil
 	default:
-		return nil, &badOperandType{Op: op, Type: "integer type", X: x}
+		if !t.IsInteger() {
+			return nil, &badOperandType{Op: op, Type: "integer type", X: x}
+		}
+		v := x.Value.(ast.Int)
+		if op == ast.SHL {
+			res = ast.Int(v << s)
+		} else if builtinType(x.Typ).IsSigned() {
+			res = ast.Int(int64(v) >> s)
+		} else {
+			res = ast.Int(v >> s)
+		}
+		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: res}, nil
+
 	}
 }
 
@@ -669,7 +686,7 @@ func untypedConvert(x ast.Value, y ast.Value) (untypedKind, ast.Value, ast.Value
 
 func compare(x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (ast.Value, error) {
 	// If the constants are typed, they must have the same type.
-	if t := builtinType(x.Typ); t != nil {
+	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
 		if t != builtinType(y.Typ) {
 			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
 		}
@@ -778,7 +795,7 @@ func compareUntyped(
 		c = x.Cmp(y.Float)
 	case _UNTYPED_COMPLEX:
 		if op != ast.EQ && op != ast.NE {
-			return nil, &invalidOperation{Op: op, Value: x}
+			return nil, &invalidOperation{Op: op, Type: ast.BuiltinUntypedComplex}
 		}
 		x, y := x.(ast.UntypedComplex), y.(ast.UntypedComplex)
 		u, v := x.Re.Cmp(y.Re), x.Im.Cmp(y.Im)
@@ -789,7 +806,7 @@ func compareUntyped(
 		}
 	case _UNTYPED_BOOL:
 		if op != ast.EQ && op != ast.NE {
-			return nil, &invalidOperation{Op: op, Value: x}
+			return nil, &invalidOperation{Op: op, Type: ast.BuiltinUntypedBool}
 		}
 		x, y := x.(ast.Bool), y.(ast.Bool)
 		if op == ast.EQ {
@@ -830,15 +847,12 @@ func cmpToBool(c int, op ast.Operation) ast.Bool {
 }
 
 type invalidOperation struct {
-	Op    ast.Operation
-	Type  *ast.BuiltinType
-	Value ast.Value
+	Op   ast.Operation
+	Type *ast.BuiltinType
 }
 
 func (e *invalidOperation) Error() string {
-	c := ast.ConstValue{Typ: e.Type, Value: e.Value}
-	return fmt.Sprintf("operation `%s` not supported for `%s`",
-		e.Op, c.TypeString())
+	return fmt.Sprintf("operation `%s` not supported for `%s`", e.Op, e.Type)
 }
 
 type mismatchedTypes struct {

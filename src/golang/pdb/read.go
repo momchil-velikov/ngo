@@ -309,6 +309,18 @@ func (r *Reader) readType(pkg *ast.Package) (ast.Type, error) {
 		return ast.BuiltinUintptr, nil
 	case _STRING:
 		return ast.BuiltinString, nil
+	case _UNTYPED_BOOL:
+		return ast.BuiltinUntypedBool, nil
+	case _UNTYPED_RUNE:
+		return ast.BuiltinUntypedRune, nil
+	case _UNTYPED_INT:
+		return ast.BuiltinUntypedInt, nil
+	case _UNTYPED_FLOAT:
+		return ast.BuiltinUntypedFloat, nil
+	case _UNTYPED_COMPLEX:
+		return ast.BuiltinUntypedComplex, nil
+	case _UNTYPED_STRING:
+		return ast.BuiltinUntypedString, nil
 	case _ARRAY:
 		// FIXME: real dimension
 		if _, err := r.ReadNum(); err != nil {

@@ -1253,27 +1253,27 @@ func (p *parser) parsePrimaryExprOrType() (ast.Expr, ast.Type) {
 		}
 	case scanner.INTEGER:
 		b, off := p.matchRaw(scanner.INTEGER)
-		return &ast.ConstValue{Off: off, Value: Int(b)}, nil
+		return &ast.ConstValue{Off: off, Typ: ast.BuiltinUntypedInt, Value: Int(b)}, nil
 	case scanner.FLOAT:
 		b, off := p.matchRaw(scanner.FLOAT)
 		v, err := Float(b)
 		if err != nil {
 			p.error(err.Error())
 		}
-		return &ast.ConstValue{Off: off, Value: v}, nil
+		return &ast.ConstValue{Off: off, Typ: ast.BuiltinUntypedFloat, Value: v}, nil
 	case scanner.IMAGINARY:
 		b, off := p.matchRaw(scanner.IMAGINARY)
 		v, err := Imaginary(b)
 		if err != nil {
 			p.error(err.Error())
 		}
-		return &ast.ConstValue{Off: off, Value: v}, nil
+		return &ast.ConstValue{Off: off, Typ: ast.BuiltinUntypedComplex, Value: v}, nil
 	case scanner.RUNE:
 		b, off := p.matchRaw(scanner.RUNE)
-		return &ast.ConstValue{Off: off, Value: Rune(b)}, nil
+		return &ast.ConstValue{Off: off, Typ: ast.BuiltinUntypedRune, Value: Rune(b)}, nil
 	case scanner.STRING:
 		b, off := p.matchRaw(scanner.STRING)
-		x = &ast.ConstValue{Off: off, Value: String(b)}
+		x = &ast.ConstValue{Off: off, Typ: ast.BuiltinUntypedString, Value: String(b)}
 	default:
 		p.error("token cannot start neither expression nor type")
 		x = &ast.Error{Off: p.scan.TOff}

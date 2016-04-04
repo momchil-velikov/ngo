@@ -153,6 +153,20 @@ func (typ *BuiltinType) String() string {
 		return "uintptr"
 	case BUILTIN_STRING:
 		return "string"
+	case BUILTIN_UNTYPED_BOOL:
+		return "untyped bool"
+	case BUILTIN_UNTYPED_RUNE:
+		return "untyped rune"
+	case BUILTIN_UNTYPED_INT:
+		return "untyped int"
+	case BUILTIN_UNTYPED_FLOAT:
+		return "untyped float"
+	case BUILTIN_UNTYPED_COMPLEX:
+		return "untyped complex"
+	case BUILTIN_UNTYPED_STRING:
+		return "untyped string"
+	case BUILTIN_DEFAULT:
+		return "untyped default"
 	default:
 		panic("not reached")
 	}
@@ -249,29 +263,7 @@ func (typ *InterfaceType) String() string {
 }
 
 func (c *ConstValue) TypeString() string {
-	if t := builtinType(c.Typ); t != nil {
-		return t.String()
-	} else {
-		return valueToTypeString(c.Value)
-	}
-}
-
-func valueToTypeString(val Value) string {
-	switch val.(type) {
-	case Bool:
-		return "untyped bool"
-	case Rune:
-		return "untyped rune"
-	case UntypedInt:
-		return "untyped int"
-	case UntypedFloat:
-		return "untyped float"
-	case UntypedComplex:
-		return "untyped complex"
-	case String:
-		return "untyped string"
-	}
-	panic("not reached")
+	return builtinType(c.Typ).String()
 }
 
 func (op Operation) String() string {

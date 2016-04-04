@@ -41,29 +41,42 @@ func builtinType(typ ast.Type) *ast.BuiltinType {
 	return t
 }
 
+// Returns nil if TYP is "untyped" type
+func isUntyped(typ ast.Type) bool {
+	if typ == nil {
+		return true
+	}
+	if t := builtinType(typ); t != nil {
+		return t.IsUntyped()
+	}
+	return false
+}
+
 func defaultType(x ast.Expr) ast.Type {
-	t := unnamedType(x.Type())
-	if t != nil {
-		return t
+	if x.Type() == nil {
+		panic("not reached")
 	}
 
-	// Only untyped constants can have a nil type.
-	c := x.(*ast.ConstValue)
-	switch c.Value.(type) {
-	case ast.Bool:
-		return ast.BuiltinBool
-	case ast.Rune:
-		return ast.BuiltinInt32
-	case ast.UntypedInt:
-		return ast.BuiltinInt
-	case ast.UntypedFloat:
-		return ast.BuiltinFloat64
-	case ast.UntypedComplex:
-		return ast.BuiltinComplex128
-	case ast.String:
-		return ast.BuiltinString
-	default:
-		panic("not reached")
+	typ := unnamedType(x.Type())
+	if t, ok := typ.(*ast.BuiltinType); !ok || !t.IsUntyped() {
+		return typ
+	} else {
+		switch t.Kind {
+		case ast.BUILTIN_UNTYPED_BOOL:
+			return ast.BuiltinBool
+		case ast.BUILTIN_UNTYPED_RUNE:
+			return ast.BuiltinInt32
+		case ast.BUILTIN_UNTYPED_INT:
+			return ast.BuiltinInt
+		case ast.BUILTIN_UNTYPED_FLOAT:
+			return ast.BuiltinFloat64
+		case ast.BUILTIN_UNTYPED_COMPLEX:
+			return ast.BuiltinComplex128
+		case ast.BUILTIN_UNTYPED_STRING:
+			return ast.BuiltinString
+		default:
+			panic("not reached")
+		}
 	}
 }
 
@@ -408,39 +421,11 @@ func findField(str *ast.StructType, name string) *ast.Field {
 // Returns true if the expression X is of an arithmetic type, or an untyped
 // integral or floating point constsnt.
 func isArith(x ast.Expr) bool {
-	typ := x.Type()
-	if typ == nil {
-		switch x.(*ast.ConstValue).Value.(type) {
-		case ast.Bool, ast.String:
-			return false
-		default:
-			return true
-		}
-	}
-	t := builtinType(typ)
-	if t == nil {
+	if t := builtinType(x.Type()); t == nil {
 		return false
+	} else {
+		return t.IsArith()
 	}
-	return t.IsArith()
-}
-
-// Returns true if the expression X as an non-arithmetic untyped constant or
-// of a known, non-arithmwetic type.
-func definitelyNotArith(x ast.Expr) bool {
-	typ := x.Type()
-	if typ == nil {
-		switch x.(*ast.ConstValue).Value.(type) {
-		case ast.Bool, ast.String:
-			return true
-		default:
-			return false
-		}
-	}
-	t := builtinType(typ)
-	if t == nil {
-		return false
-	}
-	return !t.IsArith()
 }
 
 // Returns true of the expression X is addressable.

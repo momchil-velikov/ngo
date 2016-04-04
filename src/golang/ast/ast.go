@@ -530,6 +530,13 @@ const (
 	BUILTIN_UINTPTR
 	BUILTIN_STRING
 
+	BUILTIN_UNTYPED_BOOL
+	BUILTIN_UNTYPED_RUNE
+	BUILTIN_UNTYPED_INT
+	BUILTIN_UNTYPED_FLOAT
+	BUILTIN_UNTYPED_COMPLEX
+	BUILTIN_UNTYPED_STRING
+
 	BUILTIN_DEFAULT
 )
 
@@ -549,12 +556,17 @@ func (t *BuiltinType) IsSigned() bool {
 }
 
 func (t *BuiltinType) IsArith() bool {
-	return t.Kind >= BUILTIN_UINT8 && t.Kind <= BUILTIN_UINTPTR
+	return BUILTIN_UINT8 <= t.Kind && t.Kind <= BUILTIN_UINTPTR ||
+		BUILTIN_UNTYPED_RUNE <= t.Kind && t.Kind <= BUILTIN_UNTYPED_COMPLEX
 }
 
 func (t *BuiltinType) IsOrdered() bool {
 	return t.Kind > BUILTIN_BOOL && t.Kind != BUILTIN_COMPLEX64 &&
 		t.Kind != BUILTIN_COMPLEX128
+}
+
+func (t *BuiltinType) IsUntyped() bool {
+	return t.Kind >= BUILTIN_UNTYPED_BOOL && t.Kind <= BUILTIN_UNTYPED_STRING
 }
 
 type ArrayType struct {

@@ -13,7 +13,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	B := p.Find("B").(*ast.Const)
 	c := B.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`B` should be untyped")
 	}
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
@@ -25,7 +25,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	D := p.Find("D").(*ast.Const)
 	c = D.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`D` should be untyped")
 	}
 	if _, ok := c.Value.(ast.Rune); !ok {
@@ -37,7 +37,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	F := p.Find("F").(*ast.Const)
 	c = F.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`F` should be untyped")
 	}
 	if _, ok := c.Value.(ast.UntypedFloat); !ok {
@@ -49,7 +49,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cB := p.Find("cB").(*ast.Const)
 	c = cB.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinInt {
+	if c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
 	if v, ok := toInt(c); !ok || v != 1 {
@@ -58,7 +58,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cD := p.Find("cD").(*ast.Const)
 	c = cD.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinInt32 {
+	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
 	if v, ok := toInt(c); !ok || v != 'a' {
@@ -67,7 +67,7 @@ func TestUnaryPlus(t *testing.T) {
 
 	cF := p.Find("cF").(*ast.Const)
 	c = cF.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinFloat32 {
+	if c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
 	if v, ok := toFloat(c); !ok || v != 1.125 {
@@ -122,7 +122,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	B := p.Find("B").(*ast.Const)
 	c := B.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`B` should be untyped")
 	}
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
@@ -134,7 +134,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	D := p.Find("D").(*ast.Const)
 	c = D.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`D` should be untyped")
 	}
 	if _, ok := c.Value.(ast.Rune); !ok {
@@ -146,7 +146,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	F := p.Find("F").(*ast.Const)
 	c = F.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`F` should be untyped")
 	}
 	if _, ok := c.Value.(ast.UntypedFloat); !ok {
@@ -158,7 +158,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cB := p.Find("cB").(*ast.Const)
 	c = cB.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinInt {
+	if c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
 	if v, ok := toInt(c); !ok || v != -1 {
@@ -167,7 +167,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cD := p.Find("cD").(*ast.Const)
 	c = cD.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinInt32 {
+	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
 	if v, ok := toInt(c); !ok || v != -97 {
@@ -176,7 +176,7 @@ func TestUnaryMinus(t *testing.T) {
 
 	cF := p.Find("cF").(*ast.Const)
 	c = cF.Init.(*ast.ConstValue)
-	if c.Typ == nil || c.Typ != ast.BuiltinFloat32 {
+	if c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
 	if v, ok := toFloat(c); !ok || v != -1.125 {
@@ -237,7 +237,7 @@ func TestNot(t *testing.T) {
 
 	B := p.Find("B").(*ast.Const)
 	c := B.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`B` should be untyped")
 	}
 	v, ok := c.Value.(ast.Bool)
@@ -268,7 +268,7 @@ func TestNot(t *testing.T) {
 
 	D := p.Find("D").(*ast.Const)
 	c = D.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`D` should be untyped")
 	}
 	v, ok = c.Value.(ast.Bool)
@@ -317,7 +317,7 @@ func TestCompl(t *testing.T) {
 
 	B := p.Find("B").(*ast.Const)
 	c := B.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`B` should be untyped")
 	}
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
@@ -437,7 +437,7 @@ func TestCompl(t *testing.T) {
 
 	cr0 := p.Find("cr0").(*ast.Const)
 	c = cr0.Init.(*ast.ConstValue)
-	if c.Typ != nil {
+	if !isUntyped(c.Typ) {
 		t.Error("`cr0` should be untyped")
 	}
 	if _, ok := c.Value.(ast.Rune); !ok {

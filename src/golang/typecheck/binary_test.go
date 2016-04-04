@@ -106,6 +106,19 @@ func TestShift(t *testing.T) {
 		t.Error("in initializer of `N`: cap must have type `int`")
 	}
 
+	V = p.Find("O").(*ast.Var)
+	xx := V.Init.RHS[0].(*ast.Conversion).X.(*ast.BinaryExpr)
+	if xx.Type() != ast.BuiltinUint16 || xx.X.Type() != ast.BuiltinUint16 ||
+		xx.Y.Type() != ast.BuiltinUint16 {
+		t.Error("in initializer of `O`: subexpressions must have type `uint16`")
+	}
+	xx = xx.X.(*ast.BinaryExpr)
+	if xx.Type() != ast.BuiltinUint16 ||
+		xx.X.Type() != ast.BuiltinUint16 ||
+		xx.Y.Type() != ast.BuiltinUint16 {
+		t.Error("in initializer of `O`: subexpressions must have type `uint16`")
+	}
+
 	// Test constant shifts evaluation.
 	V = p.Find("c0").(*ast.Var)
 	c := V.Init.RHS[0].(*ast.ConstValue)
@@ -172,6 +185,26 @@ func TestShift(t *testing.T) {
 	if v, ok := c.Value.(ast.Int); !ok || v != 49 {
 		t.Error("`c10` should have value 49")
 	}
+
+	// FIXME: temporarily disabled until assignability checks eveywhere
+	// V = p.Find("l0").(*ast.Var)
+	// lit := V.Init.RHS[0].(*ast.CompLiteral)
+	// c = lit.Elts[0].Elt.(*ast.ConstValue)
+	// if c.Typ != ast.BuiltinUint8 {
+	// 	t.Error("`l0` element initializer should should have type `uint8`")
+	// }
+
+	// V = p.Find("l1").(*ast.Var)
+	// lit = V.Init.RHS[0].(*ast.CompLiteral)
+	// c = lit.Elts[0].Key.(*ast.ConstValue)
+	// if c.Typ != ast.BuiltinUint16 {
+	// 	t.Error("`l1` key initializer should have type `uint16`")
+	// }
+	// c = lit.Elts[0].Elt.(*ast.ConstValue)
+	// if c.Typ != ast.BuiltinUint8 {
+	// 	t.Error("`l1` element initializer should have type `uint8`")
+	// }
+
 }
 
 func TestShiftErr(t *testing.T) {
@@ -201,6 +234,13 @@ func TestShiftErr(t *testing.T) {
 		"shift count must be unsigned and integer")
 	expectError(t, "_test/src/binary", []string{"shift-err-13.go"},
 		"shift count must be unsigned and integer")
+	// FIXME: temporarily disabled until assignability checks eveywhere
+	// expectError(t, "_test/src/binary", []string{"shift-err-14.go"},
+	// 	"256 (`untyped int`) cannot be converted to `uint8`")
+	// expectError(t, "_test/src/binary", []string{"shift-err-15.go"},
+	// 	"65536 (`untyped int`) cannot be converted to `uint16`")
+	// expectError(t, "_test/src/binary", []string{"shift-err-16.go"},
+	// 	"256 (`untyped int`) cannot be converted to `uint8`")
 }
 
 func TestCompareExpr(t *testing.T) {
@@ -253,7 +293,8 @@ func TestCompareExpr(t *testing.T) {
 	} {
 		a := p.Find(cs.name).(*ast.Const)
 		c := a.Init.(*ast.ConstValue)
-		if v, ok := c.Value.(ast.Bool); !ok || c.Typ != nil || bool(v) != cs.exp {
+		if v, ok := c.Value.(ast.Bool); !ok || c.Typ != ast.BuiltinUntypedBool ||
+			bool(v) != cs.exp {
 			t.Errorf("`%s` should be untyped boolean %v", cs.name, cs.exp)
 		}
 	}
