@@ -124,26 +124,6 @@ var (
 	B0, B1 bool
 	x3     = B0 == B1
 
-	I0 Int
-	I1 int16
-	x4 = I0 == I1
-	x5 = I1 <= I0
-
-	F0 Float
-	F1 float32
-	x6 = F0 == F1
-	x7 = F1 > F0
-
-	C0 Complex
-	C1 complex64
-	x8 = C0 == C1
-	x9 = C1 != C0
-
-	T0  String
-	T1  string
-	x10 = T0 == T1
-	x11 = T1 < T0
-
 	P0  PInt
 	P1  *Int
 	x12 = P0 == P1

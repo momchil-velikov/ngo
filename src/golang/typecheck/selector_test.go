@@ -294,7 +294,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != I {
 		t.Error("first parameter of `A` must have type `I`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `A` must have type `int`")
 	}
 
@@ -307,7 +307,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != S {
 		t.Error("first parameter of `B` must have type `S`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `B` must have type `int`")
 	}
 
@@ -319,7 +319,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != S {
 		t.Error("first parameter of `C` must have type `S`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `C` must have type `int`")
 	}
 
@@ -331,7 +331,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != S {
 		t.Error("first parameter of `D` must have type `*S`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinFloat64 {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinFloat64 {
 		t.Error("second parameter of `D` must have type `float64`")
 	}
 
@@ -344,7 +344,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != J {
 		t.Error("first parameter of `A0` must have type `J`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `A0` must have type `int`")
 	}
 
@@ -356,7 +356,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != J {
 		t.Error("first parameter of `A1` must have type `*J`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `A1` must have type `int`")
 	}
 
@@ -369,7 +369,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != T0 {
 		t.Error("first parameter of `B0` must have type `T0`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `B0` must have type `int`")
 	}
 
@@ -381,7 +381,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != T0 {
 		t.Error("first parameter of `C0` must have type `*T0`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `C0` must have type `int`")
 	}
 
@@ -393,7 +393,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != T0 {
 		t.Error("first parameter of `D0` must have type `*T0`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinFloat64 {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinFloat64 {
 		t.Error("second parameter of `D0` must have type `float64`")
 	}
 
@@ -406,7 +406,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != T1 {
 		t.Error("first parameter of `B0` must have type `T1`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `B1` must have type `int`")
 	}
 
@@ -418,7 +418,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != T1 {
 		t.Error("first parameter of `C1` must have type `*T1`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinInt {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinInt {
 		t.Error("second parameter of `C1` must have type `int`")
 	}
 
@@ -430,7 +430,7 @@ func TestMethodExpr(t *testing.T) {
 	if typ.Params[0].Type != T1 {
 		t.Error("first parameter of `D10` must have type `T1`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinFloat64 {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinFloat64 {
 		t.Error("second parameter of `D10` must have type `float64`")
 	}
 
@@ -442,7 +442,7 @@ func TestMethodExpr(t *testing.T) {
 	if ptr, ok := typ.Params[0].Type.(*ast.PtrType); !ok || ptr.Base != T1 {
 		t.Error("first parameter of `D11` must have type `*T1`")
 	}
-	if unnamedType(typ.Params[1].Type) != ast.BuiltinFloat64 {
+	if underlyingType(typ.Params[1].Type) != ast.BuiltinFloat64 {
 		t.Error("second parameter of `D11` must have type `float64`")
 	}
 }

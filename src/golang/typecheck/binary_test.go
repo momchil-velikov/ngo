@@ -341,6 +341,8 @@ func TestCompareErr(t *testing.T) {
 		"values of type `S` are not ordered")
 	expectError(t, "_test/src/binary", []string{"cmp-err-20.go"},
 		"values of type `Vec` are not ordered")
+	expectError(t, "_test/src/binary", []string{"cmp-err-21.go"},
+		"neither `Float` nor `float32` is assignable to the other")
 }
 
 func TestBinaryErr(t *testing.T) {

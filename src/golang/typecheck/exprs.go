@@ -529,7 +529,7 @@ func (ev *exprVerifier) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 
 	// If we have an array composite literal with no dimension, check first
 	// the literal value.
-	if t, ok := unnamedType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
+	if t, ok := underlyingType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
 		x, err := ev.checkCompLiteral(x.Typ, x)
 		if err != nil {
 			return nil, err
@@ -555,7 +555,7 @@ func (ev *exprVerifier) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
 // checked.
 func (ev *exprVerifier) checkCompLiteral(
 	typ ast.Type, x *ast.CompLiteral) (*ast.CompLiteral, error) {
-	switch t := unnamedType(typ).(type) {
+	switch t := underlyingType(typ).(type) {
 	case *ast.ArrayType:
 		return ev.checkArrayLiteral(t, x)
 	case *ast.SliceType:
@@ -1059,7 +1059,7 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Xs[0] = y
-	if a, ok := unnamedType(y.Type()).(*ast.ArrayType); ok {
+	if a, ok := underlyingType(y.Type()).(*ast.ArrayType); ok {
 		c, err := ev.checkArrayLength(a)
 		if err != nil {
 			return nil, err
@@ -1110,7 +1110,7 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 	}
 
 	if c, ok := y.(*ast.ConstValue); ok {
-		dst, ok := unnamedType(x.Typ).(*ast.BuiltinType)
+		dst, ok := underlyingType(x.Typ).(*ast.BuiltinType)
 		if !ok {
 			return nil, &BadConstType{Off: x.Off, File: ev.File, Type: x.Typ}
 		}
@@ -1256,7 +1256,7 @@ func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	// expression is a pointer, the pointed to type must be an array type.
 	typ := defaultType(x.X)
 	if ptr, ok := typ.(*ast.PtrType); ok {
-		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
+		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
 		if !ok {
 			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
 		}
@@ -1415,7 +1415,7 @@ func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 
 	typ := defaultType(x.X)
 	if ptr, ok := typ.(*ast.PtrType); ok {
-		b, ok := unnamedType(ptr.Base).(*ast.ArrayType)
+		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
 		if !ok {
 			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
 		}
@@ -1672,7 +1672,7 @@ func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr, y ast.Expr) (ast.Expr,
 }
 
 func (ev *exprVerifier) checkIndirection(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	ptr, ok := unnamedType(y.Type()).(*ast.PtrType)
+	ptr, ok := underlyingType(y.Type()).(*ast.PtrType)
 	if !ok {
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '*'}
 	}
@@ -1691,7 +1691,7 @@ func (ev *exprVerifier) checkAddr(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error
 }
 
 func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	ch, ok := unnamedType(y.Type()).(*ast.ChanType)
+	ch, ok := underlyingType(y.Type()).(*ast.ChanType)
 	if !ok || !ch.Recv {
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: ast.RECV}
 	}
@@ -1779,7 +1779,7 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 					Off: x.Off, File: ev.File, XType: u.Type(), YType: v.Type()}
 			}
 		}
-		utyp, vtyp := unnamedType(u.Type()), unnamedType(v.Type())
+		utyp, vtyp := underlyingType(u.Type()), underlyingType(v.Type())
 		if x.Op == ast.EQ || x.Op == ast.NE {
 			// If one of the operands is `nil` and the other is not comparable
 			// to `nil`, then the above check for assignability would have
@@ -2156,8 +2156,8 @@ func (ev *exprVerifier) isAssignableType(dst ast.Type, src ast.Type) (bool, erro
 	}
 	// "x's type V and T have identical underlying types and at least one of V
 	// or T is not a named type."
-	usrc, udst := unnamedType(src), unnamedType(dst)
-	if usrc == src || udst == dst {
+	usrc, udst := underlyingType(src), underlyingType(dst)
+	if !isNamed(src) || !isNamed(dst) {
 		if ok, err := ev.identicalTypes(usrc, udst); err != nil || ok {
 			return ok, err
 		}
@@ -2172,7 +2172,7 @@ func (ev *exprVerifier) isAssignableType(dst ast.Type, src ast.Type) (bool, erro
 	// and T have identical element types, and at least one of V or T is not a
 	// named type.
 	if ch, ok := usrc.(*ast.ChanType); ok && ch.Send && ch.Recv {
-		if dch, ok := udst.(*ast.ChanType); ok && (usrc == src || udst == dst) {
+		if dch, ok := udst.(*ast.ChanType); ok && (!isNamed(src) || !isNamed(dst)) {
 			return ev.identicalTypes(ch.Elt, dch.Elt)
 		}
 	}

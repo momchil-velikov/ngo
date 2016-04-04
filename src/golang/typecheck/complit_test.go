@@ -12,7 +12,7 @@ func TestArrayLiteral(t *testing.T) {
 	}
 
 	A := p.Find("A").(*ast.Var)
-	typ := unnamedType(A.Type).(*ast.ArrayType)
+	typ := underlyingType(A.Type).(*ast.ArrayType)
 	c, ok := typ.Dim.(*ast.ConstValue)
 	if !ok {
 		t.Fatal("the dimension of the `A` is not a constant")
@@ -37,7 +37,7 @@ func TestArrayLiteral(t *testing.T) {
 		t.Error("the dimension of the `B` should be 2")
 	}
 	e0 := B.Init.RHS[0].(*ast.CompLiteral).Elts[0].Elt.(*ast.CompLiteral)
-	typ = unnamedType(e0.Typ).(*ast.ArrayType)
+	typ = underlyingType(e0.Typ).(*ast.ArrayType)
 	c, ok = typ.Dim.(*ast.ConstValue)
 	if c.Typ != ast.BuiltinInt {
 		t.Error("the dimension of the `B[0]` should have type `int`")
@@ -46,7 +46,7 @@ func TestArrayLiteral(t *testing.T) {
 		t.Error("the dimension of the `B[0]` should be 3")
 	}
 	e1 := B.Init.RHS[0].(*ast.CompLiteral).Elts[1].Elt.(*ast.CompLiteral)
-	typ = unnamedType(e1.Typ).(*ast.ArrayType)
+	typ = underlyingType(e1.Typ).(*ast.ArrayType)
 	c, ok = typ.Dim.(*ast.ConstValue)
 	if c.Typ != ast.BuiltinInt {
 		t.Error("the dimension of the `B[1]` should have type `int`")

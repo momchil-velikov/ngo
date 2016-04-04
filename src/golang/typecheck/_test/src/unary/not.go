@@ -1,5 +1,7 @@
 package unary
 
+type Bool bool
+
 const (
 	A = false
 	B = !A
@@ -8,10 +10,11 @@ const (
 )
 
 const (
-	cA = bool(true)
-	cB = !cA
-	cC = bool(false)
-	cD = !cC
+	cA      = bool(true)
+	cB      = !cA
+	cC      = bool(false)
+	cD      = !cC
+	cE Bool = false
 )
 
 var (

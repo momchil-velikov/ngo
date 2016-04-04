@@ -313,7 +313,7 @@ func TestInfer13(t *testing.T) {
 	}
 
 	a := p.Find("a").(*ast.Var)
-	if unnamedType(a.Type) != ast.BuiltinInt {
+	if underlyingType(a.Type) != ast.BuiltinInt {
 		t.Error("the type of `a` must be the builtin `int`")
 	}
 	S := p.Find("S").(*ast.TypeDecl)

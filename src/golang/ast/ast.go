@@ -569,6 +569,10 @@ func (t *BuiltinType) IsUntyped() bool {
 	return t.Kind >= BUILTIN_UNTYPED_BOOL && t.Kind <= BUILTIN_UNTYPED_STRING
 }
 
+func (t *BuiltinType) IsNamed() bool {
+	return BUILTIN_BOOL <= t.Kind && t.Kind <= BUILTIN_STRING
+}
+
 type ArrayType struct {
 	Off int // position of the opening bracket
 	Dim Expr

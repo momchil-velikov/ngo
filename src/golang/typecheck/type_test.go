@@ -633,4 +633,6 @@ func TestAssignableErr(t *testing.T) {
 		"not assignable to `S`")
 	expectError(t, "_test/src/typ", []string{"assign-err-03.go"},
 		"use of builtin `nil`")
+	expectError(t, "_test/src/typ", []string{"assign-err-04.go"},
+		"expression is not assignable to `Bool`")
 }

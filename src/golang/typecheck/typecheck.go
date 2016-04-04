@@ -14,7 +14,7 @@ func CheckPackage(pkg *ast.Package) error {
 }
 
 // Returns the first type literal in a chain of TypeNames.
-func unnamedType(typ ast.Type) ast.Type {
+func underlyingType(typ ast.Type) ast.Type {
 	for {
 		switch t := typ.(type) {
 		case *ast.TypeDecl:
@@ -22,6 +22,18 @@ func unnamedType(typ ast.Type) ast.Type {
 		default:
 			return t
 		}
+	}
+}
+
+// Returns true if `TYP` is a TypeName.
+func isNamed(typ ast.Type) bool {
+	switch t := typ.(type) {
+	case *ast.TypeDecl:
+		return true
+	case *ast.BuiltinType:
+		return t.IsNamed()
+	default:
+		return false
 	}
 }
 
@@ -37,7 +49,7 @@ func singleValueType(typ ast.Type) ast.Type {
 }
 
 func builtinType(typ ast.Type) *ast.BuiltinType {
-	t, _ := unnamedType(typ).(*ast.BuiltinType)
+	t, _ := underlyingType(typ).(*ast.BuiltinType)
 	return t
 }
 
@@ -57,7 +69,7 @@ func defaultType(x ast.Expr) ast.Type {
 		panic("not reached")
 	}
 
-	typ := unnamedType(x.Type())
+	typ := underlyingType(x.Type())
 	if t, ok := typ.(*ast.BuiltinType); !ok || !t.IsUntyped() {
 		return typ
 	} else {
@@ -132,7 +144,7 @@ func isOrdered(typ ast.Type) bool {
 
 // Return true if the type TYP is equality comparable to `nil`.
 func isNilComparable(typ ast.Type) bool {
-	switch unnamedType(typ).(type) {
+	switch underlyingType(typ).(type) {
 	case *ast.PtrType, *ast.SliceType, *ast.MapType, *ast.ChanType,
 		*ast.FuncType, *ast.InterfaceType:
 		return true
@@ -174,7 +186,7 @@ func checkMethodUniqueness(dcl *ast.TypeDecl) error {
 	}
 
 	// For struct types, additionally check for conflict with field names.
-	if str, ok := unnamedType(dcl.Type).(*ast.StructType); ok {
+	if str, ok := underlyingType(dcl.Type).(*ast.StructType); ok {
 		for i := range str.Fields {
 			name := fieldName(&str.Fields[i])
 			g := set[name]
@@ -196,7 +208,7 @@ func checkIfaceMethodUniqueness(
 	set methodSet, dcl *ast.TypeDecl, iface *ast.InterfaceType) error {
 
 	for _, t := range iface.Embedded {
-		ifc := unnamedType(t).(*ast.InterfaceType)
+		ifc := underlyingType(t).(*ast.InterfaceType)
 		if err := checkIfaceMethodUniqueness(set, dcl, ifc); err != nil {
 			return err
 		}
@@ -242,7 +254,7 @@ func findSelector(
 	if ok {
 		typ = ptr.Base
 	}
-	switch unnamedType(typ).(type) {
+	switch underlyingType(typ).(type) {
 	case *ast.InterfaceType:
 	case *ast.PtrType:
 	default:
@@ -252,7 +264,7 @@ func findSelector(
 
 	// "For a value x of type I where I is an interface type, x.f denotes the
 	// actual method with name f of the dynamic value of x."
-	if ifc, ok := unnamedType(orig).(*ast.InterfaceType); ok {
+	if ifc, ok := underlyingType(orig).(*ast.InterfaceType); ok {
 		m := findInterfaceMethod(pkg, ifc, name)
 		return fieldOrMethod{M: m}, fieldOrMethod{}, false
 	}
@@ -262,7 +274,7 @@ func findSelector(
 	// is shorthand for (*x).f."
 	dcl, ok := orig.(*ast.TypeDecl)
 	if ok {
-		if ptr, ok := unnamedType(dcl.Type).(*ast.PtrType); ok {
+		if ptr, ok := underlyingType(dcl.Type).(*ast.PtrType); ok {
 			s0, s1, p := findFieldOrMethod(pkg, ptr.Base, name)
 			if s1.F == nil && s1.M == nil {
 				// We have found an unambiguous selector. Do not return
@@ -288,7 +300,7 @@ func findFieldOrMethod(
 	if m.F != nil || m.M != nil {
 		return m, fieldOrMethod{}, false
 	}
-	if str, ok := unnamedType(typ).(*ast.StructType); ok {
+	if str, ok := underlyingType(typ).(*ast.StructType); ok {
 		return findPromotedFieldOrMethod(pkg, str, name)
 	}
 	return fieldOrMethod{}, fieldOrMethod{}, false
@@ -300,7 +312,7 @@ func findFieldOrMethod(
 func findImmediateFieldOrMethod(
 	pkg *ast.Package, typ ast.Type, name string) fieldOrMethod {
 
-	if ifc, ok := unnamedType(typ).(*ast.InterfaceType); ok {
+	if ifc, ok := underlyingType(typ).(*ast.InterfaceType); ok {
 		return fieldOrMethod{M: findInterfaceMethod(pkg, ifc, name)}
 	}
 	if dcl, ok := typ.(*ast.TypeDecl); ok {
@@ -316,7 +328,7 @@ func findImmediateFieldOrMethod(
 		}
 		typ = dcl.Type
 	}
-	if str, ok := unnamedType(typ).(*ast.StructType); ok {
+	if str, ok := underlyingType(typ).(*ast.StructType); ok {
 		for i := range str.Fields {
 			f := &str.Fields[i]
 			if name == fieldName(f) && isAccessibleField(pkg, str, name) {
@@ -367,7 +379,7 @@ func findPromotedFieldOrMethod(
 				found = m
 				fptr = ptr
 			}
-			if s, ok := unnamedType(t).(*ast.StructType); ok {
+			if s, ok := underlyingType(t).(*ast.StructType); ok {
 				next = appendAnonFields(s, ptr, next)
 			}
 		}
@@ -448,7 +460,7 @@ func _isAddressable(x ast.Expr) bool {
 	case *ast.UnaryExpr:
 		return x.Op == '*'
 	case *ast.IndexExpr:
-		if _, ok := unnamedType(x.X.Type()).(*ast.SliceType); ok {
+		if _, ok := underlyingType(x.X.Type()).(*ast.SliceType); ok {
 			return true
 		}
 		return _isAddressable(x.X)
@@ -466,7 +478,7 @@ func ifaceMethodSet(t *ast.InterfaceType) methodSet {
 
 func ifaceMethodSetRec(set methodSet, t *ast.InterfaceType) methodSet {
 	for _, e := range t.Embedded {
-		set = ifaceMethodSetRec(set, unnamedType(e).(*ast.InterfaceType))
+		set = ifaceMethodSetRec(set, underlyingType(e).(*ast.InterfaceType))
 	}
 	for _, m := range t.Methods {
 		set[m.Name] = m

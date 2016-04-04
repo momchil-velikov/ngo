@@ -18,11 +18,11 @@ func (A) F()
 func F() [2]int
 
 var (
-	v0  int
-	v1  int                    = v0
-	v2                         = 'a'
-	v3  rune                   = v2
-	v4  Rune                   = v2
+	v0 int
+	v1 int  = v0
+	v2      = 'a'
+	v3 rune = v2
+
 	v7  S                      = struct{ X, Y float32 }{1.1, 2.2}
 	v8  struct{ X, Y float32 } = v7
 	v9  struct{ X, Y float32 } = struct{ X, Y float32 }{1.1, 2.2}
@@ -48,4 +48,9 @@ var (
 
 	s chan [2]int
 	r chan [2]int = s
+
+	b0 bool
+	b1 bool = b0
+	b2      = true
+	b3 bool = b2
 )

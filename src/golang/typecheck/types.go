@@ -85,7 +85,7 @@ func (tv *typeVerifier) checkConstDecl(c *ast.Const) error {
 	}
 
 	if c.Type != nil {
-		t, ok := unnamedType(c.Type).(*ast.BuiltinType)
+		t, ok := underlyingType(c.Type).(*ast.BuiltinType)
 		if !ok || t.Kind == ast.BUILTIN_NIL_TYPE {
 			return &BadConstType{Off: c.Off, File: c.File, Type: c.Type}
 		}
@@ -317,11 +317,11 @@ func (tv *typeVerifier) VisitStructType(t *ast.StructType) (ast.Type, error) {
 		dcl, _ := f.Type.(*ast.TypeDecl)
 		if ptr, ok := f.Type.(*ast.PtrType); ok {
 			dcl = ptr.Base.(*ast.TypeDecl)
-			if _, ok := unnamedType(dcl.Type).(*ast.InterfaceType); ok {
+			if _, ok := underlyingType(dcl.Type).(*ast.InterfaceType); ok {
 				return nil, &BadAnonType{Off: f.Off, File: tv.File, Type: f.Type}
 			}
 		}
-		if _, ok := unnamedType(dcl.Type).(*ast.PtrType); ok {
+		if _, ok := underlyingType(dcl.Type).(*ast.PtrType); ok {
 			return nil, &BadAnonType{Off: f.Off, File: tv.File, Type: f.Type}
 		}
 	}
@@ -352,7 +352,7 @@ func (tv *typeVerifier) VisitInterfaceType(t *ast.InterfaceType) (ast.Type, erro
 	for i := range t.Embedded {
 		// parser/resolver guarantee we have a TypeDecl
 		d := t.Embedded[i].(*ast.TypeDecl)
-		if _, ok := unnamedType(d).(*ast.InterfaceType); !ok {
+		if _, ok := underlyingType(d).(*ast.InterfaceType); !ok {
 			return nil, &BadEmbed{Type: d}
 		}
 		if err := tv.checkTypeDecl(d); err != nil {
