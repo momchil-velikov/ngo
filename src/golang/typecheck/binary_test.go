@@ -1,6 +1,7 @@
 package typecheck
 
 import (
+	"fmt"
 	"golang/ast"
 	"testing"
 )
@@ -296,6 +297,13 @@ func TestCompareExpr(t *testing.T) {
 		if v, ok := c.Value.(ast.Bool); !ok || c.Typ != ast.BuiltinUntypedBool ||
 			bool(v) != cs.exp {
 			t.Errorf("`%s` should be untyped boolean %v", cs.name, cs.exp)
+		}
+	}
+
+	for i := 0; i <= 11; i++ {
+		a := p.Find(fmt.Sprintf("x%d", i)).(*ast.Var)
+		if a.Type != ast.BuiltinBool {
+			t.Errorf("`x%d` should have type `bool`", i)
 		}
 	}
 }

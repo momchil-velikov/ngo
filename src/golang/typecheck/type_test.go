@@ -628,11 +628,11 @@ func TestAssignable(t *testing.T) {
 
 func TestAssignableErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"assign-err-01.go"},
-		"not assignable to `int8`")
+		"`untyped rune` is not assignable to `int8`")
 	expectError(t, "_test/src/typ", []string{"assign-err-02.go"},
-		"not assignable to `S`")
+		"`T` is not assignable to `S`")
 	expectError(t, "_test/src/typ", []string{"assign-err-03.go"},
 		"use of builtin `nil`")
 	expectError(t, "_test/src/typ", []string{"assign-err-04.go"},
-		"expression is not assignable to `Bool`")
+		"`bool` is not assignable to `Bool`")
 }

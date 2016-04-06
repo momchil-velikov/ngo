@@ -104,6 +104,7 @@ type (
 		X int
 	}
 
+	Bool    bool
 	Int     int16
 	Float   float32
 	Complex complex64
@@ -124,22 +125,24 @@ var (
 	B0, B1 bool
 	x3     = B0 == B1
 
-	P0  PInt
-	P1  *Int
-	x12 = P0 == P1
-	x13 = P1 != P0
-	x14 = P0 == nil
-	x15 = nil != P1
+	P0 PInt
+	P1 *Int
+	x4 = P0 == P1
+	x5 = P1 != P0
+	x6 = P0 == nil
+	x7 = nil != P1
 
 	Ch0, Ch1 chan []int
-	x16      = Ch0 == Ch1
+	x8       = Ch0 == Ch1
 
-	S0  S
-	S1  struct{ X int }
-	x17 = S0 == S1
+	S0 S
+	S1 struct{ X int }
+	x9 = S0 == S1
 
 	U   Vec
 	V   [4]float32
-	x18 = V == U
-	x19 = U != V
+	x10 = V == U
+	x11 = U != V
+
+	x12 Bool = U[0] > V[1]
 )

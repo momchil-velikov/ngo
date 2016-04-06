@@ -95,7 +95,8 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	} else if y, ok, err := ev.isAssignable(c.Type, x); err != nil {
 		return err
 	} else if !ok {
-		return &NotAssignable{Off: x.Position(), File: c.File, Type: c.Type, X: x}
+		return &NotAssignable{
+			Off: x.Position(), File: c.File, DType: c.Type, SType: x.Type()}
 	} else {
 		c.Init = y
 	}
@@ -187,7 +188,7 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 			} else if ok, err := ev.isAssignableType(v.Type, tp.Type[i]); err != nil {
 				return err
 			} else if !ok {
-				return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type}
+				return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: tp.Type[i]}
 			}
 		}
 		return nil
@@ -227,7 +228,7 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 		} else if x, ok, err = ev.isAssignable(v.Type, x); err != nil {
 			return err
 		} else if !ok {
-			return &NotAssignable{Off: c.Off, File: v.File, Type: v.Type}
+			return &NotAssignable{Off: c.Off, File: v.File, DType: v.Type, SType: x.Type()}
 		}
 		v.Init.RHS[i] = x
 		ev.Done[v] = struct{}{}
@@ -247,11 +248,17 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 		return &SingleValueContext{Off: x.Position(), File: v.File}
 	}
 	if v.Type == nil {
-		v.Type = t
-	} else if _, ok, err := ev.isAssignable(v.Type, x); err != nil {
+		// A non-constant untyped bool expression assigns `bool` type to the
+		// variable.
+		if t == ast.BuiltinUntypedBool {
+			v.Type = ast.BuiltinBool
+		} else {
+			v.Type = t
+		}
+	} else if ok, err := ev.isAssignableType(v.Type, t); err != nil {
 		return err
 	} else if !ok {
-		return &NotAssignable{Off: v.Off, File: v.File, Type: v.Type, X: x}
+		return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: t}
 	}
 	v.Init.RHS[i] = x
 	ev.Done[v] = struct{}{}
@@ -1812,9 +1819,8 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 				return nil, &NotOrdered{Off: u.Position(), File: ev.File, Type: u.Type()}
 			}
 		}
-		// Spec says comparison operators yield an untyped boolean value
-		// (sic). We yield a typed boolean value.
-		x.Typ = ast.BuiltinBool
+		// Comparison operators yield an untyped boolean value.
+		x.Typ = ast.BuiltinUntypedBool
 	default:
 		// For other operators, the operand types must be identical.
 		if ok, err := ev.identicalTypes(u.Type(), v.Type()); err != nil {
@@ -2131,21 +2137,20 @@ func (ev *exprVerifier) typenameImplements(
 // constant and true. Otherwise, returns false.
 // https://golang.org/ref/spec#Assignability
 func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool, error) {
-	if src := x.Type(); isUntyped(src) {
+	src := x.Type()
+	if c, ok := x.(*ast.ConstValue); ok && isUntyped(src) {
 		// "x is an untyped constant representable by a value of type T."
-		if c, ok := x.(*ast.ConstValue); !ok {
-			panic("not reached")
-		} else if t := builtinType(dst); t == nil {
+		if t := builtinType(dst); t == nil {
 			return nil, false, nil
-		} else if v := convertConst(t, builtinType(c.Typ), c.Value); v == nil {
+		} else if v := convertConst(t, builtinType(src), c.Value); v == nil {
 			return nil, false, nil
 		} else {
 			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true, nil
 		}
-	} else {
-		ok, err := ev.isAssignableType(dst, src)
-		return x, ok, err
 	}
+
+	ok, err := ev.isAssignableType(dst, src)
+	return x, ok, err
 }
 
 // Returns true, if a value of type SRC is assignable to a variable of type DST.
@@ -2154,9 +2159,16 @@ func (ev *exprVerifier) isAssignableType(dst ast.Type, src ast.Type) (bool, erro
 	if ok, err := ev.identicalTypes(dst, src); err != nil || ok {
 		return ok, err
 	}
+
+	usrc, udst := underlyingType(src), underlyingType(dst)
+	// Allow untyped boolean to be assigned to any type, which has `bool` as
+	// its underlying type.
+	if udst == ast.BuiltinBool && src == ast.BuiltinUntypedBool {
+		return true, nil
+	}
+
 	// "x's type V and T have identical underlying types and at least one of V
 	// or T is not a named type."
-	usrc, udst := underlyingType(src), underlyingType(dst)
 	if !isNamed(src) || !isNamed(dst) {
 		if ok, err := ev.identicalTypes(usrc, udst); err != nil || ok {
 			return ok, err

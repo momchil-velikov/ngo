@@ -642,16 +642,15 @@ func (e *BadIota) Error() string {
 // The NotAssignable error is returned when an expression is not asignable to
 // a given type.
 type NotAssignable struct {
-	Off  int
-	File *ast.File
-	Type ast.Type
-	X    ast.Expr
+	Off          int
+	File         *ast.File
+	SType, DType ast.Type
 }
 
 func (e *NotAssignable) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: expression is not assignable to `%s`",
-		e.File.Name, ln, col, e.Type)
+	return fmt.Sprintf("%s:%d:%d: `%s` is not assignable to `%s`",
+		e.File.Name, ln, col, e.SType, e.DType)
 }
 
 // The NilUse error is returned on attemt to use the value `nil`

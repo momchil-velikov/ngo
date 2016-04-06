@@ -1,4 +1,4 @@
-package cmp
+package binary
 
 type Float float32
 
