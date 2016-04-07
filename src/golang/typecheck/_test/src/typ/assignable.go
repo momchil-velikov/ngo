@@ -3,6 +3,7 @@ package typ
 const c0 int8 = 'a'
 
 type (
+	Bool bool
 	Int  int
 	Rune rune
 	S    struct{ X, Y float32 }
@@ -53,4 +54,16 @@ var (
 	b1 bool = b0
 	b2      = true
 	b3 bool = b2
+
+	ifc     interface{}
+	b4, ok0 bool = ifc.(bool)
+	b5, ok1      = ifc.(bool)
+
+	m       map[int]bool
+	b6, ok2 bool = m[1]
+	b7, ok3      = m[2]
+
+	ch      chan Bool
+	b8, ok4 Bool = <-ch
+	b9, ok5      = <-ch
 )

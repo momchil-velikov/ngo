@@ -182,13 +182,18 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 		for i := range v.Init.LHS {
 			op := v.Init.LHS[i].(*ast.OperandName)
 			v := op.Decl.(*ast.Var)
+			t := tp.Type[i]
 			if v.Type == nil {
-				v.Type = tp.Type[i]
+				if t == ast.BuiltinUntypedBool {
+					v.Type = ast.BuiltinBool
+				} else {
+					v.Type = t
+				}
 				ev.Done[v] = struct{}{}
-			} else if ok, err := ev.isAssignableType(v.Type, tp.Type[i]); err != nil {
+			} else if ok, err := ev.isAssignableType(v.Type, t); err != nil {
 				return err
 			} else if !ok {
-				return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: tp.Type[i]}
+				return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: t}
 			}
 		}
 		return nil
@@ -1205,7 +1210,7 @@ func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, erro
 	x.Typ = &ast.TupleType{
 		Off:    x.ATyp.Position(),
 		Strict: false,
-		Type:   []ast.Type{x.ATyp, ast.BuiltinBool},
+		Type:   []ast.Type{x.ATyp, ast.BuiltinUntypedBool},
 	}
 	y, err := ev.checkExpr(x.X, nil)
 	if err != nil {
@@ -1383,7 +1388,7 @@ func (ev *exprVerifier) checkMapIndexExpr(
 	x.Typ = &ast.TupleType{
 		Off:    -1,
 		Strict: false,
-		Type:   []ast.Type{t.Elt, ast.BuiltinBool},
+		Type:   []ast.Type{t.Elt, ast.BuiltinUntypedBool},
 	}
 	// FIXME: The type of the index expression must be assignable to the map
 	// key type.
@@ -1703,7 +1708,7 @@ func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: ast.RECV}
 	}
 	x.X = y
-	x.Typ = &ast.TupleType{Off: x.Off, Type: []ast.Type{ch.Elt, ast.BuiltinBool}}
+	x.Typ = &ast.TupleType{Off: x.Off, Type: []ast.Type{ch.Elt, ast.BuiltinUntypedBool}}
 	return x, nil
 }
 

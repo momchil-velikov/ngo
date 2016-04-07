@@ -446,7 +446,7 @@ type TypeAssertion struct {
 }
 
 func (x *TypeAssertion) Position() int { return x.Off }
-func (x *TypeAssertion) Type() Type    { return x.ATyp }
+func (x *TypeAssertion) Type() Type    { return x.Typ }
 
 type Selector struct {
 	Off int // position of the struct expression

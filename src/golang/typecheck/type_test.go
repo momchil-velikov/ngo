@@ -635,4 +635,6 @@ func TestAssignableErr(t *testing.T) {
 		"use of builtin `nil`")
 	expectError(t, "_test/src/typ", []string{"assign-err-04.go"},
 		"`bool` is not assignable to `Bool`")
+	expectError(t, "_test/src/typ", []string{"assign-err-05.go"},
+		"`untyped bool` is not assignable to `int`")
 }
