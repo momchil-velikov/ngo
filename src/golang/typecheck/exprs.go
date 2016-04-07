@@ -83,13 +83,12 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	iota := ev.Iota
 	ev.Iota = c.Iota
 	ev.beginCheck(c, c.File)
+	defer func() { ev.endCheck(); ev.Iota = iota }()
+
 	x, err := ev.checkExpr(c.Init, nil)
-	ev.endCheck()
-	ev.Iota = iota
 	if err != nil {
 		return err
 	}
-	c.Init = x
 	if c.Type == nil {
 		c.Type = x.Type()
 	} else if y, ok, err := ev.isAssignable(c.Type, x); err != nil {
@@ -98,12 +97,12 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 		return &NotAssignable{
 			Off: x.Position(), File: c.File, DType: c.Type, SType: x.Type()}
 	} else {
-		c.Init = y
+		x = y
 	}
-
 	if _, ok := x.(*ast.ConstValue); !ok {
-		return &NotConst{Off: c.Init.Position(), File: c.File, What: "const initializer"}
+		return &NotConst{Off: x.Position(), File: c.File, What: "const initializer"}
 	}
+	c.Init = x
 
 	return nil
 }
@@ -2149,7 +2148,8 @@ func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool, 
 		if t := builtinType(dst); t == nil {
 			return nil, false, nil
 		} else if v := convertConst(t, builtinType(src), c.Value); v == nil {
-			return nil, false, nil
+			return nil, false, &BadConstConversion{
+				Off: x.Position(), File: ev.File, Dst: t, Src: c}
 		} else {
 			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true, nil
 		}

@@ -628,7 +628,7 @@ func TestAssignable(t *testing.T) {
 
 func TestAssignableErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"assign-err-01.go"},
-		"`untyped rune` is not assignable to `int8`")
+		"'α' (`untyped rune`) cannot be converted to `int8`")
 	expectError(t, "_test/src/typ", []string{"assign-err-02.go"},
 		"`T` is not assignable to `S`")
 	expectError(t, "_test/src/typ", []string{"assign-err-03.go"},
