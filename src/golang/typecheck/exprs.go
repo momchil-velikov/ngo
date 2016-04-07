@@ -1661,7 +1661,7 @@ func (ev *exprVerifier) checkNot(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error)
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: !v}, nil
 	} else {
 		x.X = y
-		x.Typ = ast.BuiltinBool
+		x.Typ = y.Type()
 		return x, nil
 	}
 }

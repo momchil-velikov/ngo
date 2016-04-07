@@ -26,3 +26,9 @@ const (
 	z0 = !cA
 	z1
 )
+
+var (
+	a, b int
+	u    Bool = !(a > b)
+	v         = !(a < b)
+)

@@ -301,6 +301,16 @@ func TestNot(t *testing.T) {
 		t.Error("`z1` should have value false")
 	}
 
+	Bool := p.Find("Bool").(*ast.TypeDecl)
+	u := p.Find("u").(*ast.Var)
+	if u.Type != Bool {
+		t.Error("`u` shuld have type `Bool`")
+	}
+
+	vv := p.Find("v").(*ast.Var)
+	if vv.Type != ast.BuiltinBool {
+		t.Error("`v` shuld have type `bool`")
+	}
 }
 
 func TestNotErr(t *testing.T) {
