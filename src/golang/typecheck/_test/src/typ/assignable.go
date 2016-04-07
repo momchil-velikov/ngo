@@ -23,6 +23,7 @@ var (
 	v1 int  = v0
 	v2      = 'a'
 	v3 rune = v2
+	v4 Rune = 'a'
 
 	v7  S                      = struct{ X, Y float32 }{1.1, 2.2}
 	v8  struct{ X, Y float32 } = v7
