@@ -151,6 +151,10 @@ func TestArrayLiteralErr(t *testing.T) {
 		"unspecified array length not allowed")
 	expectError(t, "_test/src/comp", []string{"array-err-11.go"},
 		"unspecified array length not allowed")
+	expectError(t, "_test/src/comp", []string{"array-err-12.go"},
+		"`uint` is not assignable to `int`")
+	expectError(t, "_test/src/comp", []string{"array-err-13.go"},
+		"256 (`untyped int`) cannot be converted to `uint8`")
 }
 
 func TestSliceLiteral(t *testing.T) {

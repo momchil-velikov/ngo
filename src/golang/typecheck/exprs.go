@@ -675,8 +675,15 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 		if err != nil {
 			return nil, 0, err
 		}
-		elt.Elt = e
-		// FIXME: check element is assignable to array/slice element type.
+		// Check element is assignable to array/slice element type.
+		ee, ok, err := ev.isAssignable(etyp, e)
+		if err != nil {
+			return nil, 0, err
+		} else if !ok {
+			return nil, 0, &NotAssignable{
+				Off: e.Position(), File: ev.File, DType: etyp, SType: e.Type()}
+		}
+		elt.Elt = ee
 	}
 	return x, max + 1, nil
 }

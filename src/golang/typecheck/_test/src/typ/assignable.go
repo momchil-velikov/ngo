@@ -68,3 +68,7 @@ var (
 	b8, ok4 Bool = <-ch
 	b9, ok5      = <-ch
 )
+
+var (
+	sr = []Rune{'a', 1.0, Rune(v3), v4}
+)
