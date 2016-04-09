@@ -515,16 +515,17 @@ func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 		return x, nil
 	}
 
-	var dst ast.Type
-	if ev.TypeCtx == ast.BuiltinDefault {
+	dst := ev.TypeCtx
+	if dst == ast.BuiltinDefault {
 		dst = defaultType(x)
-	} else {
-		dst = ev.TypeCtx
 	}
-	v := convertConst(builtinType(dst), src, x.Value)
+	t := builtinType(dst)
+	if t == nil {
+		return nil, &BadConstType{Off: x.Off, File: ev.File, Type: dst}
+	}
+	v := convertConst(t, src, x.Value)
 	if v == nil {
-		return nil, &BadConstConversion{
-			Off: x.Off, File: ev.File, Dst: builtinType(dst), Src: x}
+		return nil, &BadConstConversion{Off: x.Off, File: ev.File, Dst: t, Src: x}
 	}
 	return &ast.ConstValue{Off: x.Off, Typ: dst, Value: v}, nil
 }
