@@ -11,8 +11,8 @@ type T struct {
 
 var (
 	a = S{}
-	b = S{1, 2}
+	b = S{a.Y, a.X}
 	c = T{S{1, 2}, 3}
-	d = T{S: S{1, 2}, Z: 3}
+	d = T{S: S{1, 2}, Z: c.Z}
 	e = S{X: 1}
 )

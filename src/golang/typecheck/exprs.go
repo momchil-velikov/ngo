@@ -898,7 +898,15 @@ func (ev *exprVerifier) checkStructLiteral(
 			if err != nil {
 				return nil, err
 			}
-			x.Elts[i].Elt = y
+			yy, ok, err := ev.isAssignable(str.Fields[i].Type, y)
+			if err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &NotAssignable{
+					Off: y.Position(), File: ev.File, DType: str.Fields[i].Type,
+					SType: y.Type()}
+			}
+			x.Elts[i].Elt = yy
 			i++
 		}
 		if nf != ne {
@@ -928,7 +936,14 @@ func (ev *exprVerifier) checkStructLiteral(
 			if err != nil {
 				return nil, err
 			}
-			elt.Elt = y
+			yy, ok, err := ev.isAssignable(f.Type, y)
+			if err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &NotAssignable{
+					Off: y.Position(), File: ev.File, DType: f.Type, SType: y.Type()}
+			}
+			elt.Elt = yy
 		}
 	}
 	return x, nil

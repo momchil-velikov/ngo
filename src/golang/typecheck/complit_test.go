@@ -216,6 +216,14 @@ func TestStructLiteralErr(t *testing.T) {
 		"duplicate field name `X` in struct literal")
 	expectError(t, "_test/src/comp", []string{"struct-err-7.go"},
 		"missing type for composite literal")
+	expectError(t, "_test/src/comp", []string{"struct-err-8.go"},
+		"128 (`untyped int`) cannot be converted to `int8`")
+	expectError(t, "_test/src/comp", []string{"struct-err-9.go"},
+		"`int` is not assignable to `int8`")
+	expectError(t, "_test/src/comp", []string{"struct-err-10.go"},
+		"128 (`untyped int`) cannot be converted to `int8`")
+	expectError(t, "_test/src/comp", []string{"struct-err-11.go"},
+		"`int` is not assignable to `int8`")
 }
 
 func TestLiteralErr(t *testing.T) {
