@@ -639,4 +639,6 @@ func TestAssignableErr(t *testing.T) {
 		"`untyped bool` is not assignable to `int`")
 	expectError(t, "_test/src/typ", []string{"assign-err-06.go"},
 		"`uint` is not assignable to `int`")
+	expectError(t, "_test/src/typ", []string{"assign-err-07.go"},
+		"`untyped int` is not assignable to `*int`")
 }

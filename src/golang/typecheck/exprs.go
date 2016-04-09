@@ -91,11 +91,8 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	}
 	if c.Type == nil {
 		c.Type = x.Type()
-	} else if y, ok, err := ev.isAssignable(c.Type, x); err != nil {
+	} else if y, err := ev.isAssignable(c.Type, x); err != nil {
 		return err
-	} else if !ok {
-		return &NotAssignable{
-			Off: x.Position(), File: c.File, DType: c.Type, SType: x.Type()}
 	} else {
 		x = y
 	}
@@ -229,10 +226,8 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 				return err
 			}
 			v.Type = x.Type()
-		} else if x, ok, err = ev.isAssignable(v.Type, x); err != nil {
+		} else if x, err = ev.isAssignable(v.Type, x); err != nil {
 			return err
-		} else if !ok {
-			return &NotAssignable{Off: c.Off, File: v.File, DType: v.Type, SType: x.Type()}
 		}
 		v.Init.RHS[i] = x
 		ev.Done[v] = struct{}{}
@@ -676,14 +671,11 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 			return nil, 0, err
 		}
 		// Check element is assignable to array/slice element type.
-		ee, ok, err := ev.isAssignable(etyp, e)
+		e, err = ev.isAssignable(etyp, e)
 		if err != nil {
 			return nil, 0, err
-		} else if !ok {
-			return nil, 0, &NotAssignable{
-				Off: e.Position(), File: ev.File, DType: etyp, SType: e.Type()}
 		}
-		elt.Elt = ee
+		elt.Elt = e
 	}
 	return x, max + 1, nil
 }
@@ -707,14 +699,11 @@ func (ev *exprVerifier) checkMapLiteral(
 			if err != nil {
 				return nil, err
 			}
-			kk, ok, err := ev.isAssignable(t.Key, k)
+			k, err = ev.isAssignable(t.Key, k)
 			if err != nil {
 				return nil, err
-			} else if !ok {
-				return nil, &NotAssignable{
-					Off: k.Position(), File: ev.File, DType: t.Key, SType: k.Type()}
 			}
-			elt.Key = kk
+			elt.Key = k
 		}
 		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
 			if c.Typ == nil {
@@ -726,14 +715,11 @@ func (ev *exprVerifier) checkMapLiteral(
 		if err != nil {
 			return nil, err
 		}
-		ee, ok, err := ev.isAssignable(t.Elt, e)
+		e, err = ev.isAssignable(t.Elt, e)
 		if err != nil {
 			return nil, err
-		} else if !ok {
-			return nil, &NotAssignable{
-				Off: e.Position(), File: ev.File, DType: t.Elt, SType: e.Type()}
 		}
-		elt.Elt = ee
+		elt.Elt = e
 	}
 	// Every element must have a key.
 	if n > 0 && n != len(x.Elts) {
@@ -898,15 +884,11 @@ func (ev *exprVerifier) checkStructLiteral(
 			if err != nil {
 				return nil, err
 			}
-			yy, ok, err := ev.isAssignable(str.Fields[i].Type, y)
+			y, err = ev.isAssignable(str.Fields[i].Type, y)
 			if err != nil {
 				return nil, err
-			} else if !ok {
-				return nil, &NotAssignable{
-					Off: y.Position(), File: ev.File, DType: str.Fields[i].Type,
-					SType: y.Type()}
 			}
-			x.Elts[i].Elt = yy
+			x.Elts[i].Elt = y
 			i++
 		}
 		if nf != ne {
@@ -936,14 +918,11 @@ func (ev *exprVerifier) checkStructLiteral(
 			if err != nil {
 				return nil, err
 			}
-			yy, ok, err := ev.isAssignable(f.Type, y)
+			y, err = ev.isAssignable(f.Type, y)
 			if err != nil {
 				return nil, err
-			} else if !ok {
-				return nil, &NotAssignable{
-					Off: y.Position(), File: ev.File, DType: f.Type, SType: y.Type()}
 			}
-			elt.Elt = yy
+			elt.Elt = y
 		}
 	}
 	return x, nil
@@ -2173,26 +2152,34 @@ func (ev *exprVerifier) typenameImplements(
 }
 
 // Checks whether the expression X is assignable to a variable of type DST. If
-// it is assignable, returns the expression itself and true. If the expression
-// is an untyped constant, representable by DST, returns the converted
-// constant and true. Otherwise, returns false.
-// https://golang.org/ref/spec#Assignability
-func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, bool, error) {
+// the expression is an untyped constant, returns it after converson to DST,
+// otherwise returns it unmodified.  Returns an error if the expression is not
+// assignable to DST, or if it is an untyped constant, which cannot be
+// converted to DST.
+func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, error) {
 	src := x.Type()
 	if c, ok := x.(*ast.ConstValue); ok && isUntyped(src) {
 		// "x is an untyped constant representable by a value of type T."
-		if t := builtinType(dst); t == nil {
-			return nil, false, nil
-		} else if v := convertConst(t, builtinType(src), c.Value); v == nil {
-			return nil, false, &BadConstConversion{
-				Off: x.Position(), File: ev.File, Dst: t, Src: c}
-		} else {
-			return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, true, nil
+		t := builtinType(dst)
+		if t == nil {
+			return nil, &NotAssignable{
+				Off: x.Position(), File: ev.File, DType: dst, SType: src}
 		}
+		v := convertConst(t, builtinType(src), c.Value)
+		if v == nil {
+			return nil, &BadConstConversion{
+				Off: x.Position(), File: ev.File, Dst: t, Src: c}
+		}
+		return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, nil
 	}
 
-	ok, err := ev.isAssignableType(dst, src)
-	return x, ok, err
+	if ok, err := ev.isAssignableType(dst, src); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, &NotAssignable{
+			Off: x.Position(), File: ev.File, DType: dst, SType: x.Type()}
+	}
+	return x, nil
 }
 
 // Returns true, if a value of type SRC is assignable to a variable of type DST.
