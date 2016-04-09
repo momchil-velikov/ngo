@@ -184,6 +184,14 @@ func TestMapLiteralErr(t *testing.T) {
 		"duplicate key `5.25` in map literal")
 	expectError(t, "_test/src/comp", []string{"map-err-6.go"},
 		"duplicate key `foo` in map literal")
+	expectError(t, "_test/src/comp", []string{"map-err-7.go"},
+		"65536 (`untyped int`) cannot be converted to `uint16`")
+	expectError(t, "_test/src/comp", []string{"map-err-8.go"},
+		"256 (`untyped int`) cannot be converted to `uint8`")
+	expectError(t, "_test/src/comp", []string{"map-err-9.go"},
+		"`uint8` is not assignable to `uint16`")
+	expectError(t, "_test/src/comp", []string{"map-err-10.go"},
+		"`int8` is not assignable to `uint8`")
 }
 
 func TestMapStructLiteral(t *testing.T) {

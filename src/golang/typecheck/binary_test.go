@@ -235,11 +235,6 @@ func TestShiftErr(t *testing.T) {
 		"shift count must be unsigned and integer")
 	expectError(t, "_test/src/binary", []string{"shift-err-13.go"},
 		"shift count must be unsigned and integer")
-	// FIXME: temporarily disabled until assignability checks eveywhere
-	// expectError(t, "_test/src/binary", []string{"shift-err-15.go"},
-	// 	"65536 (`untyped int`) cannot be converted to `uint16`")
-	// expectError(t, "_test/src/binary", []string{"shift-err-16.go"},
-	// 	"256 (`untyped int`) cannot be converted to `uint8`")
 }
 
 func TestCompareExpr(t *testing.T) {

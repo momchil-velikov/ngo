@@ -7,7 +7,7 @@ var (
 	B = M{1: "a", 2: "b"}
 	C = map[[2]int][]float64{{1, 2}: {3.14}}
 	b = bool(true)
-	D = map[bool]int{true: 0, false: 1, b: false}
+	D = map[bool]int{true: 0, false: 1, b: 2}
 	i = int8(4)
 	E = map[int8]int{-1: 0, i: 0, 1: 1, 8: 3}
 	u = uintptr(12)

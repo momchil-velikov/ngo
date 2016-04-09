@@ -707,7 +707,14 @@ func (ev *exprVerifier) checkMapLiteral(
 			if err != nil {
 				return nil, err
 			}
-			elt.Key = k
+			kk, ok, err := ev.isAssignable(t.Key, k)
+			if err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &NotAssignable{
+					Off: k.Position(), File: ev.File, DType: t.Key, SType: k.Type()}
+			}
+			elt.Key = kk
 		}
 		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
 			if c.Typ == nil {
@@ -719,7 +726,14 @@ func (ev *exprVerifier) checkMapLiteral(
 		if err != nil {
 			return nil, err
 		}
-		elt.Elt = e
+		ee, ok, err := ev.isAssignable(t.Elt, e)
+		if err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, &NotAssignable{
+				Off: e.Position(), File: ev.File, DType: t.Elt, SType: e.Type()}
+		}
+		elt.Elt = ee
 	}
 	// Every element must have a key.
 	if n > 0 && n != len(x.Elts) {
