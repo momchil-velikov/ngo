@@ -1137,6 +1137,7 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 		return nil, err
 	}
 
+	// Check and perform constant conversion.
 	if c, ok := y.(*ast.ConstValue); ok {
 		dst, ok := underlyingType(x.Typ).(*ast.BuiltinType)
 		if !ok {
@@ -1149,10 +1150,16 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
 	}
 
-	x.X = y
-
-	// FIXME: check conversion is valid
-	return x, nil
+	// Check non-constant conversion.
+	if ok, err := ev.isConvertible(x.Typ, y); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, &NotConvertible{
+			Off: y.Position(), File: ev.File, DType: x.Typ, SType: y.Type()}
+	} else {
+		x.X = y
+		return x, nil
+	}
 }
 
 func (ev *exprVerifier) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
@@ -2228,4 +2235,64 @@ func (ev *exprVerifier) isAssignableType(dst ast.Type, src ast.Type) (bool, erro
 		}
 	}
 	return false, nil
+}
+
+// Checks whether a conversion of a non-constant expression is allowed.
+// https://golang.org/ref/spec#Conversions
+func (ev *exprVerifier) isConvertible(typ ast.Type, x ast.Expr) (bool, error) {
+	// "x is assignable to T."
+	if _, err := ev.isAssignable(typ, x); err == nil {
+		return true, nil
+	}
+
+	// "x's type and T have identical underlying types."
+	ut, ux := underlyingType(typ), underlyingType(x.Type())
+	if ok, err := ev.identicalTypes(ut, ux); err != nil {
+		return false, err
+	} else if ok {
+		return true, nil
+	}
+
+	// "x's type and T are unnamed pointer types and their pointer base types"
+	// "have identical underlying types."
+	if pt, ok := typ.(*ast.PtrType); ok {
+		if px, ok := x.Type().(*ast.PtrType); ok {
+			t, tx := underlyingType(pt.Base), underlyingType(px.Base)
+			return ev.identicalTypes(t, tx)
+		}
+		return false, nil
+	}
+
+	// "x is an integer or a slice of bytes or runes and T is a string type."
+	if ut == ast.BuiltinString {
+		if s, ok := ux.(*ast.SliceType); ok {
+			e := builtinType(s.Elt)
+			return e == ast.BuiltinUint8 || e == ast.BuiltinInt32, nil
+		} else {
+			i := builtinType(ux)
+			return i != nil && i.IsInteger(), nil
+		}
+	}
+
+	// "x is a string and T is a slice of bytes or runes."
+	if ux == ast.BuiltinString {
+		if s, ok := ut.(*ast.SliceType); ok {
+			e := builtinType(s.Elt)
+			return e == ast.BuiltinUint8 || e == ast.BuiltinInt32, nil
+		}
+		return false, nil
+	}
+
+	// Rest of allowed conversions are all between builtin types.
+	bt, bx := builtinType(ut), builtinType(ux)
+	if bt == nil || bx == nil {
+		return false, nil
+	}
+
+	// "x's type and T are both integer ..."
+	return bt.IsInteger() && bx.IsInteger() ||
+		// " ...or floating point types."
+		bt.IsFloat() && bx.IsFloat() ||
+		// "x's type and T are both complex types."
+		bt.IsComplex() && bx.IsComplex(), nil
 }

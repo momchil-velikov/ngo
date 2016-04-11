@@ -235,3 +235,43 @@ func TestConstErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"const-err-01.go"},
 		"`*int` is not a valid constant type")
 }
+
+func TestConvNonConst(t *testing.T) {
+	_, err := compilePackage("_test/src/conv", []string{"non-const.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConvNonConstErr(t *testing.T) {
+	expectError(t, "_test/src/conv", []string{"non-const-err-01.go"},
+		"`*Int` is not convertible to `*int64`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-02.go"},
+		"`*int64` is not convertible to `*Int`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-03.go"},
+		"`*int64` is not convertible to `*float64`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-04.go"},
+		"`float32` is not convertible to `String`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-05.go"},
+		"`[]int8` is not convertible to `string`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-06.go"},
+		"`[]uint32` is not convertible to `string`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-07.go"},
+		"`string` is not convertible to `[]int8`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-08.go"},
+		"`string` is not convertible to `[]uint32`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-09.go"},
+		"`int` is not convertible to `float32`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-10.go"},
+		"`float64` is not convertible to `uint64`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-11.go"},
+		"`int` is not convertible to `complex64`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-12.go"},
+		"`complex64` is not convertible to `int32`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-13.go"},
+		"`float64` is not convertible to `complex128`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-14.go"},
+		"`complex128` is not convertible to `float64`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-15.go"},
+		"`[]int16` is not convertible to `[]uint16`")
+}

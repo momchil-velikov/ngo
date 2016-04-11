@@ -751,3 +751,17 @@ func (e *BadBinaryOperands) Error() string {
 	return fmt.Sprintf("%s:%d:%d: invalid operation `%s`: mismatched types `%s` and `%s`",
 		e.File.Name, ln, col, e.Op, e.XType, e.YType)
 }
+
+// The NotConvertible error is returned when an expression is not convertible
+// to a given type.
+type NotConvertible struct {
+	Off          int
+	File         *ast.File
+	SType, DType ast.Type
+}
+
+func (e *NotConvertible) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: `%s` is not convertible to `%s`",
+		e.File.Name, ln, col, e.SType, e.DType)
+}

@@ -555,6 +555,14 @@ func (t *BuiltinType) IsSigned() bool {
 	return BUILTIN_INT8 <= t.Kind && t.Kind <= BUILTIN_INT64 || t.Kind == BUILTIN_INT
 }
 
+func (t *BuiltinType) IsFloat() bool {
+	return t.Kind == BUILTIN_FLOAT32 || t.Kind == BUILTIN_FLOAT64
+}
+
+func (t *BuiltinType) IsComplex() bool {
+	return t.Kind == BUILTIN_COMPLEX64 || t.Kind == BUILTIN_COMPLEX128
+}
+
 func (t *BuiltinType) IsArith() bool {
 	return BUILTIN_UINT8 <= t.Kind && t.Kind <= BUILTIN_UINTPTR ||
 		BUILTIN_UNTYPED_RUNE <= t.Kind && t.Kind <= BUILTIN_UNTYPED_COMPLEX
