@@ -365,21 +365,6 @@ func (e *EvalLoop) Error() string {
 	return txt.String()
 }
 
-// The BadConversion error is returned when the destination type cannot
-// represent the value of the converted constant.
-type BadConstConversion struct {
-	Off  int
-	File *ast.File
-	Dst  *ast.BuiltinType
-	Src  *ast.ConstValue
-}
-
-func (e *BadConstConversion) Error() string {
-	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: %s (`%s`) cannot be converted to `%s`",
-		e.File.Name, ln, col, e.Src, e.Src.TypeString(), e.Dst)
-}
-
 // The BadOperand error is returned whan an operation is not applicable to the
 // type of an operand.
 type BadOperand struct {

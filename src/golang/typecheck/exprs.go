@@ -390,16 +390,15 @@ func (ev *exprVerifier) checkArrayLength(t *ast.ArrayType) (*ast.ConstValue, err
 	if c.Typ == ast.BuiltinInt {
 		return c, nil
 	}
-	v := convertConst(ast.BuiltinInt, builtinType(c.Typ), c.Value)
-	if v == nil {
-		return nil, &BadConstConversion{
-			Off: x.Position(), File: ev.File, Dst: ast.BuiltinInt, Src: c}
+	v, err := ToInt(c)
+	if err != nil {
+		return nil, &ErrorPos{Off: x.Position(), File: ev.File, Err: err}
 	}
-	if int64(v.(ast.Int)) < 0 {
+	if v < 0 {
 		return nil, &NegArrayLen{Off: c.Off, File: ev.File}
 	}
 	c.Typ = ast.BuiltinInt
-	c.Value = v
+	c.Value = ast.Int(v)
 	return c, nil
 }
 
@@ -523,11 +522,12 @@ func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 	if t == nil {
 		return nil, &BadConstType{Off: x.Off, File: ev.File, Type: dst}
 	}
-	v := convertConst(t, src, x.Value)
-	if v == nil {
-		return nil, &BadConstConversion{Off: x.Off, File: ev.File, Dst: t, Src: x}
+	c, err := Convert(t, x)
+	if err != nil {
+		return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 	}
-	return &ast.ConstValue{Off: x.Off, Typ: dst, Value: v}, nil
+	c.Off, c.Typ = x.Off, dst
+	return c, nil
 }
 
 func (ev *exprVerifier) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
@@ -638,15 +638,11 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 				return nil, 0, &BadArraySize{
 					Off: elt.Key.Position(), File: ev.File, What: "index"}
 			}
-			src := builtinType(c.Typ)
-			v := convertConst(ast.BuiltinInt, src, c.Value)
-			if v == nil {
-				return nil, 0, &BadConstConversion{
-					Off: x.Off, File: ev.File, Dst: ast.BuiltinInt, Src: c}
+			idx, err = ToInt(c)
+			if err != nil {
+				return nil, 0, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 			}
-			c.Typ = ast.BuiltinInt
-			c.Value = v
-			idx = int64(v.(ast.Int))
+			c.Typ, c.Value = ast.BuiltinInt, ast.Int(idx)
 		}
 		// Check for duplicate index.
 		if _, ok := keys[idx]; ok {
@@ -780,8 +776,7 @@ func (ev *exprVerifier) checkUniqIntKeys(x *ast.CompLiteral) (*ast.CompLiteral, 
 		}
 		// The conversion must succeed due to a previous check for assignment
 		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinInt64, builtinType(c.Typ), c.Value)
-		k := int64(v.(ast.Int))
+		k, _ := ToInt64(c)
 		if _, ok := keys[k]; ok {
 			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
 		}
@@ -799,8 +794,7 @@ func (ev *exprVerifier) checkUniqUintKeys(x *ast.CompLiteral) (*ast.CompLiteral,
 		}
 		// The conversion must succeed due to a previous check for assignment
 		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinUint64, builtinType(c.Typ), c.Value)
-		k := uint64(v.(ast.Int))
+		k, _ := ToUint64(c)
 		if _, ok := keys[k]; ok {
 			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
 		}
@@ -818,8 +812,7 @@ func (ev *exprVerifier) checkUniqFloatKeys(x *ast.CompLiteral) (*ast.CompLiteral
 		}
 		// The conversion must succeed due to a previous check for assignment
 		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinFloat64, builtinType(c.Typ), c.Value)
-		k := float64(v.(ast.Float))
+		k, _ := ToFloat(c)
 		if _, ok := keys[k]; ok {
 			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
 		}
@@ -839,8 +832,7 @@ func (ev *exprVerifier) checkUniqComplexKeys(
 		}
 		// The conversion must succeed due to a previous check for assignment
 		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinComplex128, builtinType(c.Typ), c.Value)
-		k := complex128(v.(ast.Complex))
+		k, _ := ToComplex(c)
 		if _, ok := keys[k]; ok {
 			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
 		}
@@ -858,8 +850,7 @@ func (ev *exprVerifier) checkUniqStringKeys(x *ast.CompLiteral) (*ast.CompLitera
 		}
 		// The conversion must succeed due to a previous check for assignment
 		// compatibility with the map key type.
-		v := convertConst(ast.BuiltinString, builtinType(c.Typ), c.Value)
-		k := string(v.(ast.String))
+		k, _ := ToString(c)
 		if _, ok := keys[k]; ok {
 			return nil, &DupLitKey{Off: x.Off, File: ev.File, Key: k}
 		}
@@ -1143,11 +1134,12 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 		if !ok {
 			return nil, &BadConstType{Off: x.Off, File: ev.File, Type: x.Typ}
 		}
-		v := convertConst(dst, builtinType(c.Typ), c.Value)
-		if v == nil {
-			return nil, &BadConstConversion{Off: x.Off, File: ev.File, Dst: dst, Src: c}
+		c, err := Convert(dst, c)
+		if err != nil {
+			return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 		}
-		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: v}, nil
+		c.Off, c.Typ = x.Off, x.Typ
+		return c, nil
 	}
 
 	// Check non-constant conversion.
@@ -1325,19 +1317,15 @@ func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
 		}
 		return 0, false, nil
 	}
-
 	// If the index expression is a constant, it must be representable by
 	// `int` and non-negative.
-	idx, ok := toInt(c)
-	if !ok {
-		return 0, false, &BadConstConversion{
-			Off: c.Off, File: ev.File, Dst: ast.BuiltinInt, Src: c}
+	idx, err := ToInt(c)
+	if err != nil {
+		return 0, false, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
 	}
-
 	if idx < 0 {
 		return 0, false, &IndexOutOfBounds{Off: c.Off, File: ev.File, Idx: idx}
 	}
-
 	return idx, true, nil
 }
 
@@ -1659,11 +1647,12 @@ func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr,
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '-'}
 	}
 	if c, ok := y.(*ast.ConstValue); ok {
-		v := minus(builtinType(c.Typ), c.Value)
-		if v == nil {
-			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: '-'}
+		d, err := Minus(c)
+		if err != nil {
+			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
 		}
-		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
+		d.Off = x.Off
+		return d, nil
 	} else {
 		x.X = y
 		x.Typ = y.Type()
@@ -1694,11 +1683,12 @@ func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr, y ast.Expr) (ast.Expr,
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '^'}
 	}
 	if c, ok := y.(*ast.ConstValue); ok {
-		v := complement(builtinType(c.Typ), c.Value)
-		if v == nil {
-			return nil, &BadOperand{Off: c.Off, File: ev.File, Op: '^'}
+		d, err := Complement(c)
+		if err != nil {
+			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
 		}
-		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: v}, nil
+		d.Off = x.Off
+		return d, nil
 	} else {
 		x.X = y
 		x.Typ = y.Type()
@@ -1769,15 +1759,12 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		if v, ok := v.(*ast.ConstValue); ok {
 			switch x.Op {
 			case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
-				v, err := compare(u, v, x.Op)
+				c, err := Compare(u, v, x.Op)
 				if err != nil {
 					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 				}
-				return &ast.ConstValue{
-					Off:   x.Off,
-					Typ:   ast.BuiltinUntypedBool,
-					Value: v,
-				}, nil
+				c.Off = x.Off
+				return c, nil
 			default:
 				panic("FIXME")
 			}
@@ -1881,7 +1868,7 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	// Evaluate a constant shift expression.
 	if u, ok := u.(*ast.ConstValue); ok {
 		if s, ok := v.(*ast.ConstValue); ok {
-			c, err := shift(u, s, x.Op)
+			c, err := Shift(u, s, x.Op)
 			if err != nil {
 				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 			}
@@ -2173,12 +2160,12 @@ func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, error)
 			return nil, &NotAssignable{
 				Off: x.Position(), File: ev.File, DType: dst, SType: src}
 		}
-		v := convertConst(t, builtinType(src), c.Value)
-		if v == nil {
-			return nil, &BadConstConversion{
-				Off: x.Position(), File: ev.File, Dst: t, Src: c}
+		c, err := Convert(t, c)
+		if err != nil {
+			return nil, &ErrorPos{Off: x.Position(), File: ev.File, Err: err}
 		}
-		return &ast.ConstValue{Off: x.Position(), Typ: dst, Value: v}, nil
+		c.Off, c.Typ = x.Position(), dst
+		return c, nil
 	}
 
 	if ok, err := ev.isAssignableType(dst, src); err != nil {

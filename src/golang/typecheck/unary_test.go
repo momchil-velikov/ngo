@@ -19,7 +19,7 @@ func TestUnaryPlus(t *testing.T) {
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
 		t.Error("`B` should be untyped integer")
 	}
-	if v, ok := toInt(c); !ok || v != 1 {
+	if v, err := ToInt(c); err != nil || v != 1 {
 		t.Error("`B` should have value 1")
 	}
 
@@ -31,7 +31,7 @@ func TestUnaryPlus(t *testing.T) {
 	if _, ok := c.Value.(ast.Rune); !ok {
 		t.Error("`D` should be untyped rune")
 	}
-	if v, ok := toInt(c); !ok || v != 'a' {
+	if v, err := ToInt(c); err != nil || v != 'a' {
 		t.Error("`D` should have value 'a'")
 	}
 
@@ -43,7 +43,7 @@ func TestUnaryPlus(t *testing.T) {
 	if _, ok := c.Value.(ast.UntypedFloat); !ok {
 		t.Error("`F` should be untyped float")
 	}
-	if v, ok := toFloat(c); !ok || v != 1.1 {
+	if v, err := ToFloat(c); err != nil || v != 1.1 {
 		t.Error("`F` should have value 1.1")
 	}
 
@@ -52,7 +52,7 @@ func TestUnaryPlus(t *testing.T) {
 	if c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
-	if v, ok := toInt(c); !ok || v != 1 {
+	if v, err := ToInt(c); err != nil || v != 1 {
 		t.Error("`B` should have value 1")
 	}
 
@@ -61,7 +61,7 @@ func TestUnaryPlus(t *testing.T) {
 	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
-	if v, ok := toInt(c); !ok || v != 'a' {
+	if v, err := ToInt(c); err != nil || v != 'a' {
 		t.Error("`cD` should have value 'a'")
 	}
 
@@ -70,7 +70,7 @@ func TestUnaryPlus(t *testing.T) {
 	if c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
-	if v, ok := toFloat(c); !ok || v != 1.125 {
+	if v, err := ToFloat(c); err != nil || v != 1.125 {
 		t.Error("`cF` should have value 1.125")
 	}
 
@@ -128,7 +128,7 @@ func TestUnaryMinus(t *testing.T) {
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
 		t.Error("`B` should be untyped integer")
 	}
-	if v, ok := toInt(c); !ok || v != -1 {
+	if v, err := ToInt(c); err != nil || v != -1 {
 		t.Error("`B` should have value -1")
 	}
 
@@ -140,7 +140,7 @@ func TestUnaryMinus(t *testing.T) {
 	if _, ok := c.Value.(ast.Rune); !ok {
 		t.Error("`D` should be untyped rune")
 	}
-	if v, ok := toInt(c); !ok || v != -97 {
+	if v, err := ToInt(c); err != nil || v != -97 {
 		t.Error("`D` should have value -97")
 	}
 
@@ -152,7 +152,7 @@ func TestUnaryMinus(t *testing.T) {
 	if _, ok := c.Value.(ast.UntypedFloat); !ok {
 		t.Error("`F` should be untyped float")
 	}
-	if v, ok := toFloat(c); !ok || v != -1.1 {
+	if v, err := ToFloat(c); err != nil || v != -1.1 {
 		t.Error("`F` should have value -1.1")
 	}
 
@@ -161,7 +161,7 @@ func TestUnaryMinus(t *testing.T) {
 	if c.Typ != ast.BuiltinInt {
 		t.Error("`cB` should have type `int`")
 	}
-	if v, ok := toInt(c); !ok || v != -1 {
+	if v, err := ToInt(c); err != nil || v != -1 {
 		t.Error("`B` should have value -1")
 	}
 
@@ -170,7 +170,7 @@ func TestUnaryMinus(t *testing.T) {
 	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cD` should have type `rune`")
 	}
-	if v, ok := toInt(c); !ok || v != -97 {
+	if v, err := ToInt(c); err != nil || v != -97 {
 		t.Error("`cD` should have value -97")
 	}
 
@@ -179,7 +179,7 @@ func TestUnaryMinus(t *testing.T) {
 	if c.Typ != ast.BuiltinFloat32 {
 		t.Error("`cF` should have type `float32`")
 	}
-	if v, ok := toFloat(c); !ok || v != -1.125 {
+	if v, err := ToFloat(c); err != nil || v != -1.125 {
 		t.Error("`cF` should have value -1.125")
 	}
 
@@ -333,7 +333,7 @@ func TestCompl(t *testing.T) {
 	if _, ok := c.Value.(ast.UntypedInt); !ok {
 		t.Fatal("`B` should be untyped integer")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`B` should have value -2")
 	}
 
@@ -342,7 +342,7 @@ func TestCompl(t *testing.T) {
 	if typ, ok := c.Typ.(*ast.TypeDecl); !ok || typ.Name != "T" {
 		t.Error("`cB` should have type `T`")
 	}
-	if v, ok := toInt(c); !ok || v != 0xfffe {
+	if v, err := ToInt(c); err != nil || v != 0xfffe {
 		t.Error("`cB` should have value 0xfffe")
 	}
 
@@ -351,7 +351,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinUint8 {
 		t.Error("`cu8` should have type `uint8`")
 	}
-	if v, ok := toInt(c); !ok || v != 0xfe {
+	if v, err := ToInt(c); err != nil || v != 0xfe {
 		t.Error("`cu8` should have value 0xfe")
 	}
 
@@ -360,7 +360,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinUint16 {
 		t.Error("`cu16` should have type `uint16`")
 	}
-	if v, ok := toInt(c); !ok || v != 0xfffe {
+	if v, err := ToInt(c); err != nil || v != 0xfffe {
 		t.Error("`cu16` should have value 0xfffe")
 	}
 
@@ -369,7 +369,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinUint32 {
 		t.Error("`cu32` should have type `uint32`")
 	}
-	if v, ok := toInt(c); !ok || v != 0xfffffffe {
+	if v, err := ToInt(c); err != nil || v != 0xfffffffe {
 		t.Error("`cu32` should have value 0xfffffffe")
 	}
 
@@ -405,7 +405,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt8 {
 		t.Error("`ci8` should have type `int8`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`ci8` should have value -2")
 	}
 
@@ -414,7 +414,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt16 {
 		t.Error("`ci16` should have type `int16`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`ci16` should have value -2")
 	}
 
@@ -423,7 +423,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`ci32` should have type `int32`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`ci32` should have value -2")
 	}
 
@@ -432,7 +432,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt64 {
 		t.Error("`ci64` should have type `int64`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`ci64` should have value -2")
 	}
 
@@ -441,7 +441,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt {
 		t.Error("`ci` should have type `int`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`ci` should have value -2")
 	}
 
@@ -453,7 +453,7 @@ func TestCompl(t *testing.T) {
 	if _, ok := c.Value.(ast.Rune); !ok {
 		t.Error("`cr0` should be untyped rune")
 	}
-	if v, ok := toInt(c); !ok || v != -98 {
+	if v, err := ToInt(c); err != nil || v != -98 {
 		t.Error("`cr0` should have value -98")
 	}
 
@@ -462,7 +462,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt32 {
 		t.Error("`cr1` should have type `rune`")
 	}
-	if v, ok := toInt(c); !ok || v != -98 {
+	if v, err := ToInt(c); err != nil || v != -98 {
 		t.Error("`cr1` should have value -98")
 	}
 
@@ -476,7 +476,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt {
 		t.Error("`z0` should have type `int`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`z0` should have value -2")
 	}
 	z1 := p.Find("z1").(*ast.Const)
@@ -484,7 +484,7 @@ func TestCompl(t *testing.T) {
 	if c.Typ != ast.BuiltinInt {
 		t.Error("`z1` should have type `int`")
 	}
-	if v, ok := toInt(c); !ok || v != -2 {
+	if v, err := ToInt(c); err != nil || v != -2 {
 		t.Error("`z1` should have value -2")
 	}
 }
