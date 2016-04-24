@@ -927,6 +927,104 @@ func cmpToBool(c int, op ast.Operation) ast.Bool {
 	}
 }
 
+var untypedType = [...]*ast.BuiltinType{
+	ast.BuiltinUntypedInt,
+	ast.BuiltinUntypedRune,
+	ast.BuiltinUntypedFloat,
+	ast.BuiltinUntypedComplex,
+	ast.BuiltinUntypedBool,
+	ast.BuiltinUntypedString,
+}
+
+func Add(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+	// If the constants are typed, they must have the same type.
+	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
+		if t != builtinType(y.Typ) {
+			return nil, &mismatchedTypes{Op: '+', X: x, Y: y}
+		}
+		if t.Kind == ast.BUILTIN_BOOL {
+			return nil, &invalidOperation{Op: '+', Type: t}
+		}
+		return &ast.ConstValue{Typ: x.Typ, Value: addTyped(t, x.Value, y.Value)}, nil
+	}
+
+	// If the operands are untyped, they must either both strings, or use the
+	// type later in the sequence int, rune, float, complex, by converting one
+	// of the operands to the type of the other.
+	var t untypedKind
+	var u, v ast.Value
+	switch x.Value.(type) {
+	case ast.Bool:
+		return nil, &invalidOperation{Op: '+', Type: ast.BuiltinUntypedBool}
+	case ast.String:
+		if _, ok := y.Value.(ast.String); !ok {
+			return nil, &mismatchedTypes{Op: '+', X: x, Y: y}
+		}
+		t, u, v = _UNTYPED_STRING, x.Value, y.Value
+	default:
+		t, u, v = untypedConvert(x.Value, y.Value)
+		if t == _UNTYPED_ERR {
+			return nil, &mismatchedTypes{Op: '+', X: x, Y: y}
+		}
+	}
+	return &ast.ConstValue{Typ: untypedType[t], Value: addUntyped(t, u, v)}, nil
+}
+
+func addTyped(typ *ast.BuiltinType, x ast.Value, y ast.Value) ast.Value {
+	switch typ.Kind {
+	case ast.BUILTIN_UINT8, ast.BUILTIN_UINT16, ast.BUILTIN_UINT32,
+		ast.BUILTIN_UINT64, ast.BUILTIN_UINT, ast.BUILTIN_UINTPTR:
+		u, v := x.(ast.Int), y.(ast.Int)
+		return ast.Int(u + v)
+	case ast.BUILTIN_INT8, ast.BUILTIN_INT16, ast.BUILTIN_INT32,
+		ast.BUILTIN_INT64, ast.BUILTIN_INT:
+		u, v := int64(x.(ast.Int)), int64(y.(ast.Int))
+		return ast.Int(u + v)
+	case ast.BUILTIN_FLOAT32:
+		u, v := float32(x.(ast.Float)), float32(y.(ast.Float))
+		return ast.Float(u + v)
+	case ast.BUILTIN_FLOAT64:
+		u, v := x.(ast.Float), y.(ast.Float)
+		return ast.Float(u + v)
+	case ast.BUILTIN_COMPLEX64:
+		u, v := complex64(x.(ast.Complex)), complex64(y.(ast.Complex))
+		return ast.Complex(u + v)
+	case ast.BUILTIN_COMPLEX128:
+		u, v := x.(ast.Complex), y.(ast.Complex)
+		return ast.Complex(u + v)
+	case ast.BUILTIN_STRING:
+		u, v := x.(ast.String), y.(ast.String)
+		return ast.String(u + v)
+	default:
+		panic("not reached")
+	}
+}
+
+func addUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
+	switch t {
+	case _UNTYPED_INT:
+		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
+		return ast.UntypedInt{Int: new(big.Int).Add(x.Int, y.Int)}
+	case _UNTYPED_RUNE:
+		x, y := x.(ast.Rune), y.(ast.Rune)
+		return ast.Rune{Int: new(big.Int).Add(x.Int, y.Int)}
+	case _UNTYPED_FLOAT:
+		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
+		return ast.UntypedFloat{Float: new(big.Float).Add(x.Float, y.Float)}
+	case _UNTYPED_COMPLEX:
+		x, y := x.(ast.UntypedComplex), y.(ast.UntypedComplex)
+		return ast.UntypedComplex{
+			Re: new(big.Float).Add(x.Re, y.Re),
+			Im: new(big.Float).Add(x.Im, y.Im),
+		}
+	case _UNTYPED_STRING:
+		x, y := x.(ast.String), y.(ast.String)
+		return ast.String(x + y)
+	default:
+		panic("not reached")
+	}
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

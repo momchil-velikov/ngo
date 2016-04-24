@@ -315,6 +315,10 @@ const (
 
 type Operation uint
 
+func (op Operation) IsComparison() bool {
+	return op == LT || op == GT || (EQ <= op && op <= GE)
+}
+
 // Precedence table for binary expressions.
 var opPrec = map[uint]uint{
 	'*':  5,
