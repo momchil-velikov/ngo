@@ -16,3 +16,9 @@ const (
 )
 
 const N = iota
+
+const (
+	X = -1
+	Y = iota
+	Z
+)

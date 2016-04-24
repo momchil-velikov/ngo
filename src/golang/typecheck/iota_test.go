@@ -68,6 +68,24 @@ func TestIota(t *testing.T) {
 	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 0 {
 		t.Error("`N` should have value 0")
 	}
+
+	Y := p.Find("Y").(*ast.Const)
+	c = Y.Init.(*ast.ConstValue)
+	if !isUntyped(Y.Type) {
+		t.Error("`Y` should be untyped")
+	}
+	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
+		t.Error("`Y` should have value 1")
+	}
+
+	Z := p.Find("Z").(*ast.Const)
+	c = Z.Init.(*ast.ConstValue)
+	if !isUntyped(Z.Type) {
+		t.Error("`Z` should be untyped")
+	}
+	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 2 {
+		t.Error("`Z` should have value 2")
+	}
 }
 
 func TestIotaErr(t *testing.T) {
