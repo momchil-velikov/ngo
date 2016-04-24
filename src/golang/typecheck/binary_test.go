@@ -344,6 +344,8 @@ func TestCompareErr(t *testing.T) {
 		"values of type `Vec` are not ordered")
 	expectError(t, "_test/src/binary", []string{"cmp-err-21.go"},
 		"neither `Float` nor `float32` is assignable to the other")
+	expectError(t, "_test/src/binary", []string{"cmp-err-22.go"},
+		"invalid operation `<=`: mismatched types `untyped float` and `untyped string`")
 }
 
 func TestBinaryErr(t *testing.T) {

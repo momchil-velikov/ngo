@@ -687,10 +687,11 @@ func untypedConvFloatToComplex(x ast.Value) ast.Value {
 	}
 }
 
-type untypedKind uint
+type untypedKind int
 
 const (
-	_UNTYPED_INT untypedKind = iota
+	_UNTYPED_ERR untypedKind = iota - 1
+	_UNTYPED_INT
 	_UNTYPED_RUNE
 	_UNTYPED_FLOAT
 	_UNTYPED_COMPLEX
@@ -734,6 +735,9 @@ var untypedConvTable = [...][4]func(ast.Value) ast.Value{
 
 func untypedConvert(x ast.Value, y ast.Value) (untypedKind, ast.Value, ast.Value) {
 	i, j := untypedToKind(x), untypedToKind(y)
+	if i > _UNTYPED_COMPLEX || j > _UNTYPED_COMPLEX {
+		return _UNTYPED_ERR, nil, nil
+	}
 	if i == j {
 		return i, x, y
 	}
@@ -783,6 +787,9 @@ func Compare(
 			t, u, v = _UNTYPED_STRING, x.Value, y.Value
 		default:
 			t, u, v = untypedConvert(x.Value, y.Value)
+			if t == _UNTYPED_ERR {
+				return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+			}
 		}
 		res, err = compareUntyped(t, u, v, op)
 	}
