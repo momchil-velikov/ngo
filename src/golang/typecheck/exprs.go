@@ -1772,6 +1772,13 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 				}
 				c.Off = x.Off
 				return c, nil
+			case '-':
+				c, err := Sub(u, v)
+				if err != nil {
+					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+				}
+				c.Off = x.Off
+				return c, nil
 			default:
 				panic("FIXME")
 			}
@@ -1860,6 +1867,12 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		if utyp == nil || !(utyp.IsArith() || utyp.Kind == ast.BUILTIN_STRING) {
 			return nil, &NotSupportedOperation{
 				Off: x.Off, File: ev.File, Op: '+', Type: u.Type()}
+		}
+	case '-':
+		utyp := builtinType(utyp)
+		if utyp == nil || !utyp.IsArith() {
+			return nil, &NotSupportedOperation{
+				Off: x.Off, File: ev.File, Op: '-', Type: u.Type()}
 		}
 	}
 
