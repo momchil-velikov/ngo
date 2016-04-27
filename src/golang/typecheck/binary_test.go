@@ -666,6 +666,141 @@ func TestSub(t *testing.T) {
 	}
 }
 
+func TestMul(t *testing.T) {
+	p, err := compilePackage("_test/src/binary", []string{"mul.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Int := p.Find("Int").(*ast.TypeDecl)
+
+	for _, cs := range []struct {
+		name string
+		typ  ast.Type
+		val  ast.Value
+	}{
+		{"C", ast.BuiltinInt8, ast.Int(2)},
+		{"E", ast.BuiltinUint16, ast.Int(3)},
+		{"H", ast.BuiltinFloat64, ast.Float(2.53125)},
+		{"J", ast.BuiltinFloat32, ast.Float(float32(0.50000006))},
+		{"L", ast.BuiltinFloat64, ast.Float(0.50000005)},
+		{"V", ast.BuiltinComplex64, ast.Complex(complex(0.0, 0.15625))},
+		{"Y", ast.BuiltinComplex128, ast.Complex(complex(0.0, 0.140625))},
+		{"Z1", Int, ast.Int(12)},
+		{"Z2", Int, ast.Int(12)},
+		{"Z3", Int, ast.Int(36)},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != cs.typ {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, cs.typ)
+		}
+		if v := c.Init.(*ast.ConstValue).Value; v != cs.val {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.val)
+		}
+	}
+
+	// int, int
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"N", 1},
+		{"D12", 1},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedInt {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedInt)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.UntypedInt); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	// int, rune
+	// rune, rune
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"D0", 97},
+		{"D1", 97},
+		{"D13", 9409},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedRune {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	// int, float
+	// rune, float
+	// float, float
+	for _, cs := range []struct {
+		name  string
+		value float64
+	}{
+		{"D2", 1.125},
+		{"D3", 1.125},
+		{"D6", 109.125},
+		{"D7", 109.125},
+		{"D14", 1.265625},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedFloat {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedFloat)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		u, acc := v.(ast.UntypedFloat).Float.Float64()
+		if acc != big.Exact || u != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	// int, complex
+	// rune, complex
+	// float, complex
+	// complex, complex
+	for _, cs := range []struct {
+		name string
+		re   float64
+		im   float64
+	}{
+		{"D4", 0.0, 1.25},
+		{"D5", 0.0, 1.25},
+		{"D8", 0.0, 121.25},
+		{"D9", 0.0, 121.25},
+		{"D10", 0.0, 1.40625},
+		{"D11", 0.0, 1.40625},
+		{"D15", -1.5625, 0.0},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedComplex {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedComplex)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		u, acc := v.(ast.UntypedComplex).Re.Float64()
+		if acc != big.Exact || u != cs.re {
+			t.Errorf("`real(%s)` must have value `%v`\n", cs.name, cs.re)
+		}
+		u, acc = v.(ast.UntypedComplex).Im.Float64()
+		if acc != big.Exact || u != cs.im {
+			t.Errorf("`imag(%s)` must have value `%v`\n", cs.name, cs.im)
+		}
+	}
+
+	for _, name := range []string{"a", "b", "c", "d"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != Int {
+			t.Errorf("`%s` should have type `Int`", name)
+		}
+	}
+}
+
 func TestSubErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"sub-err-01.go"},
 		"invalid operation `-`: mismatched types `int8` and `uint`")
@@ -693,4 +828,33 @@ func TestSubErr(t *testing.T) {
 		"operation `-` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"sub-err-13.go"},
 		"operation `-` not supported for `string`")
+}
+
+func TestMulErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"mul-err-01.go"},
+		"invalid operation `*`: mismatched types `int8` and `uint`")
+	expectError(t, "_test/src/binary", []string{"mul-err-02.go"},
+		"operation `*` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"mul-err-03.go"},
+		"operation `*` not supported for `untyped bool`")
+	expectError(t, "_test/src/binary", []string{"mul-err-04.go"},
+		"operation `*` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"mul-err-05.go"},
+		"invalid operation `*`: mismatched types `untyped int` and `untyped string`")
+	expectError(t, "_test/src/binary", []string{"mul-err-06.go"},
+		"operation `*` not supported for `*int`")
+	expectError(t, "_test/src/binary", []string{"mul-err-07.go"},
+		"operation `*` not supported for `nil`")
+	expectError(t, "_test/src/binary", []string{"mul-err-08.go"},
+		"operation `*` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"mul-err-09.go"},
+		"invalid operation `*`: mismatched types `int` and `int64`")
+	expectError(t, "_test/src/binary", []string{"mul-err-10.go"},
+		"invalid operation `*`: mismatched types `*int` and `[]int`")
+	expectError(t, "_test/src/binary", []string{"mul-err-11.go"},
+		"operation `*` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"mul-err-12.go"},
+		"operation `*` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"mul-err-13.go"},
+		"operation `*` not supported for `string`")
 }
