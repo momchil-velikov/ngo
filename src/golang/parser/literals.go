@@ -63,9 +63,8 @@ func readHex(lit []byte, n uint) rune {
 // string (or a rune) literal. Return the decoded rune in R. If the escape
 // sequence was a two-digit hexadecimal sequence or a three-digit octal
 // sequence, return true in the return B. This case needs to be distinguished
-// when processing string literals.
-func readEscape(lit []byte, str bool) (rune, bool, uint) {
-	var r rune
+// when processing string literals. Return the length of the rune in N.
+func readEscape(lit []byte, str bool) (r rune, b bool, n uint) {
 	ch := lit[0]
 	if isOctDigit(ch) {
 		return readOct(lit), true, 3
@@ -145,7 +144,12 @@ func readRawString(lit []byte) string {
 // literal value must have been obtained from and checked for correctness by
 // the scanner.
 func Rune(b []byte) ast.Rune {
-	r, _ := utf8.DecodeRune(b)
+	var r rune
+	if b[0] == '\\' {
+		r, _, _ = readEscape(b[1:], false)
+	} else {
+		r, _ = utf8.DecodeRune(b)
+	}
 	return ast.Rune{Int: big.NewInt(int64(r))}
 }
 

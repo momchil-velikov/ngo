@@ -43,6 +43,10 @@ func TestRune(t *testing.T) {
 	if r.Int64() != 'め' {
 		t.Error("rune decode error")
 	}
+	r = Rune([]byte(`\000`))
+	if r.Int64() != '\000' {
+		t.Error("rune decode error")
+	}
 }
 
 func TestInt(t *testing.T) {
