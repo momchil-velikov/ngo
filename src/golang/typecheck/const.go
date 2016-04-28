@@ -137,6 +137,8 @@ var (
 	MinInt64  = big.NewInt(math.MinInt64)
 	MaxInt64  = big.NewInt(math.MaxInt64)
 	MaxUint64 = new(big.Int).SetUint64(math.MaxUint64)
+	ZeroInt   = big.Int{}
+	ZeroFloat = big.Float{}
 )
 
 const MaxShift = 511
@@ -1188,6 +1190,137 @@ func mulUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 	}
 }
 
+func Div(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+	// If the constants are typed, they must have the same type.
+	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
+		if t != builtinType(y.Typ) {
+			return nil, &mismatchedTypes{Op: '/', X: x, Y: y}
+		}
+		if t.Kind == ast.BUILTIN_BOOL || t.Kind == ast.BUILTIN_STRING {
+			return nil, &invalidOperation{Op: '/', Type: t}
+		}
+		v, err := divTyped(t, x.Value, y.Value)
+		if err != nil {
+			return nil, err
+		}
+		return &ast.ConstValue{Typ: x.Typ, Value: v}, nil
+	}
+
+	// If the operands are untyped, use the type later in the sequence int,
+	// rune, float, complex, by converting one of the operands to the type of
+	// the other.
+	var t untypedKind
+	var u, v ast.Value
+	switch x.Value.(type) {
+	case ast.Bool:
+		return nil, &invalidOperation{Op: '/', Type: ast.BuiltinUntypedBool}
+	case ast.String:
+		return nil, &invalidOperation{Op: '/', Type: ast.BuiltinUntypedString}
+	default:
+		t, u, v = untypedConvert(x.Value, y.Value)
+		if t == _UNTYPED_ERR {
+			return nil, &mismatchedTypes{Op: '/', X: x, Y: y}
+		}
+	}
+	v, err := divUntyped(t, u, v)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.ConstValue{Typ: untypedType[t], Value: v}, nil
+}
+
+func divTyped(typ *ast.BuiltinType, x ast.Value, y ast.Value) (ast.Value, error) {
+	if typ.IsInteger() {
+		u, v := x.(ast.Int), y.(ast.Int)
+		if v == 0 {
+			return nil, &divisionByZero{}
+		}
+		if typ.IsSigned() {
+			return ast.Int(int64(u) / int64(v)), nil
+		} else {
+			return ast.Int(u / v), nil
+		}
+	}
+	switch typ.Kind {
+	case ast.BUILTIN_FLOAT32:
+		u, v := float32(x.(ast.Float)), float32(y.(ast.Float))
+		if v == 0 {
+			return nil, &divisionByZero{}
+		}
+		return ast.Float(u / v), nil
+	case ast.BUILTIN_FLOAT64:
+		u, v := x.(ast.Float), y.(ast.Float)
+		if v == 0 {
+			return nil, &divisionByZero{}
+		}
+		return ast.Float(u / v), nil
+	case ast.BUILTIN_COMPLEX64:
+		u, v := complex64(x.(ast.Complex)), complex64(y.(ast.Complex))
+		a, b, c, d := real(u), imag(u), real(v), imag(v)
+		z := c*c + d*d
+		if z == 0 {
+			return nil, &divisionByZero{}
+		}
+		re := float64((a*c + b*d) / z)
+		im := float64((b*c - a*d) / z)
+		return ast.Complex(complex(re, im)), nil
+	case ast.BUILTIN_COMPLEX128:
+		u, v := x.(ast.Complex), y.(ast.Complex)
+		a, b, c, d := real(u), imag(u), real(v), imag(v)
+		z := c*c + d*d
+		if z == 0 {
+			return nil, &divisionByZero{}
+		}
+		re := (a*c + b*d) / z
+		im := (b*c - a*d) / z
+		return ast.Complex(complex(re, im)), nil
+	default:
+		panic("not reached")
+	}
+}
+
+func divUntyped(t untypedKind, x ast.Value, y ast.Value) (ast.Value, error) {
+	switch t {
+	case _UNTYPED_INT:
+		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
+		if y.Int.Cmp(&ZeroInt) == 0 {
+			return nil, &divisionByZero{}
+		}
+		return ast.UntypedInt{Int: new(big.Int).Div(x.Int, y.Int)}, nil
+	case _UNTYPED_RUNE:
+		x, y := x.(ast.Rune), y.(ast.Rune)
+		if y.Int.Cmp(&ZeroInt) == 0 {
+			return nil, &divisionByZero{}
+		}
+		return ast.Rune{Int: new(big.Int).Div(x.Int, y.Int)}, nil
+	case _UNTYPED_FLOAT:
+		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
+		if y.Float.Cmp(&ZeroFloat) == 0 {
+			return nil, &divisionByZero{}
+		}
+		return ast.UntypedFloat{Float: new(big.Float).Quo(x.Float, y.Float)}, nil
+	case _UNTYPED_COMPLEX:
+		x, y := x.(ast.UntypedComplex), y.(ast.UntypedComplex)
+		a, b, c, d := x.Re, x.Im, y.Re, y.Im
+		t0 := new(big.Float).Mul(c, c)
+		t1 := new(big.Float).Mul(d, d)
+		z := new(big.Float).Add(t0, t1)
+		if z.Cmp(&ZeroFloat) == 0 {
+			return nil, &divisionByZero{}
+		}
+		t0.Mul(a, c)
+		t1.Mul(b, d)
+		re := new(big.Float).Add(t0, t1)
+		re.Quo(re, z)
+		t0.Mul(b, c)
+		t1.Mul(a, d)
+		im := t0.Sub(t0, t1).Quo(t0, z)
+		return ast.UntypedComplex{Re: re, Im: im}, nil
+	default:
+		panic("not reached")
+	}
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType
@@ -1205,4 +1338,10 @@ type mismatchedTypes struct {
 func (e *mismatchedTypes) Error() string {
 	return fmt.Sprintf("invalid operation `%s`: mismatched types `%s` and `%s`",
 		e.Op, e.X.TypeString(), e.Y.TypeString())
+}
+
+type divisionByZero struct{}
+
+func (e *divisionByZero) Error() string {
+	return "division by zero"
 }
