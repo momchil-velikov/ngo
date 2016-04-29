@@ -1321,6 +1321,61 @@ func divUntyped(t untypedKind, x ast.Value, y ast.Value) (ast.Value, error) {
 	}
 }
 
+func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+	// If the constants are typed, they must have the same type.
+	tx := builtinType(x.Typ)
+	if !tx.IsUntyped() {
+		if tx != builtinType(y.Typ) {
+			return nil, &mismatchedTypes{Op: '%', X: x, Y: y}
+		}
+		// Only integer operands.
+		if !tx.IsInteger() {
+			return nil, &invalidOperation{Op: '%', Type: tx}
+		}
+		u, v := x.Value.(ast.Int), y.Value.(ast.Int)
+		if v == 0 {
+			return nil, &divisionByZero{}
+		}
+		if tx.IsSigned() {
+			return &ast.ConstValue{Typ: x.Typ, Value: ast.Int(int64(u) % int64(v))}, nil
+		} else {
+			return &ast.ConstValue{Typ: x.Typ, Value: ast.Int(u % v)}, nil
+		}
+	}
+
+	// Only untyped integers and runes allowed.
+	var u, v *big.Int
+	switch {
+	case tx == ast.BuiltinUntypedInt:
+		u = x.Value.(ast.UntypedInt).Int
+	case tx == ast.BuiltinUntypedRune:
+		u = x.Value.(ast.Rune).Int
+	default:
+		return nil, &invalidOperation{Op: '%', Type: tx}
+	}
+	ty := builtinType(y.Typ)
+	switch {
+	case ty == ast.BuiltinUntypedInt:
+		v = y.Value.(ast.UntypedInt).Int
+	case ty == ast.BuiltinUntypedRune:
+		v = y.Value.(ast.Rune).Int
+		tx = ast.BuiltinUntypedRune
+	default:
+		return nil, &invalidOperation{Op: '%', Type: ty}
+	}
+	if v.Cmp(&ZeroInt) == 0 {
+		return nil, &divisionByZero{}
+	}
+	var res ast.Value
+	r := new(big.Int).Rem(u, v)
+	if tx == ast.BuiltinUntypedRune {
+		res = ast.Rune{Int: r}
+	} else {
+		res = ast.UntypedInt{Int: r}
+	}
+	return &ast.ConstValue{Typ: tx, Value: res}, nil
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

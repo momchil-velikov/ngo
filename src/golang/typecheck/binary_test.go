@@ -1040,3 +1040,112 @@ func TestDivErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"div-err-22.go"},
 		"division by zero")
 }
+
+func TestRem(t *testing.T) {
+	p, err := compilePackage("_test/src/binary", []string{"rem.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Int := p.Find("Int").(*ast.TypeDecl)
+
+	for _, cs := range []struct {
+		name string
+		typ  ast.Type
+		val  ast.Value
+	}{
+		{"C", ast.BuiltinInt8, ast.Int(1)},
+		{"E", ast.BuiltinUint16, ast.Int(2)},
+		{"Z1", Int, ast.Int(1)},
+		{"Z2", Int, ast.Int(0xfffffffffffffffc)},
+		{"Z3", Int, ast.Int(0)},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != cs.typ {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, cs.typ)
+		}
+		if v := c.Init.(*ast.ConstValue).Value; v != cs.val {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.val)
+		}
+	}
+
+	// int, int
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"N", 1},
+		{"D12", 0},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedInt {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedInt)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.UntypedInt); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	// int, rune
+	// rune, rune
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"D0", 17},
+		{"D1", 12},
+		{"D13", 0},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedRune {
+			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	for _, name := range []string{"a", "b", "c", "d"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != Int {
+			t.Errorf("`%s` should have type `Int`", name)
+		}
+	}
+}
+
+func TestRemErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"rem-err-01.go"},
+		"invalid operation `%`: mismatched types `int8` and `uint`")
+	expectError(t, "_test/src/binary", []string{"rem-err-02.go"},
+		"operation `%` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"rem-err-03.go"},
+		"operation `%` not supported for `untyped bool`")
+	expectError(t, "_test/src/binary", []string{"rem-err-04.go"},
+		"operation `%` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"rem-err-05.go"},
+		"operation `%` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"rem-err-06.go"},
+		"operation `%` not supported for `*int`")
+	expectError(t, "_test/src/binary", []string{"rem-err-07.go"},
+		"operation `%` not supported for `nil`")
+	expectError(t, "_test/src/binary", []string{"rem-err-08.go"},
+		"operation `%` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"rem-err-09.go"},
+		"invalid operation `%`: mismatched types `int` and `int64`")
+	expectError(t, "_test/src/binary", []string{"rem-err-10.go"},
+		"invalid operation `%`: mismatched types `*int` and `[]int`")
+	expectError(t, "_test/src/binary", []string{"rem-err-11.go"},
+		"operation `%` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"rem-err-12.go"},
+		"operation `%` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"rem-err-13.go"},
+		"operation `%` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"rem-err-14.go"},
+		"division by zero")
+	expectError(t, "_test/src/binary", []string{"rem-err-19.go"},
+		"division by zero")
+	expectError(t, "_test/src/binary", []string{"rem-err-20.go"},
+		"division by zero")
+}
