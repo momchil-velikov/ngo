@@ -1376,6 +1376,81 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	return &ast.ConstValue{Typ: tx, Value: res}, nil
 }
 
+func Bit(op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+	// If the constants are typed, they must have the same type.
+	tx := builtinType(x.Typ)
+	if !tx.IsUntyped() {
+		if tx != builtinType(y.Typ) {
+			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+		}
+		// Only integer operands.
+		if !tx.IsInteger() {
+			return nil, &invalidOperation{Op: op, Type: tx}
+		}
+		v := bitTyped(op, x.Value.(ast.Int), y.Value.(ast.Int))
+		return &ast.ConstValue{Typ: x.Typ, Value: v}, nil
+	}
+
+	// Only untyped integers and runes allowed.
+	var u, v *big.Int
+	switch {
+	case tx == ast.BuiltinUntypedInt:
+		u = x.Value.(ast.UntypedInt).Int
+	case tx == ast.BuiltinUntypedRune:
+		u = x.Value.(ast.Rune).Int
+	default:
+		return nil, &invalidOperation{Op: op, Type: tx}
+	}
+	ty := builtinType(y.Typ)
+	switch {
+	case ty == ast.BuiltinUntypedInt:
+		v = y.Value.(ast.UntypedInt).Int
+	case ty == ast.BuiltinUntypedRune:
+		v = y.Value.(ast.Rune).Int
+		tx = ast.BuiltinUntypedRune
+	default:
+		return nil, &invalidOperation{Op: op, Type: ty}
+	}
+	r := bitUntyped(op, u, v)
+	var res ast.Value
+	if tx == ast.BuiltinUntypedRune {
+		res = ast.Rune{Int: r}
+	} else {
+		res = ast.UntypedInt{Int: r}
+	}
+	return &ast.ConstValue{Typ: tx, Value: res}, nil
+}
+
+func bitTyped(op ast.Operation, x ast.Int, y ast.Int) ast.Int {
+	switch op {
+	case '&':
+		return x & y
+	case '|':
+		return x | y
+	case '^':
+		return x ^ y
+	case ast.ANDN:
+		return x &^ y
+	default:
+		panic("not reached")
+	}
+}
+
+func bitUntyped(op ast.Operation, x *big.Int, y *big.Int) *big.Int {
+	switch op {
+	case '&':
+		return new(big.Int).And(x, y)
+	case '|':
+		return new(big.Int).Or(x, y)
+	case '^':
+		return new(big.Int).Xor(x, y)
+	case ast.ANDN:
+		return new(big.Int).AndNot(x, y)
+	default:
+		panic("not reached")
+	}
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

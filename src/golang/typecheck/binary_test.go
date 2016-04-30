@@ -1149,3 +1149,109 @@ func TestRemErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"rem-err-20.go"},
 		"division by zero")
 }
+
+func TestBit(t *testing.T) {
+	p, err := compilePackage("_test/src/binary", []string{"bit.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Int := p.Find("Int").(*ast.TypeDecl)
+
+	for _, cs := range []struct {
+		name  string
+		value uint64
+	}{
+		{"Z0", 0x7080},
+		{"Z1", 0x7181},
+		{"Z2", 0x0101},
+		{"Z3", 0x0001},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != Int {
+			t.Errorf("`%s` must have type `Int`\n", c.Name)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.Int); !ok || v != ast.Int(cs.value) {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"Z4", 0x0101},
+		{"Z7", 0xb5b5},
+		{"Z10", 0xb4b4},
+		{"Z13", 0xa4a4},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedInt {
+			t.Errorf("`%s` must have type `untyped int`\n", c.Name)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.UntypedInt); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	for _, cs := range []struct {
+		name  string
+		value int64
+	}{
+		{"Z5", 0x21},
+		{"Z6", 0x21},
+		{"Z8", 0xa5e5},
+		{"Z9", 0xa5e5},
+		{"Z11", 0xa5c4},
+		{"Z12", 0xa5c4},
+		{"Z14", 0xa584},
+		{"Z15", 0x40},
+	} {
+		c := p.Find(cs.name).(*ast.Const)
+		if c.Type != ast.BuiltinUntypedRune {
+			t.Errorf("`%s` must have type `untyped rune`\n", c.Name)
+		}
+		v := c.Init.(*ast.ConstValue).Value
+		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
+		}
+	}
+
+	for _, n := range []string{"z0", "z1", "z2", "z3"} {
+		c := p.Find(n).(*ast.Var)
+		if c.Type != Int {
+			t.Errorf("`%s` must have type `Int`\n", c.Name)
+		}
+	}
+}
+
+func TestBitErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"bit-err-01.go"},
+		"invalid operation `&`: mismatched types `int8` and `uint`")
+	expectError(t, "_test/src/binary", []string{"bit-err-02.go"},
+		"operation `|` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"bit-err-03.go"},
+		"operation `^` not supported for `untyped bool`")
+	expectError(t, "_test/src/binary", []string{"bit-err-04.go"},
+		"operation `&^` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"bit-err-05.go"},
+		"operation `&` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"bit-err-06.go"},
+		"operation `|` not supported for `*int`")
+	expectError(t, "_test/src/binary", []string{"bit-err-07.go"},
+		"operation `^` not supported for `nil`")
+	expectError(t, "_test/src/binary", []string{"bit-err-08.go"},
+		"operation `&^` not supported for `bool`")
+	expectError(t, "_test/src/binary", []string{"bit-err-09.go"},
+		"invalid operation `&`: mismatched types `int` and `int64`")
+	expectError(t, "_test/src/binary", []string{"bit-err-10.go"},
+		"invalid operation `|`: mismatched types `*int` and `[]int`")
+	expectError(t, "_test/src/binary", []string{"bit-err-11.go"},
+		"operation `^` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"bit-err-12.go"},
+		"operation `&^` not supported for `untyped string`")
+	expectError(t, "_test/src/binary", []string{"bit-err-13.go"},
+		"operation `&` not supported for `string`")
+}
