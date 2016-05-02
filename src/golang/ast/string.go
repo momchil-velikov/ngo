@@ -263,7 +263,7 @@ func (typ *InterfaceType) String() string {
 }
 
 func (c *ConstValue) TypeString() string {
-	return builtinType(c.Typ).String()
+	return c.Typ.String()
 }
 
 func (op Operation) String() string {
