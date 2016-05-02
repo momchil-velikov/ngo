@@ -347,6 +347,8 @@ func TestCompareErr(t *testing.T) {
 		"neither `Float` nor `float32` is assignable to the other")
 	expectError(t, "_test/src/binary", []string{"cmp-err-22.go"},
 		"invalid operation `<=`: mismatched types `untyped float` and `untyped string`")
+	expectError(t, "_test/src/binary", []string{"cmp-err-23.go"},
+		"invalid operation `>`: mismatched types `T0` and `T1`")
 }
 
 func TestBinaryErr(t *testing.T) {
@@ -529,6 +531,8 @@ func TestAddErr(t *testing.T) {
 		"invalid operation `+`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"add-err-10.go"},
 		"invalid operation `+`: mismatched types `*int` and `[]int`")
+	expectError(t, "_test/src/binary", []string{"add-err-11.go"},
+		"invalid operation `+`: mismatched types `T0` and `T1`")
 }
 
 func TestSub(t *testing.T) {
@@ -828,6 +832,8 @@ func TestSubErr(t *testing.T) {
 		"operation `-` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"sub-err-13.go"},
 		"operation `-` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"sub-err-14.go"},
+		"invalid operation `-`: mismatched types `T0` and `T1`")
 }
 
 func TestMulErr(t *testing.T) {
@@ -857,6 +863,8 @@ func TestMulErr(t *testing.T) {
 		"operation `*` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"mul-err-13.go"},
 		"operation `*` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"mul-err-14.go"},
+		"invalid operation `*`: mismatched types `T0` and `T1`")
 }
 
 func TestDiv(t *testing.T) {
@@ -1039,6 +1047,8 @@ func TestDivErr(t *testing.T) {
 		"division by zero")
 	expectError(t, "_test/src/binary", []string{"div-err-22.go"},
 		"division by zero")
+	expectError(t, "_test/src/binary", []string{"div-err-23.go"},
+		"invalid operation `/`: mismatched types `T0` and `T1`")
 }
 
 func TestRem(t *testing.T) {
@@ -1148,6 +1158,8 @@ func TestRemErr(t *testing.T) {
 		"division by zero")
 	expectError(t, "_test/src/binary", []string{"rem-err-20.go"},
 		"division by zero")
+	expectError(t, "_test/src/binary", []string{"rem-err-21.go"},
+		"invalid operation `%`: mismatched types `T0` and `T1`")
 }
 
 func TestBit(t *testing.T) {
@@ -1254,6 +1266,8 @@ func TestBitErr(t *testing.T) {
 		"operation `&^` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"bit-err-13.go"},
 		"operation `&` not supported for `string`")
+	expectError(t, "_test/src/binary", []string{"bit-err-14.go"},
+		"invalid operation `^`: mismatched types `T0` and `T1`")
 }
 
 func TestLogical(t *testing.T) {

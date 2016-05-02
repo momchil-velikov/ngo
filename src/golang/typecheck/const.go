@@ -763,7 +763,7 @@ func Compare(
 	var err error
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
-		if t != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
 		}
 		res, err = compareTyped(t, x.Value, y.Value, op)
@@ -941,7 +941,7 @@ var untypedType = [...]*ast.BuiltinType{
 func Add(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
-		if t != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: '+', X: x, Y: y}
 		}
 		if t.Kind == ast.BUILTIN_BOOL {
@@ -1030,7 +1030,7 @@ func addUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 func Sub(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
-		if t != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: '-', X: x, Y: y}
 		}
 		if t.Kind == ast.BUILTIN_BOOL || t.Kind == ast.BUILTIN_STRING {
@@ -1110,7 +1110,7 @@ func subUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 func Mul(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
-		if t != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: '*', X: x, Y: y}
 		}
 		if t.Kind == ast.BUILTIN_BOOL || t.Kind == ast.BUILTIN_STRING {
@@ -1193,7 +1193,7 @@ func mulUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 func Div(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	// If the constants are typed, they must have the same type.
 	if t := builtinType(x.Typ); t != nil && !t.IsUntyped() {
-		if t != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: '/', X: x, Y: y}
 		}
 		if t.Kind == ast.BUILTIN_BOOL || t.Kind == ast.BUILTIN_STRING {
@@ -1325,7 +1325,7 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	// If the constants are typed, they must have the same type.
 	tx := builtinType(x.Typ)
 	if !tx.IsUntyped() {
-		if tx != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: '%', X: x, Y: y}
 		}
 		// Only integer operands.
@@ -1380,7 +1380,7 @@ func Bit(op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValu
 	// If the constants are typed, they must have the same type.
 	tx := builtinType(x.Typ)
 	if !tx.IsUntyped() {
-		if tx != builtinType(y.Typ) {
+		if x.Typ != y.Typ {
 			return nil, &mismatchedTypes{Op: op, X: x, Y: y}
 		}
 		// Only integer operands.
