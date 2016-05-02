@@ -1451,6 +1451,28 @@ func bitUntyped(op ast.Operation, x *big.Int, y *big.Int) *big.Int {
 	}
 }
 
+func Logical(
+	op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+
+	tx, ty := builtinType(x.Typ), builtinType(y.Typ)
+	if tx.Kind != ast.BUILTIN_BOOL && tx.Kind != ast.BUILTIN_UNTYPED_BOOL {
+		return nil, &invalidOperation{Op: op, Type: tx}
+	}
+	if ty.Kind != ast.BUILTIN_BOOL && ty.Kind != ast.BUILTIN_UNTYPED_BOOL {
+		return nil, &invalidOperation{Op: op, Type: ty}
+	}
+	if x.Typ != y.Typ {
+		return nil, &mismatchedTypes{Op: op, X: x, Y: y}
+	}
+	var v bool
+	if op == ast.AND {
+		v = bool(x.Value.(ast.Bool)) && bool(y.Value.(ast.Bool))
+	} else {
+		v = bool(x.Value.(ast.Bool)) || bool(y.Value.(ast.Bool))
+	}
+	return &ast.ConstValue{Typ: x.Typ, Value: ast.Bool(v)}, nil
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

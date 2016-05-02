@@ -1807,6 +1807,14 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 				}
 				c.Off = x.Off
 				return c, nil
+			case ast.AND, ast.OR:
+				c, err := Logical(x.Op, u, v)
+				if err != nil {
+					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+				}
+				c.Off = x.Off
+				return c, nil
+
 			default:
 				panic("FIXME")
 			}
@@ -1905,6 +1913,12 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	case '%', '&', '|', '^', ast.ANDN:
 		utyp := builtinType(utyp)
 		if utyp == nil || !utyp.IsInteger() {
+			return nil, &NotSupportedOperation{
+				Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
+		}
+	case ast.AND, ast.OR:
+		utyp := builtinType(utyp)
+		if utyp == nil || utyp != ast.BuiltinBool && utyp != ast.BuiltinUntypedBool {
 			return nil, &NotSupportedOperation{
 				Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
 		}

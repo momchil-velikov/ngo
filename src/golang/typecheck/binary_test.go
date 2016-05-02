@@ -1255,3 +1255,62 @@ func TestBitErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"bit-err-13.go"},
 		"operation `&` not supported for `string`")
 }
+
+func TestLogical(t *testing.T) {
+	p, err := compilePackage("_test/src/binary", []string{"logical.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Bool := p.Find("Bool").(*ast.TypeDecl)
+
+	for _, cs := range []struct {
+		name  string
+		typ   ast.Type
+		value bool
+	}{
+		{"Z0", ast.BuiltinUntypedBool, false},
+		{"Z1", ast.BuiltinUntypedBool, false},
+		{"Z2", ast.BuiltinUntypedBool, false},
+		{"Z3", ast.BuiltinUntypedBool, true},
+		{"Z4", ast.BuiltinUntypedBool, false},
+		{"Z5", ast.BuiltinUntypedBool, true},
+		{"Z6", ast.BuiltinUntypedBool, true},
+		{"Z7", ast.BuiltinUntypedBool, true},
+		{"Z8", Bool, false},
+		{"Z9", Bool, false},
+		{"ZA", Bool, false},
+		{"ZB", Bool, true},
+		{"ZC", Bool, false},
+		{"ZD", Bool, true},
+		{"ZE", Bool, true},
+		{"ZF", Bool, true},
+	} {
+		v := p.Find(cs.name).(*ast.Const)
+		if v.Type != cs.typ {
+			t.Errorf("`%s` type must be `%s`\n", cs.name, cs.typ)
+		}
+		c := v.Init.(*ast.ConstValue)
+		if b, ok := c.Value.(ast.Bool); !ok || bool(b) != cs.value {
+			t.Errorf("`%s` value must be `%v`\n", cs.name, cs.value)
+		}
+	}
+
+	for _, name := range []string{"z0", "z1"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != Bool {
+			t.Errorf("`%s` type must be `Bool`\n", name)
+		}
+	}
+}
+
+func TestLogicalErr(t *testing.T) {
+	expectError(t, "_test/src/binary", []string{"logical-err-01.go"},
+		"operation `&&` not supported for `int`")
+	expectError(t, "_test/src/binary", []string{"logical-err-02.go"},
+		"operation `&&` not supported for `uint`")
+	expectError(t, "_test/src/binary", []string{"logical-err-03.go"},
+		"invalid operation `&&`: mismatched types `bool` and `Bool`")
+	expectError(t, "_test/src/binary", []string{"logical-err-04.go"},
+		"operation `||` not supported for `int`")
+}
