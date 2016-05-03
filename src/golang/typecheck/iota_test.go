@@ -11,80 +11,37 @@ func TestIota(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	A := p.Find("A").(*ast.Const)
-	c := A.Init.(*ast.ConstValue)
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 0 {
-		t.Error("`A` should have value 0")
-	}
-	B := p.Find("B").(*ast.Const)
-	c = B.Init.(*ast.ConstValue)
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("`B` should have value 1")
-	}
-
-	D := p.Find("D").(*ast.Const)
-	c = D.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 0 {
-		t.Error("`D` should have value 0")
-	}
-	E := p.Find("E").(*ast.Const)
-	c = E.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 1 {
-		t.Error("`E` should have value 1")
-	}
-
-	C := p.Find("C").(*ast.Const)
-	c = C.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 2 {
-		t.Error("`C` should have value 2")
-	}
-	F := p.Find("F").(*ast.Const)
-	c = F.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 2 {
-		t.Error("`F` should have value 2")
-	}
-	G := p.Find("G").(*ast.Const)
-	c = G.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 0xffef {
-		t.Error("`G` should have value 0xffef")
-	}
-
-	U := p.Find("U").(*ast.Const)
-	c = U.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 0xfff7 {
-		t.Error("`U` should have value 0xfff7")
-	}
-	V := p.Find("V").(*ast.Const)
-	c = V.Init.(*ast.ConstValue)
-	if c.Value.(ast.Int) != 0xffef {
-		t.Error("`V` should have value 0xffef")
-	}
-
-	N := p.Find("N").(*ast.Const)
-	c = N.Init.(*ast.ConstValue)
-	if !isUntyped(N.Type) {
-		t.Error("`N` should be untyped")
-	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 0 {
-		t.Error("`N` should have value 0")
-	}
-
-	Y := p.Find("Y").(*ast.Const)
-	c = Y.Init.(*ast.ConstValue)
-	if !isUntyped(Y.Type) {
-		t.Error("`Y` should be untyped")
-	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 1 {
-		t.Error("`Y` should have value 1")
-	}
-
-	Z := p.Find("Z").(*ast.Const)
-	c = Z.Init.(*ast.ConstValue)
-	if !isUntyped(Z.Type) {
-		t.Error("`Z` should be untyped")
-	}
-	if v, ok := c.Value.(ast.UntypedInt); !ok || v.Int64() != 2 {
-		t.Error("`Z` should have value 2")
+	for _, cs := range []struct {
+		name  string
+		typ   ast.Type
+		value string
+	}{
+		{"A", ast.BuiltinUntypedInt, "0"},
+		{"B", ast.BuiltinUntypedInt, "1"},
+		{"C", ast.BuiltinInt, "2"},
+		{"D", ast.BuiltinInt, "0"},
+		{"E", ast.BuiltinInt, "1"},
+		{"F", ast.BuiltinInt, "2"},
+		{"G", ast.BuiltinUint16, "65519"},
+		{"U", ast.BuiltinUint16, "65527"},
+		{"V", ast.BuiltinUint16, "65519"},
+		{"N", ast.BuiltinUntypedInt, "0"},
+		{"X", ast.BuiltinUntypedInt, "-1"},
+		{"Y", ast.BuiltinUntypedInt, "1"},
+		{"Z", ast.BuiltinUntypedInt, "2"},
+		{"AA", ast.BuiltinUntypedInt, "0"},
+		{"BB", ast.BuiltinUntypedInt, "2"},
+		{"CC", ast.BuiltinUntypedInt, "3"},
+		{"DD", ast.BuiltinUntypedInt, "1"},
+	} {
+		C := p.Find(cs.name).(*ast.Const)
+		if C.Type != cs.typ {
+			t.Errorf("`%s` must have type `%s`\n", cs.name, cs.typ)
+		}
+		c := C.Init.(*ast.ConstValue)
+		if s := c.String(); s != cs.value {
+			t.Errorf("`%s` must have value `%s`\n", cs.name, s)
+		}
 	}
 }
 

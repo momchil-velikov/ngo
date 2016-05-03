@@ -22,3 +22,12 @@ const (
 	Y = iota
 	Z
 )
+
+const (
+	AA = iota
+	BB = iota + DD
+	CC
+)
+const (
+	DD = iota + 1
+)
