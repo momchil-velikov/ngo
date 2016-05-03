@@ -250,7 +250,7 @@ type BadTypeAssertion struct {
 
 func (e *BadTypeAssertion) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid use if `.(type)` outside type switch",
+	return fmt.Sprintf("%s:%d:%d: invalid use of `.(type)` outside type switch",
 		e.File.Name, ln, col)
 }
 
@@ -749,4 +749,32 @@ func (e *NotConvertible) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: `%s` is not convertible to `%s`",
 		e.File.Name, ln, col, e.SType, e.DType)
+}
+
+// The NotInterface error is returned for type assertions where the expression
+// is not of an interface type.
+type NotInterface struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+}
+
+func (e *NotInterface) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: invalid type asserion: `%s` is not an interface type",
+		e.File.Name, ln, col, e.Type)
+}
+
+// The DoesNotImplement error is returned when a concrete type is required to
+// implement an interface type and it doesn't.
+type DoesNotImplement struct {
+	Off       int
+	File      *ast.File
+	Type, Ifc ast.Type
+}
+
+func (e *DoesNotImplement) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: type `%s` does not implement interface `%s`",
+		e.File.Name, ln, col, e.Type, e.Ifc)
 }

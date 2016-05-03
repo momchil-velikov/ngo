@@ -1214,25 +1214,36 @@ func (ev *exprVerifier) VisitFunc(x *ast.Func) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
-	if x.ATyp == nil {
-		return nil, &BadTypeAssertion{Off: x.Off, File: ev.File}
+	y, err := ev.checkExpr(x.X, nil)
+	if err != nil {
+		return nil, err
+	}
+	x.X = y
+	// Check the asserted expression has interface type.
+	tx, ok := underlyingType(x.X.Type()).(*ast.InterfaceType)
+	if !ok {
+		return nil, &NotInterface{Off: x.Off, File: ev.File, Type: x.X.Type()}
 	}
 	t, err := ev.checkType(x.ATyp)
 	if err != nil {
 		return nil, err
 	}
 	x.ATyp = t
+	// If asserting to a concrete type, said type must implement the interface
+	// type of the expression.
+	if _, ok := underlyingType(x.ATyp).(*ast.InterfaceType); !ok {
+		if ok, err := ev.implements(x.ATyp, tx); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, &DoesNotImplement{
+				Off: x.Off, File: ev.File, Type: x.ATyp, Ifc: x.X.Type()}
+		}
+	}
 	x.Typ = &ast.TupleType{
 		Off:    x.ATyp.Position(),
 		Strict: false,
 		Type:   []ast.Type{x.ATyp, ast.BuiltinUntypedBool},
 	}
-	y, err := ev.checkExpr(x.X, nil)
-	if err != nil {
-		return nil, err
-	}
-	x.X = y
-	// FIXME: x.X must be interface type
 	return x, nil
 }
 
