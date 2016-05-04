@@ -1768,67 +1768,33 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	// Evaluate constant binary expressions.
 	if u, ok := u.(*ast.ConstValue); ok {
 		if v, ok := v.(*ast.ConstValue); ok {
+			var c *ast.ConstValue
+			var err error
 			switch x.Op {
 			case ast.LT, ast.GT, ast.EQ, ast.NE, ast.LE, ast.GE:
-				c, err := Compare(u, v, x.Op)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Compare(u, v, x.Op)
 			case '+':
-				c, err := Add(u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Add(u, v)
 			case '-':
-				c, err := Sub(u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Sub(u, v)
 			case '*':
-				c, err := Mul(u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Mul(u, v)
 			case '/':
-				c, err := Div(u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Div(u, v)
 			case '%':
-				c, err := Rem(u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Rem(u, v)
 			case '&', '|', '^', ast.ANDN:
-				c, err := Bit(x.Op, u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
+				c, err = Bit(x.Op, u, v)
 			case ast.AND, ast.OR:
-				c, err := Logical(x.Op, u, v)
-				if err != nil {
-					return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-				}
-				c.Off = x.Off
-				return c, nil
-
+				c, err = Logical(x.Op, u, v)
 			default:
-				panic("FIXME")
+				panic("not reached")
 			}
+			if err != nil {
+				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+			}
+			c.Off = x.Off
+			return c, nil
 		}
 	}
 
