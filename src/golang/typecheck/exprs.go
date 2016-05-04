@@ -1405,6 +1405,16 @@ func (ev *exprVerifier) checkSliceIndexExpr(
 func (ev *exprVerifier) checkMapIndexExpr(
 	x *ast.IndexExpr, t *ast.MapType) (ast.Expr, error) {
 
+	// The type of the index expression must be assignable to the map key
+	// type.
+	ok, err := ev.isAssignableType(t.Key, x.I.Type())
+	if err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, &NotAssignable{
+			Off: x.I.Position(), File: ev.File, DType: t.Key, SType: x.I.Type()}
+	}
+
 	// If the type of the indexed expression is a map, then the type of the
 	// expression is a non-strict pair of map element type and bool.
 	x.Typ = &ast.TupleType{
@@ -1412,8 +1422,6 @@ func (ev *exprVerifier) checkMapIndexExpr(
 		Strict: false,
 		Type:   []ast.Type{t.Elt, ast.BuiltinUntypedBool},
 	}
-	// FIXME: The type of the index expression must be assignable to the map
-	// key type.
 	return x, nil
 }
 
