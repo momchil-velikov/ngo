@@ -518,15 +518,14 @@ func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 	if dst == ast.BuiltinDefault {
 		dst = defaultType(x)
 	}
-	t := builtinType(dst)
-	if t == nil {
+	if t := builtinType(dst); t == nil {
 		return nil, &BadConstType{Off: x.Off, File: ev.File, Type: dst}
 	}
-	c, err := Convert(t, x)
+	c, err := Convert(dst, x)
 	if err != nil {
 		return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 	}
-	c.Off, c.Typ = x.Off, dst
+	c.Off = x.Off
 	return c, nil
 }
 
@@ -1130,15 +1129,14 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 
 	// Check and perform constant conversion.
 	if c, ok := y.(*ast.ConstValue); ok {
-		dst, ok := underlyingType(x.Typ).(*ast.BuiltinType)
-		if !ok {
+		if t := builtinType(x.Typ); t == nil {
 			return nil, &BadConstType{Off: x.Off, File: ev.File, Type: x.Typ}
 		}
-		c, err := Convert(dst, c)
+		c, err := Convert(x.Typ, c)
 		if err != nil {
 			return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
 		}
-		c.Off, c.Typ = x.Off, x.Typ
+		c.Off = x.Off
 		return c, nil
 	}
 
@@ -2218,16 +2216,15 @@ func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, error)
 	src := x.Type()
 	if c, ok := x.(*ast.ConstValue); ok && isUntyped(src) {
 		// "x is an untyped constant representable by a value of type T."
-		t := builtinType(dst)
-		if t == nil {
+		if t := builtinType(dst); t == nil {
 			return nil, &NotAssignable{
 				Off: x.Position(), File: ev.File, DType: dst, SType: src}
 		}
-		c, err := Convert(t, c)
+		c, err := Convert(dst, c)
 		if err != nil {
 			return nil, &ErrorPos{Off: x.Position(), File: ev.File, Err: err}
 		}
-		c.Off, c.Typ = x.Position(), dst
+		c.Off = x.Position()
 		return c, nil
 	}
 

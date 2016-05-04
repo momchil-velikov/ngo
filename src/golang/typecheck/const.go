@@ -370,12 +370,13 @@ func convert(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 	return res
 }
 
-func Convert(dst *ast.BuiltinType, cst *ast.ConstValue) (*ast.ConstValue, error) {
-	v := convert(dst, builtinType(cst.Typ), cst.Value)
-	if v == nil {
-		return nil, &badConstConversion{Dst: dst, Src: cst}
+func Convert(dst ast.Type, cst *ast.ConstValue) (*ast.ConstValue, error) {
+	if d := builtinType(dst); d != nil {
+		if v := convert(d, builtinType(cst.Typ), cst.Value); v != nil {
+			return &ast.ConstValue{Typ: dst, Value: v}, nil
+		}
 	}
-	return &ast.ConstValue{Typ: dst, Value: v}, nil
+	return nil, &badConstConversion{Dst: dst, Src: cst}
 }
 
 func ToInt(c *ast.ConstValue) (int64, error) {
@@ -437,7 +438,7 @@ func ToString(c *ast.ConstValue) (string, error) {
 // The badConversion error is returned when the destination type cannot
 // represent the value of the converted constant.
 type badConstConversion struct {
-	Dst *ast.BuiltinType
+	Dst ast.Type
 	Src *ast.ConstValue
 }
 
