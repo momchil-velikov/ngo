@@ -188,25 +188,23 @@ func TestShift(t *testing.T) {
 		t.Error("`c10` should have value 49")
 	}
 
-	// FIXME: temporarily disabled until assignability checks eveywhere
-	// V = p.Find("l0").(*ast.Var)
-	// lit := V.Init.RHS[0].(*ast.CompLiteral)
-	// c = lit.Elts[0].Elt.(*ast.ConstValue)
-	// if c.Typ != ast.BuiltinUint8 {
-	// 	t.Error("`l0` element initializer should should have type `uint8`")
-	// }
+	V = p.Find("l0").(*ast.Var)
+	lit := V.Init.RHS[0].(*ast.CompLiteral)
+	c = lit.Elts[0].Elt.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinUint8 {
+		t.Error("`l0` element initializer should should have type `uint8`")
+	}
 
-	// V = p.Find("l1").(*ast.Var)
-	// lit = V.Init.RHS[0].(*ast.CompLiteral)
-	// c = lit.Elts[0].Key.(*ast.ConstValue)
-	// if c.Typ != ast.BuiltinUint16 {
-	// 	t.Error("`l1` key initializer should have type `uint16`")
-	// }
-	// c = lit.Elts[0].Elt.(*ast.ConstValue)
-	// if c.Typ != ast.BuiltinUint8 {
-	// 	t.Error("`l1` element initializer should have type `uint8`")
-	// }
-
+	V = p.Find("l1").(*ast.Var)
+	lit = V.Init.RHS[0].(*ast.CompLiteral)
+	c = lit.Elts[0].Key.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinUint16 {
+		t.Error("`l1` key initializer should have type `uint16`")
+	}
+	c = lit.Elts[0].Elt.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinUint8 {
+		t.Error("`l1` element initializer should have type `uint8`")
+	}
 }
 
 func TestShiftErr(t *testing.T) {
