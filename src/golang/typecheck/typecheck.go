@@ -40,7 +40,7 @@ func isNamed(typ ast.Type) bool {
 func singleValueType(typ ast.Type) ast.Type {
 	if t, ok := typ.(*ast.TupleType); ok {
 		if !t.Strict {
-			return t.Type[0]
+			return t.Types[0]
 		} else {
 			return nil
 		}

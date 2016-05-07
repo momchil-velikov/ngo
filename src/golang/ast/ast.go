@@ -642,7 +642,7 @@ func (t *StructType) Position() int { return t.Off }
 type TupleType struct {
 	Off    int
 	Strict bool
-	Type   []Type
+	Types  []Type
 }
 
 func (t *TupleType) Position() int { return t.Off }

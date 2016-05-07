@@ -211,13 +211,13 @@ func (typ *StructType) String() string {
 }
 
 func (typ *TupleType) String() string {
-	if n := len(typ.Type); n > 0 {
+	if n := len(typ.Types); n > 0 {
 		b := bytes.Buffer{}
 		b.WriteRune('<')
-		b.WriteString(typ.Type[0].String())
+		b.WriteString(typ.Types[0].String())
 		for i := 1; i < n; i++ {
 			b.WriteString(", ")
-			b.WriteString(typ.Type[i].String())
+			b.WriteString(typ.Types[i].String())
 		}
 		b.WriteRune('>')
 		return b.String()

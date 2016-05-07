@@ -371,12 +371,12 @@ func (t *TupleType) Format(ctx *FormatContext, n uint) {
 		ctx.WriteV(n, "/* #", t.Off, " */")
 	}
 	ctx.WriteString("(")
-	m := len(t.Type)
+	m := len(t.Types)
 	for i := 0; i+1 < m; i++ {
-		t.Type[i].Format(ctx, n)
+		t.Types[i].Format(ctx, n)
 		ctx.WriteString(", ")
 	}
-	t.Type[m-1].Format(ctx, n)
+	t.Types[m-1].Format(ctx, n)
 	ctx.WriteString(")")
 
 }

@@ -172,13 +172,13 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 		// compatibility of the initialization expression with the declared
 		// type.
 		tp, ok := x.Type().(*ast.TupleType)
-		if !ok || len(tp.Type) != len(v.Init.LHS) {
+		if !ok || len(tp.Types) != len(v.Init.LHS) {
 			return &BadMultiValueAssign{Off: x.Position(), File: v.File}
 		}
 		for i := range v.Init.LHS {
 			op := v.Init.LHS[i].(*ast.OperandName)
 			v := op.Decl.(*ast.Var)
-			t := tp.Type[i]
+			t := tp.Types[i]
 			if v.Type == nil {
 				if t == ast.BuiltinUntypedBool {
 					v.Type = ast.BuiltinBool
@@ -1030,7 +1030,7 @@ func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 		for i := range tp {
 			tp[i] = ftyp.Returns[i].Type
 		}
-		x.Typ = &ast.TupleType{Off: x.Off, Strict: true, Type: tp}
+		x.Typ = &ast.TupleType{Off: x.Off, Strict: true, Types: tp}
 	}
 
 	// FIXME: check arguments match parameters
@@ -1240,7 +1240,7 @@ func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, erro
 	x.Typ = &ast.TupleType{
 		Off:    x.ATyp.Position(),
 		Strict: false,
-		Type:   []ast.Type{x.ATyp, ast.BuiltinUntypedBool},
+		Types:  []ast.Type{x.ATyp, ast.BuiltinUntypedBool},
 	}
 	return x, nil
 }
@@ -1418,7 +1418,7 @@ func (ev *exprVerifier) checkMapIndexExpr(
 	x.Typ = &ast.TupleType{
 		Off:    -1,
 		Strict: false,
-		Type:   []ast.Type{t.Elt, ast.BuiltinUntypedBool},
+		Types:  []ast.Type{t.Elt, ast.BuiltinUntypedBool},
 	}
 	return x, nil
 }
@@ -1738,7 +1738,7 @@ func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error
 		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: ast.RECV}
 	}
 	x.X = y
-	x.Typ = &ast.TupleType{Off: x.Off, Type: []ast.Type{ch.Elt, ast.BuiltinUntypedBool}}
+	x.Typ = &ast.TupleType{Off: x.Off, Types: []ast.Type{ch.Elt, ast.BuiltinUntypedBool}}
 	return x, nil
 }
 
