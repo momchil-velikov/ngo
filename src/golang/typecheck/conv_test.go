@@ -8,7 +8,7 @@ import (
 
 func TestConvNilErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"nil-err.go"},
-		"const initializer is not a constant")
+		"`nil` is not a constant")
 }
 
 func TestConvBool(t *testing.T) {

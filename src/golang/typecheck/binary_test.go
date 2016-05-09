@@ -528,7 +528,7 @@ func TestAddErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"add-err-09.go"},
 		"invalid operation `+`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"add-err-10.go"},
-		"invalid operation `+`: mismatched types `*int` and `[]int`")
+		"operation `+` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"add-err-11.go"},
 		"invalid operation `+`: mismatched types `T0` and `T1`")
 }
@@ -813,7 +813,7 @@ func TestSubErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"sub-err-04.go"},
 		"operation `-` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"sub-err-05.go"},
-		"invalid operation `-`: mismatched types `untyped int` and `untyped string`")
+		"operation `-` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"sub-err-06.go"},
 		"operation `-` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"sub-err-07.go"},
@@ -823,7 +823,7 @@ func TestSubErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"sub-err-09.go"},
 		"invalid operation `-`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"sub-err-10.go"},
-		"invalid operation `-`: mismatched types `*int` and `[]int`")
+		"operation `-` not supported for `[]int`")
 	expectError(t, "_test/src/binary", []string{"sub-err-11.go"},
 		"operation `-` not supported for `string`")
 	expectError(t, "_test/src/binary", []string{"sub-err-12.go"},
@@ -844,7 +844,7 @@ func TestMulErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"mul-err-04.go"},
 		"operation `*` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"mul-err-05.go"},
-		"invalid operation `*`: mismatched types `untyped int` and `untyped string`")
+		"operation `*` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"mul-err-06.go"},
 		"operation `*` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"mul-err-07.go"},
@@ -854,7 +854,7 @@ func TestMulErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"mul-err-09.go"},
 		"invalid operation `*`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"mul-err-10.go"},
-		"invalid operation `*`: mismatched types `*int` and `[]int`")
+		"operation `*` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"mul-err-11.go"},
 		"operation `*` not supported for `string`")
 	expectError(t, "_test/src/binary", []string{"mul-err-12.go"},
@@ -1010,7 +1010,7 @@ func TestDivErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"div-err-04.go"},
 		"operation `/` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"div-err-05.go"},
-		"invalid operation `/`: mismatched types `untyped int` and `untyped string`")
+		"operation `/` not supported for `untyped string`")
 	expectError(t, "_test/src/binary", []string{"div-err-06.go"},
 		"operation `/` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"div-err-07.go"},
@@ -1020,7 +1020,7 @@ func TestDivErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"div-err-09.go"},
 		"invalid operation `/`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"div-err-10.go"},
-		"invalid operation `/`: mismatched types `*int` and `[]int`")
+		"operation `/` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"div-err-11.go"},
 		"operation `/` not supported for `string`")
 	expectError(t, "_test/src/binary", []string{"div-err-12.go"},
@@ -1087,7 +1087,7 @@ func TestRem(t *testing.T) {
 	} {
 		c := p.Find(cs.name).(*ast.Const)
 		if c.Type != ast.BuiltinUntypedInt {
-			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedInt)
+			t.Errorf("`%s` must have type `%s` : %s\n", c.Name, ast.BuiltinUntypedInt, c.Type)
 		}
 		v := c.Init.(*ast.ConstValue).Value
 		if v, ok := v.(ast.UntypedInt); !ok || v.Int64() != cs.value {
@@ -1143,7 +1143,7 @@ func TestRemErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"rem-err-09.go"},
 		"invalid operation `%`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"rem-err-10.go"},
-		"invalid operation `%`: mismatched types `*int` and `[]int`")
+		"operation `%` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"rem-err-11.go"},
 		"operation `%` not supported for `string`")
 	expectError(t, "_test/src/binary", []string{"rem-err-12.go"},
@@ -1257,7 +1257,7 @@ func TestBitErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"bit-err-09.go"},
 		"invalid operation `&`: mismatched types `int` and `int64`")
 	expectError(t, "_test/src/binary", []string{"bit-err-10.go"},
-		"invalid operation `|`: mismatched types `*int` and `[]int`")
+		"operation `|` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"bit-err-11.go"},
 		"operation `^` not supported for `string`")
 	expectError(t, "_test/src/binary", []string{"bit-err-12.go"},
@@ -1318,9 +1318,9 @@ func TestLogical(t *testing.T) {
 
 func TestLogicalErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"logical-err-01.go"},
-		"operation `&&` not supported for `int`")
+		"invalid operation `&&`: mismatched types `int` and `uint`")
 	expectError(t, "_test/src/binary", []string{"logical-err-02.go"},
-		"operation `&&` not supported for `uint`")
+		"invalid operation `&&`: mismatched types `bool` and `uint`")
 	expectError(t, "_test/src/binary", []string{"logical-err-03.go"},
 		"invalid operation `&&`: mismatched types `bool` and `Bool`")
 	expectError(t, "_test/src/binary", []string{"logical-err-04.go"},

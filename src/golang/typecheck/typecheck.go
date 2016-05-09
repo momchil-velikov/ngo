@@ -6,6 +6,9 @@ func CheckPackage(pkg *ast.Package) error {
 	if err := verifyTypes(pkg); err != nil {
 		return err
 	}
+	if err := inferTypes(pkg); err != nil {
+		return err
+	}
 	if err := verifyExprs(pkg); err != nil {
 		return err
 	}
@@ -64,13 +67,13 @@ func isUntyped(typ ast.Type) bool {
 	return false
 }
 
-func defaultType(x ast.Expr) ast.Type {
-	if x.Type() == nil {
+func defaultType(typ ast.Type) ast.Type {
+	if typ == nil {
 		panic("not reached")
 	}
 
-	typ := underlyingType(x.Type())
-	if t, ok := typ.(*ast.BuiltinType); !ok || !t.IsUntyped() {
+	u := underlyingType(typ)
+	if t, ok := u.(*ast.BuiltinType); !ok || !t.IsUntyped() {
 		return typ
 	} else {
 		switch t.Kind {
@@ -484,4 +487,45 @@ func ifaceMethodSetRec(set methodSet, t *ast.InterfaceType) methodSet {
 		set[m.Name] = m
 	}
 	return set
+}
+
+// Returns the type of on operation, performed on untyped constants of a
+// different kind. The parameters U and V must be untyped, and integer, rune,
+// floating point, or complex.
+// https://golang.org/ref/spec#Constant_expressions
+// " ... if the operands of a binary operation are different kinds of untyped
+// constants, the operation and, for non-boolean operations, the result use
+// the kind that appears later in this list: integer, rune, floating-point,
+// complex."
+func promoteUntyped(u *ast.BuiltinType, v *ast.BuiltinType) *ast.BuiltinType {
+	if u == v {
+		return u
+	}
+
+	rank := func(t *ast.BuiltinType) int {
+		switch t.Kind {
+		case ast.BUILTIN_UNTYPED_INT:
+			return 0
+		case ast.BUILTIN_UNTYPED_RUNE:
+			return 1
+		case ast.BUILTIN_UNTYPED_FLOAT:
+			return 2
+		case ast.BUILTIN_UNTYPED_COMPLEX:
+			return 3
+		default:
+			panic("not reached")
+		}
+	}
+
+	i, j := rank(u), rank(v)
+	if i < j {
+		i = j
+	}
+
+	return [...]*ast.BuiltinType{
+		ast.BuiltinUntypedInt,
+		ast.BuiltinUntypedRune,
+		ast.BuiltinUntypedFloat,
+		ast.BuiltinUntypedComplex,
+	}[i]
 }

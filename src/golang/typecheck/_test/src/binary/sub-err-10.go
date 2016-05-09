@@ -1,7 +1,7 @@
 package binary
 
 var (
-	A *int
-	B []int
+	A []int
+	B *int
 	C = A - B
 )

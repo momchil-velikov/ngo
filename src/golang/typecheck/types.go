@@ -83,14 +83,6 @@ func (tv *typeVerifier) checkConstDecl(c *ast.Const) error {
 	if c.File == nil || c.File.Pkg != tv.Pkg {
 		return nil
 	}
-
-	if c.Type != nil {
-		t, ok := underlyingType(c.Type).(*ast.BuiltinType)
-		if !ok || t.Kind == ast.BUILTIN_NIL_TYPE {
-			return &BadConstType{Off: c.Off, File: c.File, Type: c.Type}
-		}
-	}
-
 	if c.Init != nil {
 		tv.beginFile(c.File)
 		err := tv.checkExpr(c.Init)

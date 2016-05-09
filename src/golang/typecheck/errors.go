@@ -291,6 +291,19 @@ func (e *BadArgNumber) Error() string {
 	return fmt.Sprintf("%s:%d:%d: argument count mismatch", e.File.Name, ln, col)
 }
 
+// The BadVariadicCall error is returned for call expressions using `...` in
+// argument to call a non-variadic function.
+type BadVariadicCall struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadVariadicCall) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: invalid use of `...` to call a non-variadic function",
+		e.File.Name, ln, col)
+}
+
 // The TypeInferLoop error is returned for when an expression type depends
 // upon iself.
 type TypeInferLoop struct {
@@ -368,14 +381,23 @@ func (e *EvalLoop) Error() string {
 // The BadOperand error is returned whan an operation is not applicable to the
 // type of an operand.
 type BadOperand struct {
-	Off  int
-	File *ast.File
-	Op   ast.Operation
+	Off      int
+	File     *ast.File
+	Op       ast.Operation
+	Expected string
+	Type     ast.Type
 }
 
 func (e *BadOperand) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: invalid operand to `%s`", e.File.Name, ln, col, e.Op)
+	if e.Type == nil {
+		return fmt.Sprintf("%s:%d:%d: invalid operand to `%s`: operand must be %s",
+			e.File.Name, ln, col, e.Op, e.Expected)
+	} else {
+		return fmt.Sprintf(
+			"%s:%d:%d: invalid operand to `%s`: operand must have %s (`%s` given)",
+			e.File.Name, ln, col, e.Op, e.Expected, e.Type)
+	}
 }
 
 // The NegArrayLen error is returned when an array is declared of negetive
