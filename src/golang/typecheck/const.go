@@ -534,15 +534,14 @@ func Complement(cst *ast.ConstValue) (*ast.ConstValue, error) {
 func Shift(
 	x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (*ast.ConstValue, error) {
 
-	// The shift count must be unsigned integer type. An untyped integer is
-	// already converted to `uint64` by the expression verifier.
-	if t := builtinType(y.Typ); t == nil || !t.IsInteger() || t.IsSigned() {
-		return nil, &badShiftCountType{X: y}
-	}
 	// Get the shift count in a native uint.
-	s := uint64(y.Value.(ast.Int))
+	v := convert(ast.BuiltinUint64, builtinType(y.Typ), y.Value)
+	if v == nil {
+		return nil, &badShiftCount{X: y}
+	}
+	s := uint64(v.(ast.Int))
 	if s > MaxShift {
-		return nil, &badShiftCountValue{X: s}
+		return nil, &bigShiftCount{X: s}
 	}
 	// Perform the shift.
 	var res ast.Value
@@ -607,20 +606,19 @@ func Shift(
 	}
 }
 
-type badShiftCountType struct {
+type badShiftCount struct {
 	X *ast.ConstValue
 }
 
-func (e *badShiftCountType) Error() string {
-	return fmt.Sprintf("shift count must be unsigned integer (`%s` given)",
-		e.X.TypeString())
+func (e *badShiftCount) Error() string {
+	return fmt.Sprintf("invalid shift count `%s` (`%s`)", e.X, e.X.Typ)
 }
 
-type badShiftCountValue struct {
+type bigShiftCount struct {
 	X uint64
 }
 
-func (e *badShiftCountValue) Error() string {
+func (e *bigShiftCount) Error() string {
 	return fmt.Sprintf("shift count too big: %d", e.X)
 }
 

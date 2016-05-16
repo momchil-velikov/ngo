@@ -209,11 +209,11 @@ func TestShift(t *testing.T) {
 
 func TestShiftErr(t *testing.T) {
 	expectError(t, "_test/src/binary", []string{"shift-err-1.go"},
-		"shift count must be unsigned integer (`int` given)")
+		"invalid shift count `-2` (`int`)")
 	expectError(t, "_test/src/binary", []string{"shift-err-2.go"},
-		"1.1 (`untyped float`) cannot be converted to `uint64`")
+		"invalid shift count `1.1` (`untyped float`)")
 	expectError(t, "_test/src/binary", []string{"shift-err-3.go"},
-		"shift count must be unsigned integer (`float32` given)")
+		"invalid shift count `1.1` (`float32`)")
 	expectError(t, "_test/src/binary", []string{"shift-err-4.go"},
 		"shift count too big: 512")
 	expectError(t, "_test/src/binary", []string{"shift-err-5.go"},

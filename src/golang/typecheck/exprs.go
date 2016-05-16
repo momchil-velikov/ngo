@@ -1921,7 +1921,7 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	}
 	// Check the right operand. Convert untyped constants at this point to
 	// `uint64`.
-	v, err := ev.checkExpr(x.Y, ast.BuiltinUint64)
+	v, err := ev.checkExpr(x.Y, nil)
 	if err != nil {
 		return nil, err
 	}
