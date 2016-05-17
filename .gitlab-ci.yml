@@ -1,4 +1,33 @@
-job1:
+sort:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover lib/sort
+scanner:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover golang/scanner
+
+parser:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover golang/parser
+
+build:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover golang/build
+
+pdb:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover golang/pdb
+
+typecheck:
+  script:
+    - export GOPATH=$(pwd)
+    - go test -cover golang/typecheck
+
+all:
   script:
     - export GOPATH=$(pwd)
     - ./all.sh
