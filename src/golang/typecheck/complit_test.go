@@ -224,6 +224,8 @@ func TestStructLiteralErr(t *testing.T) {
 		"128 (`untyped int`) cannot be converted to `int8`")
 	expectError(t, "_test/src/comp", []string{"struct-err-11.go"},
 		"`int` is not assignable to `int8`")
+	expectError(t, "_test/src/comp", []string{"struct-err-12.go"},
+		"struct literal mixes field:value and value initializers")
 }
 
 func TestLiteralErr(t *testing.T) {
