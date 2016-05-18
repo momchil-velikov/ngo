@@ -6,14 +6,13 @@ import (
 )
 
 type exprVerifier struct {
-	Pkg     *ast.Package
-	File    *ast.File
-	Files   []*ast.File
-	Syms    []ast.Symbol
-	Xs      []ast.Expr
-	Done    map[*ast.Const]struct{}
-	TypeCtx ast.Type
-	Iota    int
+	Pkg   *ast.Package
+	File  *ast.File
+	Files []*ast.File
+	Syms  []ast.Symbol
+	Xs    []ast.Expr
+	Done  map[*ast.Const]struct{}
+	Iota  int
 }
 
 func verifyExprs(pkg *ast.Package) error {
@@ -90,7 +89,7 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	ev.beginCheck(c, c.File)
 	defer func() { ev.endCheck(); ev.Iota = iota }()
 
-	x, err := ev.checkExpr(c.Init, nil)
+	x, err := ev.checkExpr(c.Init)
 	if err != nil {
 		return err
 	}
@@ -134,7 +133,7 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 	if len(v.Init.LHS) > 1 && len(v.Init.RHS) == 1 {
 		// Check the initializer and the type.
 		ev.beginFile(v.File)
-		x, err := ev.checkExpr(v.Init.RHS[0], nil)
+		x, err := ev.checkExpr(v.Init.RHS[0])
 		ev.endFile()
 		if err != nil {
 			return err
@@ -171,7 +170,7 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 
 	// Check the initializer expression and the type.
 	ev.beginFile(v.File)
-	x, err := ev.checkExpr(v.Init.RHS[i], nil)
+	x, err := ev.checkExpr(v.Init.RHS[i])
 	ev.endFile()
 	if err != nil {
 		return err
@@ -279,16 +278,14 @@ func (ev *exprVerifier) checkExprLoop(x ast.Expr) []ast.Expr {
 	return nil
 }
 
-func (ev *exprVerifier) checkExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
+func (ev *exprVerifier) checkExpr(x ast.Expr) (ast.Expr, error) {
 	if l := ev.checkExprLoop(x); l != nil {
 		return nil, &ExprLoop{Off: x.Position(), File: ev.File}
 	}
 
-	typ, ev.TypeCtx = ev.TypeCtx, typ
 	ev.Xs = append(ev.Xs, x)
 	x, err := x.TraverseExpr(ev)
 	ev.Xs = ev.Xs[:len(ev.Xs)-1]
-	typ, ev.TypeCtx = ev.TypeCtx, typ
 	return x, err
 }
 
@@ -312,7 +309,7 @@ func (ev *exprVerifier) checkArrayLength(t *ast.ArrayType) (*ast.ConstValue, err
 	if t.Dim == nil {
 		return nil, &BadUnspecArrayLen{Off: t.Position(), File: ev.File}
 	}
-	x, err := ev.checkExpr(t.Dim, nil)
+	x, err := ev.checkExpr(t.Dim)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +503,7 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 	for _, elt := range x.Elts {
 		if elt.Key != nil {
 			// Check index.
-			k, err := ev.checkExpr(elt.Key, nil)
+			k, err := ev.checkExpr(elt.Key)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -542,7 +539,7 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 		}
 		idx++
 		// Check element value.
-		e, err := ev.checkExpr(elt.Elt, etyp)
+		e, err := ev.checkExpr(elt.Elt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -564,7 +561,7 @@ func (ev *exprVerifier) checkMapLiteral(
 		if elt.Key != nil {
 			n++
 			// Check key.
-			k, err := ev.checkExpr(elt.Key, t.Key)
+			k, err := ev.checkExpr(elt.Key)
 			if err != nil {
 				return nil, err
 			}
@@ -575,7 +572,7 @@ func (ev *exprVerifier) checkMapLiteral(
 			elt.Key = k
 		}
 		// Check element value.
-		e, err := ev.checkExpr(elt.Elt, t.Elt)
+		e, err := ev.checkExpr(elt.Elt)
 		if err != nil {
 			return nil, err
 		}
@@ -735,7 +732,7 @@ func (ev *exprVerifier) checkStructLiteral(
 
 	if x.Elts[0].Key == nil {
 		for i, n := 0, len(str.Fields); i < n; i++ {
-			y, err := ev.checkExpr(x.Elts[i].Elt, str.Fields[i].Type)
+			y, err := ev.checkExpr(x.Elts[i].Elt)
 			if err != nil {
 				return nil, err
 			}
@@ -754,7 +751,7 @@ func (ev *exprVerifier) checkStructLiteral(
 				return nil, &DupLitField{Off: x.Off, File: ev.File, Name: id.Id}
 			}
 			keys[id.Id] = struct{}{}
-			y, err := ev.checkExpr(elt.Elt, f.Type)
+			y, err := ev.checkExpr(elt.Elt)
 			if err != nil {
 				return nil, err
 			}
@@ -860,7 +857,7 @@ func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 		}
 	}
 	// Not a builtin call. Check the called expression.
-	fn, err := ev.checkExpr(x.Func, nil)
+	fn, err := ev.checkExpr(x.Func)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +898,7 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
-	y, err := ev.checkExpr(x.Xs[0], nil)
+	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err
 	}
@@ -951,7 +948,7 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 	if err := ev.checkType(x.Typ); err != nil {
 		return nil, err
 	}
-	y, err := ev.checkExpr(x.X, x.Typ)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1003,7 +1000,7 @@ func (ev *exprVerifier) VisitFunc(x *ast.Func) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, error) {
-	y, err := ev.checkExpr(x.X, nil)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1030,7 +1027,7 @@ func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, erro
 }
 
 func (ev *exprVerifier) VisitSelector(x *ast.Selector) (ast.Expr, error) {
-	y, err := ev.checkExpr(x.X, nil)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1039,13 +1036,13 @@ func (ev *exprVerifier) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
-	y, err := ev.checkExpr(x.X, nil)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
 	x.X = y
 
-	y, err = ev.checkExpr(x.I, nil)
+	y, err = ev.checkExpr(x.I)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1157,7 @@ func (ev *exprVerifier) checkMapIndexExpr(
 }
 
 func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
-	y, err := ev.checkExpr(x.X, nil)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1169,21 +1166,21 @@ func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 	if x.Lo == nil {
 		x.Lo = &ast.ConstValue{Off: -1, Typ: ast.BuiltinInt, Value: ast.Int(0)}
 	} else {
-		y, err = ev.checkExpr(x.Lo, ast.BuiltinInt)
+		y, err = ev.checkExpr(x.Lo)
 		if err != nil {
 			return nil, err
 		}
 		x.Lo = y
 	}
 	if x.Hi != nil {
-		y, err = ev.checkExpr(x.Hi, ast.BuiltinInt)
+		y, err = ev.checkExpr(x.Hi)
 		if err != nil {
 			return nil, err
 		}
 		x.Hi = y
 	}
 	if x.Cap != nil {
-		y, err = ev.checkExpr(x.Cap, ast.BuiltinInt)
+		y, err = ev.checkExpr(x.Cap)
 		if err != nil {
 			return nil, err
 		}
@@ -1326,7 +1323,7 @@ func (ev *exprVerifier) checkSliceSliceExpr(x *ast.SliceExpr) (ast.Expr, error) 
 }
 
 func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
-	y, err := ev.checkExpr(x.X, nil)
+	y, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
@@ -1367,11 +1364,11 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		return ev.checkShift(x)
 	}
 
-	u, err := ev.checkExpr(x.X, nil)
+	u, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
-	v, err := ev.checkExpr(x.Y, nil)
+	v, err := ev.checkExpr(x.Y)
 	if err != nil {
 		return nil, err
 	}
@@ -1469,11 +1466,11 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
-	u, err := ev.checkExpr(x.X, nil)
+	u, err := ev.checkExpr(x.X)
 	if err != nil {
 		return nil, err
 	}
-	v, err := ev.checkExpr(x.Y, nil)
+	v, err := ev.checkExpr(x.Y)
 	if err != nil {
 		return nil, err
 	}
