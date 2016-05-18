@@ -322,3 +322,7 @@ func TestInfer13(t *testing.T) {
 		t.Error("the type of `b` must be `S`")
 	}
 }
+
+func TestInfer14(t *testing.T) {
+	expectError(t, "_test/src/infer", []string{"infer-14.go"}, "inference loop")
+}
