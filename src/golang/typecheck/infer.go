@@ -8,11 +8,10 @@ import (
 type typeInferer struct {
 	Pkg     *ast.Package
 	File    *ast.File
-	Done    map[ast.Symbol]struct{}
 	Files   []*ast.File
 	Syms    []ast.Symbol
-	Xs      []ast.Expr
 	TypeCtx ast.Type
+	Done    map[ast.Symbol]struct{}
 	Delay   []delayInfer
 }
 
@@ -276,14 +275,6 @@ func (ti *typeInferer) endCheck() {
 	ti.endFile()
 }
 
-func (ti *typeInferer) breakEvalChain() {
-	ti.Syms = append(ti.Syms, nil)
-}
-
-func (ti *typeInferer) restoreEvalChain() {
-	ti.Syms = ti.Syms[:len(ti.Syms)-1]
-}
-
 func (ti *typeInferer) checkLoop(sym ast.Symbol) []ast.Symbol {
 	for i := len(ti.Syms) - 1; i >= 0; i-- {
 		s := ti.Syms[i]
@@ -297,24 +288,9 @@ func (ti *typeInferer) checkLoop(sym ast.Symbol) []ast.Symbol {
 	return nil
 }
 
-func (ti *typeInferer) checkExprLoop(x ast.Expr) []ast.Expr {
-	for i := len(ti.Xs) - 1; i >= 0; i-- {
-		if x == ti.Xs[i] {
-			return ti.Xs[i:]
-		}
-	}
-	return nil
-}
-
 func (ti *typeInferer) inferExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
-	if l := ti.checkExprLoop(x); l != nil {
-		return nil, &ExprLoop{Off: x.Position(), File: ti.File}
-	}
-
 	typ, ti.TypeCtx = ti.TypeCtx, typ
-	ti.Xs = append(ti.Xs, x)
 	x, err := x.TraverseExpr(ti)
-	ti.Xs = ti.Xs[:len(ti.Xs)-1]
 	typ, ti.TypeCtx = ti.TypeCtx, typ
 	return x, err
 }
