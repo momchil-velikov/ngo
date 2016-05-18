@@ -70,7 +70,7 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	}
 
 	if c.Type == nil {
-		panic("internal error: constant type should be infered")
+		panic("not reached")
 	}
 
 	// Check for a constant evaluation loop.
@@ -78,6 +78,7 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 	if l := ev.checkLoop(c); l != nil {
 		return &TypeInferLoop{Loop: l}
 	}
+
 	// Check if we have already evaluated the value of this constant.
 	if _, ok := ev.Done[c]; ok {
 		return nil
@@ -98,9 +99,7 @@ func (ev *exprVerifier) checkConstDecl(c *ast.Const) error {
 		return &NotConst{Off: x.Position(), File: c.File, What: "const initializer"}
 	}
 
-	if t := builtinType(c.Type); t == nil {
-		return &BadConstType{Off: c.Off, File: c.File, Type: c.Type}
-	} else if !t.IsUntyped() {
+	if t := builtinType(c.Type); !t.IsUntyped() {
 		if y, err := ev.isAssignable(c.Type, x); err != nil {
 			return err
 		} else {
@@ -117,13 +116,12 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 	if v.File == nil || v.File.Pkg != ev.Pkg {
 		return nil
 	}
-
-	ev.beginFile(v.File)
-	defer func() { ev.endFile() }()
-
 	if v.Type == nil {
 		panic("not reached")
 	}
+
+	ev.beginFile(v.File)
+	defer func() { ev.endFile() }()
 
 	// If there are no initializer expressions, check the variable
 	// type. Otherwise, postpone type checking for after the initializer
@@ -423,31 +421,10 @@ func (ev *exprVerifier) VisitQualifiedId(*ast.QualifiedId) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
-	src := builtinType(x.Typ)
-	if !src.IsUntyped() || ev.TypeCtx == nil {
-		return x, nil
-	}
-
-	dst := ev.TypeCtx
-	if dst == ast.BuiltinDefault {
-		dst = defaultType(x.Type())
-	}
-	if t := builtinType(dst); t == nil {
-		return nil, &BadConstType{Off: x.Off, File: ev.File, Type: dst}
-	}
-	c, err := Convert(dst, x)
-	if err != nil {
-		return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
-	}
-	c.Off = x.Off
-	return c, nil
+	return x, nil
 }
 
 func (ev *exprVerifier) VisitCompLiteral(x *ast.CompLiteral) (ast.Expr, error) {
-	if x.Typ == nil {
-		return nil, &MissingLiteralType{x.Off, ev.File}
-	}
-
 	// If we have an array composite literal with no dimension, check first
 	// the literal value.
 	if t, ok := underlyingType(x.Typ).(*ast.ArrayType); ok && t.Dim == nil {
@@ -527,13 +504,6 @@ func (ev *exprVerifier) checkArrayOrSliceLiteral(
 	idx := int64(0)
 	max := int64(0)
 	for _, elt := range x.Elts {
-		// Assign type to elements, which are composite literals with elided
-		// type.
-		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
-			if c.Typ == nil {
-				c.Typ = etyp
-			}
-		}
 		if elt.Key != nil {
 			// Check index.
 			k, err := ev.checkExpr(elt.Key, nil)
@@ -591,15 +561,8 @@ func (ev *exprVerifier) checkMapLiteral(
 
 	n := 0
 	for _, elt := range x.Elts {
-		// Assign types to keys and elements, which are composite literals
-		// with elided type.
 		if elt.Key != nil {
 			n++
-			if c, ok := elt.Key.(*ast.CompLiteral); ok {
-				if c.Typ == nil {
-					c.Typ = t.Key
-				}
-			}
 			// Check key.
 			k, err := ev.checkExpr(elt.Key, t.Key)
 			if err != nil {
@@ -610,11 +573,6 @@ func (ev *exprVerifier) checkMapLiteral(
 				return nil, err
 			}
 			elt.Key = k
-		}
-		if c, ok := elt.Elt.(*ast.CompLiteral); ok {
-			if c.Typ == nil {
-				c.Typ = t.Elt
-			}
 		}
 		// Check element value.
 		e, err := ev.checkExpr(elt.Elt, t.Elt)
@@ -776,11 +734,7 @@ func (ev *exprVerifier) checkStructLiteral(
 	}
 
 	if x.Elts[0].Key == nil {
-		i, nf, ne := 0, len(str.Fields), len(x.Elts)
-		for i < nf && i < ne {
-			if x.Elts[i].Key != nil {
-				return nil, &MixedStructLiteral{Off: x.Off, File: ev.File}
-			}
+		for i, n := 0, len(str.Fields); i < n; i++ {
 			y, err := ev.checkExpr(x.Elts[i].Elt, str.Fields[i].Type)
 			if err != nil {
 				return nil, err
@@ -790,31 +744,16 @@ func (ev *exprVerifier) checkStructLiteral(
 				return nil, err
 			}
 			x.Elts[i].Elt = y
-			i++
-		}
-		if nf != ne {
-			return nil, &FieldEltMismatch{Off: x.Off, File: ev.File}
 		}
 	} else {
 		keys := make(map[string]struct{})
 		for _, elt := range x.Elts {
-			if elt.Key == nil {
-				return nil, &MixedStructLiteral{Off: x.Off, File: ev.File}
-			}
-			id, ok := elt.Key.(*ast.QualifiedId)
-			if !ok || len(id.Pkg) > 0 || id.Id == "_" {
-				return nil, &NotField{Off: elt.Key.Position(), File: ev.File}
-			}
+			id := elt.Key.(*ast.QualifiedId)
 			f := findField(str, id.Id)
-			if f == nil {
-				return nil, &NotFound{
-					Off: id.Off, File: ev.File, What: "field", Name: id.Id}
-			}
 			if _, ok := keys[id.Id]; ok {
 				return nil, &DupLitField{Off: x.Off, File: ev.File, Name: id.Id}
 			}
 			keys[id.Id] = struct{}{}
-
 			y, err := ev.checkExpr(elt.Elt, f.Type)
 			if err != nil {
 				return nil, err
@@ -837,7 +776,6 @@ func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 				return nil, err
 			}
 		}
-		x.Typ = d.Type
 		return x, nil
 	case *ast.Const:
 		var c *ast.ConstValue
@@ -877,7 +815,6 @@ func (ev *exprVerifier) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 		}
 		return c, nil
 	case *ast.FuncDecl:
-		x.Typ = d.Func.Sig
 		return x, nil
 	default:
 		panic("not reached")
@@ -928,30 +865,6 @@ func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Func = fn
-	ftyp, ok := fn.Type().(*ast.FuncType)
-	if !ok {
-		return nil, &NotFunc{Off: x.Off, File: ev.File, X: x}
-	}
-	switch len(ftyp.Returns) {
-	case 0:
-		// If the function has no returns, set the call expression type to
-		// `void`.
-		x.Typ = ast.BuiltinVoidType
-	case 1:
-		// If the function has a single return, set the type of the call
-		// expression to that return's type.
-		x.Typ = ftyp.Returns[0].Type
-	default:
-		// If the called function has multiple return values, set the type of
-		// the call expression to a new TupleType, containing the returns'
-		// types.
-		tp := make([]ast.Type, len(ftyp.Returns))
-		for i := range tp {
-			tp[i] = ftyp.Returns[i].Type
-		}
-		x.Typ = &ast.TupleType{Off: x.Off, Strict: true, Types: tp}
-	}
-
 	// FIXME: check arguments match parameters
 	return x, nil
 }
@@ -988,14 +901,14 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
-	if len(x.Xs) != 1 {
-		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
-	}
 	y, err := ev.checkExpr(x.Xs[0], nil)
 	if err != nil {
 		return nil, err
 	}
 	x.Xs[0] = y
+	// FIXME: the length is a constant expression only if the parameter is an
+	// expression or a string or array type, and without side effects(channel
+	// receives and non-constatnt calls)
 	if a, ok := underlyingType(y.Type()).(*ast.ArrayType); ok {
 		c, err := ev.checkArrayLength(a)
 		if err != nil {
@@ -1003,7 +916,6 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 		}
 		return c, nil
 	}
-	x.Typ = ast.BuiltinInt
 	return x, nil
 }
 
@@ -1076,39 +988,6 @@ func (ev *exprVerifier) VisitMethodExpr(x *ast.MethodExpr) (ast.Expr, error) {
 	if err := ev.checkType(x.RTyp); err != nil {
 		return nil, err
 	}
-	// Find the method.
-	m0, m1, vptr := findSelector(ev.File.Pkg, x.RTyp, x.Id)
-	if (m0.M != nil || m0.F != nil) && (m1.M != nil || m1.F != nil) {
-		return nil, &AmbiguousSelector{Off: x.Off, File: ev.File, Name: x.Id}
-	}
-	if m0.M == nil && m1.M == nil {
-		return nil, &NotFound{Off: x.Off, File: ev.File, What: "method", Name: x.Id}
-	}
-	// See whether the method has a pointer or value receiver.
-	m := m0.M
-	rptr := false
-	if rcv := m.Func.Recv; rcv != nil {
-		// The receiver can be NIL only if the method returned is from an
-		// interface type declaration
-		if _, ok := rcv.Type.(*ast.PtrType); ok {
-			rptr = true
-		}
-	}
-	if rptr && !vptr {
-		// The combination of pointer receiver method and a value type in the
-		// method expression is invalid.
-		return nil, &BadMethodExpr{Off: x.Off, File: ev.File}
-	}
-	// Construct the function type of the method expression.
-	ftyp := &ast.FuncType{
-		Off:     -1,
-		Params:  make([]ast.Param, 1+len(m.Func.Sig.Params)),
-		Returns: m.Func.Sig.Returns,
-		Var:     m.Func.Sig.Var,
-	}
-	copy(ftyp.Params[1:], m.Func.Sig.Params)
-	ftyp.Params[0].Type = x.RTyp
-	x.Typ = ftyp
 	return x, nil
 }
 
@@ -1147,11 +1026,6 @@ func (ev *exprVerifier) VisitTypeAssertion(x *ast.TypeAssertion) (ast.Expr, erro
 				Off: x.Off, File: ev.File, Type: x.ATyp, Ifc: x.X.Type()}
 		}
 	}
-	x.Typ = &ast.TupleType{
-		Off:    x.ATyp.Position(),
-		Strict: false,
-		Types:  []ast.Type{x.ATyp, ast.BuiltinUntypedBool},
-	}
 	return x, nil
 }
 
@@ -1161,19 +1035,6 @@ func (ev *exprVerifier) VisitSelector(x *ast.Selector) (ast.Expr, error) {
 		return nil, err
 	}
 	x.X = y
-	s0, s1, _ := findSelector(ev.File.Pkg, x.X.Type(), x.Id)
-	if s1.M != nil || s1.F != nil {
-		return nil, &AmbiguousSelector{Off: x.Position(), File: ev.File, Name: x.Id}
-	}
-	if s0.M == nil && s0.F == nil {
-		return nil, &NotFound{
-			Off: x.Off, File: ev.File, What: "field or method", Name: x.Id}
-	}
-	if s0.M != nil {
-		x.Typ = s0.M.Func.Sig
-	} else {
-		x.Typ = s0.F.Type
-	}
 	return x, nil
 }
 
@@ -1184,15 +1045,7 @@ func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	}
 	x.X = y
 
-	// For maps, the type context for the index is the map key type, for other
-	// indexed types, it's `int`.
-	var ctx ast.Type
-	if m, ok := x.X.Type().(*ast.MapType); ok {
-		ctx = m.Key
-	} else {
-		ctx = ast.BuiltinInt
-	}
-	y, err = ev.checkExpr(x.I, ctx)
+	y, err = ev.checkExpr(x.I, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1202,18 +1055,11 @@ func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	// expression is a pointer, the pointed to type must be an array type.
 	typ := underlyingType(x.X.Type())
 	if ptr, ok := typ.(*ast.PtrType); ok {
-		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
-		if !ok {
-			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
-		}
-		typ = b
+		typ = underlyingType(ptr.Base)
 	}
 
 	switch t := typ.(type) {
 	case *ast.BuiltinType:
-		if t.Kind != ast.BUILTIN_STRING && t.Kind != ast.BUILTIN_UNTYPED_STRING {
-			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
-		}
 		return ev.checkStringIndexExpr(x)
 	case *ast.ArrayType:
 		return ev.checkArrayIndexExpr(x, t)
@@ -1222,7 +1068,7 @@ func (ev *exprVerifier) VisitIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	case *ast.MapType:
 		return ev.checkMapIndexExpr(x, t)
 	default:
-		return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
+		panic("not reached")
 	}
 }
 
@@ -1251,12 +1097,10 @@ func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
 func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error) {
 	// If the type of the indexed expression is `string``, then the type of
 	// the index expression is `byte`.
-	x.Typ = ast.BuiltinUint8
 	idx, idxIsConst, err := ev.checkIndexValue(x.I)
 	if err != nil {
 		return nil, err
 	}
-
 	// Indexing a constant string with a constant index is NOT a constant
 	// expression, but still have to check the index is within bounds.
 	if c, ok := x.X.(*ast.ConstValue); ok && idxIsConst {
@@ -1265,22 +1109,17 @@ func (ev *exprVerifier) checkStringIndexExpr(x *ast.IndexExpr) (ast.Expr, error)
 			return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ev.File, Idx: idx}
 		}
 	}
-
 	return x, nil
 }
 
 func (ev *exprVerifier) checkArrayIndexExpr(
 	x *ast.IndexExpr, t *ast.ArrayType) (ast.Expr, error) {
 
-	// The type of the expression is the array element type.
-	x.Typ = t.Elt
-
 	// Check the index is integer and, if constant, within array bounds.
 	idx, idxIsConst, err := ev.checkIndexValue(x.I)
 	if err != nil {
 		return nil, err
 	}
-
 	if idxIsConst {
 		c, err := ev.checkArrayLength(t)
 		if err != nil {
@@ -1291,22 +1130,17 @@ func (ev *exprVerifier) checkArrayIndexExpr(
 			return nil, &IndexOutOfBounds{Off: x.I.Position(), File: ev.File, Idx: idx}
 		}
 	}
-
 	return x, nil
 }
 
 func (ev *exprVerifier) checkSliceIndexExpr(
 	x *ast.IndexExpr, t *ast.SliceType) (ast.Expr, error) {
 
-	// The type of the expression is the array element type.
-	x.Typ = t.Elt
-
 	// Check the index is integer and non-negative
 	_, _, err := ev.checkIndexValue(x.I)
 	if err != nil {
 		return nil, err
 	}
-
 	return x, nil
 }
 
@@ -1322,14 +1156,6 @@ func (ev *exprVerifier) checkMapIndexExpr(
 		return nil, &NotAssignable{
 			Off: x.I.Position(), File: ev.File, DType: t.Key, SType: x.I.Type()}
 	}
-
-	// If the type of the indexed expression is a map, then the type of the
-	// expression is a non-strict pair of map element type and bool.
-	x.Typ = &ast.TupleType{
-		Off:    -1,
-		Strict: false,
-		Types:  []ast.Type{t.Elt, ast.BuiltinUntypedBool},
-	}
 	return x, nil
 }
 
@@ -1339,6 +1165,7 @@ func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 		return nil, err
 	}
 	x.X = y
+
 	if x.Lo == nil {
 		x.Lo = &ast.ConstValue{Off: -1, Typ: ast.BuiltinInt, Value: ast.Int(0)}
 	} else {
@@ -1365,35 +1192,22 @@ func (ev *exprVerifier) VisitSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
 
 	typ := underlyingType(x.X.Type())
 	if ptr, ok := typ.(*ast.PtrType); ok {
-		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
-		if !ok {
-			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
-		}
-		typ = b
-
+		typ = underlyingType(ptr.Base)
 	}
 
 	switch t := typ.(type) {
 	case *ast.BuiltinType:
-		if t.Kind != ast.BUILTIN_STRING && t.Kind != ast.BUILTIN_UNTYPED_STRING {
-			return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
-		}
-		x, err := ev.checkStringSliceExpr(x)
-		return x, err
+		return ev.checkStringSliceExpr(x)
 	case *ast.ArrayType:
 		return ev.checkArraySliceExpr(x, t)
 	case *ast.SliceType:
 		return ev.checkSliceSliceExpr(x)
 	default:
-		return nil, &BadIndexedType{Off: x.Off, File: ev.File, Type: typ}
+		panic("not reached")
 	}
 }
 
 func (ev *exprVerifier) checkStringSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
-	// If the type of the indexed expression is `string``, then the type of
-	// the slice expression is a non-constant string.
-	x.Typ = ast.BuiltinString
-
 	// Check index types
 	var (
 		err                  error
@@ -1412,7 +1226,6 @@ func (ev *exprVerifier) checkStringSliceExpr(x *ast.SliceExpr) (ast.Expr, error)
 			return nil, err
 		}
 	}
-
 	// Check indices are within bounds.
 	if c, ok := x.X.(*ast.ConstValue); ok {
 		s := string(c.Value.(ast.String))
@@ -1427,15 +1240,11 @@ func (ev *exprVerifier) checkStringSliceExpr(x *ast.SliceExpr) (ast.Expr, error)
 	if x.Cap != nil {
 		return nil, &BadSliceExpr{Off: x.Off, File: ev.File}
 	}
-
 	return x, nil
 }
 
 func (ev *exprVerifier) checkArraySliceExpr(
 	x *ast.SliceExpr, t *ast.ArrayType) (ast.Expr, error) {
-
-	// Slicing an array produces a slice of the array element type.
-	x.Typ = &ast.SliceType{Off: t.Off, Elt: t.Elt}
 
 	// Check index types.
 	var (
@@ -1461,7 +1270,6 @@ func (ev *exprVerifier) checkArraySliceExpr(
 			return nil, err
 		}
 	}
-
 	// Check indices are within bounds.
 	c, err := ev.checkArrayLength(t)
 	if err != nil {
@@ -1482,8 +1290,6 @@ func (ev *exprVerifier) checkArraySliceExpr(
 }
 
 func (ev *exprVerifier) checkSliceSliceExpr(x *ast.SliceExpr) (ast.Expr, error) {
-	// Slicing a slice produces a slice of the same type.
-	x.Typ = x.X.Type()
 
 	// Check index types.
 	var (
@@ -1509,7 +1315,6 @@ func (ev *exprVerifier) checkSliceSliceExpr(x *ast.SliceExpr) (ast.Expr, error) 
 			return nil, err
 		}
 	}
-
 	// Check indices are within bounds.
 	if loIsConst && (hiIsConst && lo > hi || capIsConst && lo > cap) {
 		return nil, &IndexOutOfBounds{Off: x.Lo.Position(), File: ev.File, Idx: lo}
@@ -1526,130 +1331,35 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 		return nil, err
 	}
 
-	if _, ok := y.(*ast.ConstValue); !ok && y.Type() == nil {
-		y, err = ev.checkExpr(y, ev.TypeCtx)
-		if err != nil {
-			return nil, err
-		}
-		if y.Type() == nil {
-			return x, nil
-		}
+	c, ok := y.(*ast.ConstValue)
+	if !ok {
+		x.X = y
+		return x, nil
 	}
 
 	switch x.Op {
 	case '+':
-		return ev.checkUnaryPlus(x, y)
+		return c, nil
 	case '-':
-		return ev.checkUnaryMinus(x, y)
-	case '!':
-		return ev.checkNot(x, y)
-	case '^':
-		return ev.checkComplement(x, y)
-	case '*':
-		return ev.checkIndirection(x, y)
-	case '&':
-		return ev.checkAddr(x, y)
-	case ast.RECV:
-		return ev.checkRecv(x, y)
-	default:
-		panic("not reached")
-	}
-}
-
-func (ev *exprVerifier) checkUnaryPlus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if !isArith(y) {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '+'}
-	}
-	if _, ok := y.(*ast.ConstValue); ok {
-		return y, nil
-	} else {
-		x.X = y
-		x.Typ = y.Type()
-		return x, nil
-	}
-}
-
-func (ev *exprVerifier) checkUnaryMinus(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if !isArith(y) {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '-'}
-	}
-	if c, ok := y.(*ast.ConstValue); ok {
 		d, err := Minus(c)
 		if err != nil {
 			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
 		}
 		d.Off = x.Off
 		return d, nil
-	} else {
-		x.X = y
-		x.Typ = y.Type()
-		return x, nil
-	}
-}
-
-func (ev *exprVerifier) checkNot(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if t := builtinType(y.Type()); t == nil ||
-		t.Kind != ast.BUILTIN_BOOL && t.Kind != ast.BUILTIN_UNTYPED_BOOL {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '!'}
-	}
-	if c, ok := y.(*ast.ConstValue); ok {
-		v, ok := c.Value.(ast.Bool)
-		if !ok {
-			return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '!'}
-		}
+	case '!':
+		v := c.Value.(ast.Bool)
 		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: !v}, nil
-	} else {
-		x.X = y
-		x.Typ = y.Type()
-		return x, nil
-	}
-}
-
-func (ev *exprVerifier) checkComplement(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if t := builtinType(y.Type()); t == nil || !t.IsUntyped() && !t.IsInteger() {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '^'}
-	}
-	if c, ok := y.(*ast.ConstValue); ok {
+	case '^':
 		d, err := Complement(c)
 		if err != nil {
 			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
 		}
 		d.Off = x.Off
 		return d, nil
-	} else {
-		x.X = y
-		x.Typ = y.Type()
-		return x, nil
+	default:
+		panic("not reached")
 	}
-}
-
-func (ev *exprVerifier) checkIndirection(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	ptr, ok := underlyingType(y.Type()).(*ast.PtrType)
-	if !ok {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '*'}
-	}
-	x.X = y
-	x.Typ = ptr.Base
-	return x, nil
-}
-
-func (ev *exprVerifier) checkAddr(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	if !isAddressable(y) {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: '&'}
-	}
-	x.X = y
-	x.Typ = &ast.PtrType{Off: x.Off, Base: y.Type()}
-	return x, nil
-}
-
-func (ev *exprVerifier) checkRecv(x *ast.UnaryExpr, y ast.Expr) (ast.Expr, error) {
-	ch, ok := underlyingType(y.Type()).(*ast.ChanType)
-	if !ok || !ch.Recv {
-		return nil, &BadOperand{Off: y.Position(), File: ev.File, Op: ast.RECV}
-	}
-	x.X = y
-	x.Typ = &ast.TupleType{Off: x.Off, Types: []ast.Type{ch.Elt, ast.BuiltinUntypedBool}}
-	return x, nil
 }
 
 func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
@@ -1657,9 +1367,6 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		return ev.checkShift(x)
 	}
 
-	// Check the operands without a type context first, as a type context from
-	// one operand takes precedence over type context passed by the parent
-	// expression.
 	u, err := ev.checkExpr(x.X, nil)
 	if err != nil {
 		return nil, err
@@ -1667,18 +1374,6 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 	v, err := ev.checkExpr(x.Y, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	switch t0, t1 := u.Type(), v.Type(); {
-	case isUntyped(t0) && !isUntyped(t1):
-		// If one operand is untyped, convert it to the type of the other operand
-		if u, err = ev.checkExpr(u, t1); err != nil {
-			return nil, err
-		}
-	case !isUntyped(t0) && isUntyped(t1):
-		if v, err = ev.checkExpr(v, t0); err != nil {
-			return nil, err
-		}
 	}
 
 	// Evaluate constant binary expressions.
@@ -1714,26 +1409,11 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		}
 	}
 
-	// If both operands are without a type, retry with the type context.
-	if isUntyped(u.Type()) && isUntyped(v.Type()) {
-		if ev.TypeCtx == nil {
-			return x, nil
-		}
-		if u, err = ev.checkExpr(u, ev.TypeCtx); err != nil {
-			return nil, err
-		}
-		if v, err = ev.checkExpr(v, ev.TypeCtx); err != nil {
-			return nil, err
-		}
-		if isUntyped(u.Type()) && isUntyped(v.Type()) {
-			return x, nil
-		}
-	}
-
-	// Check compatibility of operand types.
+	// Check compatibility of operand types. For comparison operators, one of
+	// the operands must be assignable to the type of the other operand. For
+	// other operators, the operand types must be identical, which is checked
+	// during type inference.
 	if x.Op.IsComparison() {
-		// For comparison operators, one of the operands must be assignable to
-		// the type of the other operand.
 		if ok, err := ev.isAssignableType(u.Type(), v.Type()); err != nil {
 			return nil, err
 		} else if !ok {
@@ -1744,20 +1424,10 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 					Off: x.Off, File: ev.File, XType: u.Type(), YType: v.Type()}
 			}
 		}
-		// Comparison operators yield an untyped boolean value.
-		x.Typ = ast.BuiltinUntypedBool
-	} else {
-		// For other operators, the operand types must be identical.
-		if ok, err := ev.identicalTypes(u.Type(), v.Type()); err != nil {
-			return nil, err
-		} else if !ok {
-			return nil, &BadBinaryOperands{
-				Off: x.Off, File: ev.File, Op: x.Op, XType: u.Type(), YType: v.Type()}
-		}
-		x.Typ = u.Type()
 	}
 
-	// Check applicability of the operation to the operand type.
+	// Check applicability of a comparison operation to the operand
+	// types. Other operations are checked durting type inference.
 	utyp, vtyp := underlyingType(u.Type()), underlyingType(v.Type())
 	switch x.Op {
 	case ast.EQ, ast.NE:
@@ -1791,30 +1461,6 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		if !isOrdered(utyp) {
 			return nil, &NotOrdered{Off: u.Position(), File: ev.File, Type: u.Type()}
 		}
-	case '+':
-		utyp := builtinType(utyp)
-		if utyp == nil || !(utyp.IsArith() || utyp.Kind == ast.BUILTIN_STRING) {
-			return nil, &NotSupportedOperation{
-				Off: x.Off, File: ev.File, Op: '+', Type: u.Type()}
-		}
-	case '-', '*', '/':
-		utyp := builtinType(utyp)
-		if utyp == nil || !utyp.IsArith() {
-			return nil, &NotSupportedOperation{
-				Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
-		}
-	case '%', '&', '|', '^', ast.ANDN:
-		utyp := builtinType(utyp)
-		if utyp == nil || !utyp.IsInteger() {
-			return nil, &NotSupportedOperation{
-				Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
-		}
-	case ast.AND, ast.OR:
-		utyp := builtinType(utyp)
-		if utyp == nil || utyp != ast.BuiltinBool && utyp != ast.BuiltinUntypedBool {
-			return nil, &NotSupportedOperation{
-				Off: x.Off, File: ev.File, Op: x.Op, Type: u.Type()}
-		}
 	}
 
 	x.X = u
@@ -1823,14 +1469,10 @@ func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
-	// Check the left operand without a type context as the whole shift
-	// expression might be a constant.
 	u, err := ev.checkExpr(x.X, nil)
 	if err != nil {
 		return nil, err
 	}
-	// Check the right operand. Convert untyped constants at this point to
-	// `uint64`.
 	v, err := ev.checkExpr(x.Y, nil)
 	if err != nil {
 		return nil, err
@@ -1847,31 +1489,13 @@ func (ev *exprVerifier) checkShift(x *ast.BinaryExpr) (ast.Expr, error) {
 		}
 	}
 
-	// If the type of the left operand is unknown or untyped, retry with a
-	// type context.
-	if isUntyped(u.Type()) {
-		if ev.TypeCtx == nil {
-			return x, nil
-		}
-		if u, err = ev.checkExpr(u, ev.TypeCtx); err != nil {
-			return nil, err
-		}
-		if isUntyped(u.Type()) {
-			return x, nil
-		}
-	}
-
-	// The left operand should have integer type.
-	if t := builtinType(u.Type()); t == nil || !t.IsInteger() {
-		return nil, &BadOperand{Off: u.Position(), File: ev.File, Op: x.Op}
-	}
-	// The right operand should have unsigned integer type.
+	// The right operand should have unsigned integer type.  The left operand
+	// should have integer type, which is checked in during type inference.
 	if t := builtinType(v.Type()); t == nil || !t.IsInteger() || t.IsSigned() {
 		return nil, &BadShiftCount{Off: v.Position(), File: ev.File}
 	}
 	x.X = u
 	x.Y = v
-	x.Typ = u.Type()
 	return x, nil
 }
 

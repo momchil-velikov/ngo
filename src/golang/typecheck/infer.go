@@ -798,9 +798,6 @@ func (ti *typeInferer) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ti *typeInferer) inferBuiltinLenArg(x *ast.Call) error {
-	if x.ATyp != nil {
-		return &BadTypeArg{Off: x.Off, File: ti.File}
-	}
 	if len(x.Xs) != 1 {
 		return &BadArgNumber{Off: x.Off, File: ti.File}
 	}
@@ -1371,6 +1368,7 @@ func (ti *typeInferer) inferShift(x *ast.BinaryExpr) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+	ti.delay(func() error { return ti.inferShiftCount(x) })
 
 	if u.Type() == nil || isUntyped(u.Type()) && !ti.isConst(x.Y) {
 		if ti.TypeCtx == nil {
@@ -1472,5 +1470,14 @@ func (ti *typeInferer) inferComparisonExprOperands(x *ast.BinaryExpr) error {
 
 	x.X = u
 	x.Y = v
+	return nil
+}
+
+func (ti *typeInferer) inferShiftCount(x *ast.BinaryExpr) error {
+	y, err := ti.inferExpr(x.Y, nil)
+	if err != nil {
+		return err
+	}
+	x.Y = y
 	return nil
 }
