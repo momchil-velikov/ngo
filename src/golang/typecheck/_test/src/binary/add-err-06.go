@@ -1,6 +1,7 @@
 package binary
 
 var (
-	A, B *int = nil, nil
-	C         = A + B
+	A int
+	B *int
+	C = A + B
 )

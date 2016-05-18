@@ -1,9 +1,6 @@
 package typecheck
 
-import (
-	"fmt"
-	"golang/ast"
-)
+import "golang/ast"
 
 type typeInferer struct {
 	Pkg     *ast.Package
@@ -1239,7 +1236,7 @@ func (ti *typeInferer) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		// Both operands ought to be untyped here, or else we would have
 		// already converted the untyped one to the type of the other.
 		if !(utyp.IsUntyped() && vtyp.IsUntyped()) {
-			panic(fmt.Sprintf("*** utyp = `%s`, vtyp = `%s`", utyp, vtyp))
+			panic("not reached")
 		}
 		switch x.Op {
 		case '+':
@@ -1392,9 +1389,6 @@ func (ti *typeInferer) inferShift(x *ast.BinaryExpr) (ast.Expr, error) {
 }
 
 func (ti *typeInferer) inferComparisonExprOperands(x *ast.BinaryExpr) error {
-	// Infer the operands without a type context first, as a type context from
-	// one operand takes precedence over type context passed by the parent
-	// expression.
 	u, err := ti.inferExpr(x.X, nil)
 	if err != nil {
 		return err
@@ -1428,8 +1422,8 @@ func (ti *typeInferer) inferComparisonExprOperands(x *ast.BinaryExpr) error {
 		}
 	}
 
-	// Force the type from the context, if the operands are non-constant, but
-	// still untyped.
+	// Force the default type, if the operands are non-constant, but still
+	// untyped.
 	if !ti.isConst(u) || !ti.isConst(v) {
 		if isUntyped(u.Type()) && isUntyped(v.Type()) {
 			if u, err = ti.inferExpr(u, ast.BuiltinDefault); err != nil {

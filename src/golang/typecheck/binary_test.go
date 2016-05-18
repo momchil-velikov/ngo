@@ -531,6 +531,8 @@ func TestAddErr(t *testing.T) {
 		"operation `+` not supported for `*int`")
 	expectError(t, "_test/src/binary", []string{"add-err-11.go"},
 		"invalid operation `+`: mismatched types `T0` and `T1`")
+	expectError(t, "_test/src/binary", []string{"add-err-12.go"},
+		"operation `+` not supported for `untyped bool`")
 }
 
 func TestSub(t *testing.T) {
@@ -1325,4 +1327,8 @@ func TestLogicalErr(t *testing.T) {
 		"invalid operation `&&`: mismatched types `bool` and `Bool`")
 	expectError(t, "_test/src/binary", []string{"logical-err-04.go"},
 		"operation `||` not supported for `int`")
+	expectError(t, "_test/src/binary", []string{"logical-err-05.go"},
+		"operation `&&` not supported for `untyped int`")
+	expectError(t, "_test/src/binary", []string{"logical-err-06.go"},
+		"operation `||` not supported for `untyped int`")
 }
