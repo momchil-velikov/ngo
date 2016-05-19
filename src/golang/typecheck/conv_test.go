@@ -234,6 +234,8 @@ func TestConvFloatErr(t *testing.T) {
 func TestConstErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"const-err-01.go"},
 		"`*int` is not a valid constant type")
+	expectError(t, "_test/src/conv", []string{"const-err-02.go"},
+		"`[]int` is not a valid constant type")
 }
 
 func TestConvNonConst(t *testing.T) {
