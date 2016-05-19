@@ -456,7 +456,7 @@ func (ev *exprVerifier) checkCompLiteral(
 	case *ast.StructType:
 		return ev.checkStructLiteral(t, x)
 	default:
-		return nil, &BadLiteralType{Off: x.Off, File: ev.File, Type: t}
+		panic("not reached")
 	}
 }
 
