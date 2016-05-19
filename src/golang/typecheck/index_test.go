@@ -63,4 +63,6 @@ func TestIndexExprErrr(t *testing.T) {
 		"1.1 (`untyped float`) cannot be converted to `I16`")
 	expectError(t, "_test/src/index", []string{"index-err-11.go"},
 		"`float64` is not assignable to `I16`")
+	expectError(t, "_test/src/index", []string{"index-err-12.go"},
+		"1.1 (`untyped float`) cannot be converted to `int`")
 }
