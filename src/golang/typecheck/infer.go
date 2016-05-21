@@ -1451,3 +1451,106 @@ func (ti *typeInferer) inferShiftCount(x *ast.BinaryExpr) error {
 	x.Y = y
 	return nil
 }
+
+func (ti *typeInferer) isConst(x ast.Expr) bool {
+	switch x := x.(type) {
+	case *ast.ConstValue:
+		return true
+	case *ast.OperandName:
+		_, ok := x.Decl.(*ast.Const)
+		return ok
+	case *ast.Call:
+		return ti.isConstCall(x)
+	case *ast.Conversion:
+		if t := builtinType(x.Typ); t == nil || t.Kind <= ast.BUILTIN_NIL_TYPE {
+			return false
+		}
+		return ti.isConst(x.X)
+	case *ast.UnaryExpr:
+		return x.Op != '*' && x.Op != '&' && ti.isConst(x.X)
+	case *ast.BinaryExpr:
+		return ti.isConst(x.X) && ti.isConst(x.Y)
+	default:
+		return false
+	}
+}
+
+func (ti *typeInferer) isConstCall(x *ast.Call) bool {
+	// Only builtin calls can possibly be constant expressions.
+	op, ok := x.Func.(*ast.OperandName)
+	if !ok {
+		return false
+	}
+	d, ok := op.Decl.(*ast.FuncDecl)
+	if !ok {
+		return false
+	}
+	switch d {
+	case ast.BuiltinLen, ast.BuiltinCap:
+		if len(x.Xs) != 1 {
+			return false
+		}
+		y, err := ti.inferExpr(x.Xs[0], nil)
+		if err != nil {
+			return false
+		}
+		x.Xs[0] = y
+		if y.Type() == nil {
+			return false
+		}
+		t := underlyingType(y.Type())
+		if ptr, ok := t.(*ast.PtrType); ok {
+			a, ok := underlyingType(ptr.Base).(*ast.ArrayType)
+			if !ok {
+				return false
+			}
+			t = a
+		}
+		switch t := underlyingType(y.Type()).(type) {
+		case *ast.BuiltinType:
+			return d == ast.BuiltinLen &&
+				(t.Kind == ast.BUILTIN_STRING || t.Kind == ast.BUILTIN_UNTYPED_STRING) &&
+				ti.isConst(y)
+		case *ast.ArrayType:
+			return !ti.hasSideEffects(y)
+		default:
+			return false
+		}
+	case ast.BuiltinComplex:
+		return len(x.Xs) == 2 && ti.isConst(x.Xs[0]) && ti.isConst(x.Xs[1])
+	case ast.BuiltinImag, ast.BuiltinReal:
+		return len(x.Xs) == 1 && ti.isConst(x.Xs[0])
+	}
+	return false
+}
+
+func (ti *typeInferer) hasSideEffects(x ast.Expr) bool {
+	switch x := x.(type) {
+	case *ast.CompLiteral:
+		for _, e := range x.Elts {
+			if e.Key != nil && ti.hasSideEffects(e.Key) || ti.hasSideEffects(e.Elt) {
+				return true
+			}
+		}
+		return false
+	case *ast.Call:
+		return !ti.isConstCall(x)
+	case *ast.Conversion:
+		return ti.hasSideEffects(x.X)
+	case *ast.TypeAssertion:
+		return ti.hasSideEffects(x.X)
+	case *ast.Selector:
+		return ti.hasSideEffects(x.X)
+	case *ast.IndexExpr:
+		return ti.hasSideEffects(x.X) || ti.hasSideEffects(x.I)
+	case *ast.SliceExpr:
+		return ti.hasSideEffects(x.X) || ti.hasSideEffects(x.Lo) ||
+			ti.hasSideEffects(x.Hi) || ti.hasSideEffects(x.Cap)
+	case *ast.UnaryExpr:
+		return x.Op == ast.RECV || ti.hasSideEffects(x.X)
+	case *ast.BinaryExpr:
+		return ti.hasSideEffects(x.X) || ti.hasSideEffects(x.Y)
+	default:
+		return false
+	}
+}
