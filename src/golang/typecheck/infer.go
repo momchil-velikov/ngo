@@ -17,8 +17,12 @@ type delayInfer struct {
 	Fn   func() error
 }
 
+func newInferer(p *ast.Package) *typeInferer {
+	return &typeInferer{Pkg: p, Done: make(map[ast.Symbol]struct{})}
+}
+
 func inferTypes(pkg *ast.Package) error {
-	ti := typeInferer{Pkg: pkg, Done: make(map[ast.Symbol]struct{})}
+	ti := newInferer(pkg)
 
 	for _, s := range pkg.Syms {
 		var err error
