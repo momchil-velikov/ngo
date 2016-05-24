@@ -76,8 +76,9 @@ var (
 
 	L0 = len([...]int{1: A, 2: B})
 	L1 = len([...]int{1: f(), 2: B})
+	L2 = len([...]int{1: 2, 2: <-chS})
 
-	// FIXME: Postponed until issue #72 resolved
-	// C0 = cap([...]int{1: A, 2: B})
-	// C1 = cap([...]int{1: f(), 2: B})
+	C0 = cap([...]int{1: A, 2: B})
+	C1 = cap([...]int{1: f(), 2: B})
+	C2 = cap([...]int{1: 2, 2: <-chS})
 )

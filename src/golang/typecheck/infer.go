@@ -1468,12 +1468,12 @@ func (ti *typeInferer) isConst(x ast.Expr) bool {
 	case *ast.Call:
 		return ti.isConstCall(x)
 	case *ast.Conversion:
-		if t := builtinType(x.Typ); t == nil || t.Kind <= ast.BUILTIN_NIL_TYPE {
+		if t := builtinType(x.Typ); t == nil {
 			return false
 		}
 		return ti.isConst(x.X)
 	case *ast.UnaryExpr:
-		return x.Op != '*' && x.Op != '&' && ti.isConst(x.X)
+		return x.Op != '*' && x.Op != '&' && x.Op != ast.RECV && ti.isConst(x.X)
 	case *ast.BinaryExpr:
 		return ti.isConst(x.X) && ti.isConst(x.Y)
 	default:
@@ -1538,7 +1538,7 @@ func (ti *typeInferer) isConstCall(x *ast.Call) bool {
 			}
 			t = a
 		}
-		switch t := underlyingType(y.Type()).(type) {
+		switch t := underlyingType(t).(type) {
 		case *ast.BuiltinType:
 			return d == ast.BuiltinLen &&
 				(t.Kind == ast.BUILTIN_STRING || t.Kind == ast.BUILTIN_UNTYPED_STRING) &&
