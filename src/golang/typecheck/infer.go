@@ -283,6 +283,13 @@ func (ti *typeInferer) checkLoop(sym ast.Symbol) []ast.Symbol {
 	return nil
 }
 
+func (ti *typeInferer) inferMultiValueExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
+	typ, ti.TypeCtx = ti.TypeCtx, typ
+	x, err := x.TraverseExpr(ti)
+	typ, ti.TypeCtx = ti.TypeCtx, typ
+	return x, err
+}
+
 func (ti *typeInferer) inferExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
 	x, err := ti.inferMultiValueExpr(x, typ)
 	if err != nil {
@@ -291,11 +298,30 @@ func (ti *typeInferer) inferExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
 	return x, ti.forceSingleValue(x)
 }
 
-func (ti *typeInferer) inferMultiValueExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
-	typ, ti.TypeCtx = ti.TypeCtx, typ
-	x, err := x.TraverseExpr(ti)
-	typ, ti.TypeCtx = ti.TypeCtx, typ
-	return x, err
+func (ti *typeInferer) forceSingleValue(x ast.Expr) error {
+	var t ast.Type
+	if t = x.Type(); t == nil {
+		return nil
+	}
+	tp, ok := t.(*ast.TupleType)
+	if !ok {
+		return nil
+	}
+	if tp.Strict {
+		return &SingleValueContext{Off: x.Position(), File: ti.File}
+	}
+	t = tp.Types[0]
+	switch x := x.(type) {
+	case *ast.TypeAssertion:
+		x.Typ = t
+	case *ast.IndexExpr:
+		x.Typ = t
+	case *ast.UnaryExpr:
+		x.Typ = t
+	default:
+		panic("not reached")
+	}
+	return nil
 }
 
 func (*typeInferer) VisitError(*ast.Error) (*ast.Error, error) {
@@ -1479,32 +1505,6 @@ func (ti *typeInferer) isConst(x ast.Expr) bool {
 	default:
 		return false
 	}
-}
-
-func (ti *typeInferer) forceSingleValue(x ast.Expr) error {
-	var t ast.Type
-	if t = x.Type(); t == nil {
-		return nil
-	}
-	tp, ok := t.(*ast.TupleType)
-	if !ok {
-		return nil
-	}
-	if tp.Strict {
-		return &SingleValueContext{Off: x.Position(), File: ti.File}
-	}
-	t = tp.Types[0]
-	switch x := x.(type) {
-	case *ast.TypeAssertion:
-		x.Typ = t
-	case *ast.IndexExpr:
-		x.Typ = t
-	case *ast.UnaryExpr:
-		x.Typ = t
-	default:
-		panic("not reached")
-	}
-	return nil
 }
 
 func (ti *typeInferer) isConstCall(x *ast.Call) bool {
