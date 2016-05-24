@@ -158,8 +158,8 @@ func (e *BadMultiValueAssign) Error() string {
 	return fmt.Sprintf("%s:%d:%d: assignment count mismatch", e.File.Name, ln, col)
 }
 
-// The SingleValueContext error is returned whenever a multi-valued expression
-// is used in a sigle-valur context statements.
+// The SingleValueContext error is returned whenever a multi-value expression
+// is used in a single-value context.
 type SingleValueContext struct {
 	Off  int
 	File *ast.File

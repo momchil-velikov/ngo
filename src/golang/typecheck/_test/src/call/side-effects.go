@@ -45,23 +45,21 @@ var (
 	ch  chan int
 	Z   = <-ch
 
-	// FIXME: Postponed until issue #71 resolved
-	// Cr = int32(<-ch)
-	// Dr = int32(Z)
-	// Gr = (interface{})(<-ch).(int)
+	Cr = int32(<-ch)
+	Gr = (interface{})(<-ch).(int)
 
-	// chS chan Str
-	// Ir  = (<-chS).Y
+	chS chan Str
+	Ir  = (<-chS).Y
 
-	// Kr  = arr[<-ch]
-	// chA chan []Int
+	Kr  = arr[<-ch]
+	chA chan []Int
 
-	// Lr = (<-chA)[B]
-	// Mr = (<-chA)[f()]
-	// Tr = (<-chA)[:B:A]
-	// Ur = T[<-ch:B:A]
-	// Vr = T[:<-ch:A]
-	// Wr = T[:B:<-ch]
+	Lr = (<-chA)[B]
+	Mr = (<-chA)[f()]
+	Tr = (<-chA)[:B:A]
+	Ur = T[<-ch:B:A]
+	Vr = T[:<-ch:A]
+	Wr = T[:B:<-ch]
 
 	AA = A + A
 	AB = f() + B

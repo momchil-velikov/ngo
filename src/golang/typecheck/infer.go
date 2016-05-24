@@ -159,7 +159,7 @@ func (ti *typeInferer) inferVarDecl(v *ast.Var) error {
 			op := v.Init.LHS[i].(*ast.OperandName)
 			ti.beginCheck(op.Decl, v.File)
 		}
-		x, err := ti.inferExpr(v.Init.RHS[0], ctx)
+		x, err := ti.inferMultiValueExpr(v.Init.RHS[0], ctx)
 		for range v.Init.LHS { // FIXME: don't loop
 			ti.endCheck()
 		}
@@ -210,12 +210,6 @@ func (ti *typeInferer) inferVarDecl(v *ast.Var) error {
 	if err != nil {
 		return err
 	}
-
-	// Each initializer expression must be single-valued.
-	t := singleValueType(x.Type())
-	if t == nil {
-		return &SingleValueContext{Off: x.Position(), File: v.File}
-	}
 	v.Init.RHS[i] = x
 	if v.Type == nil {
 		// If the initializer expression is `nil`, the variable must be
@@ -223,7 +217,7 @@ func (ti *typeInferer) inferVarDecl(v *ast.Var) error {
 		if x.Type() == ast.BuiltinNilType {
 			return &NilUse{Off: x.Position(), File: v.File}
 		}
-		v.Type = defaultType(t)
+		v.Type = defaultType(x.Type())
 	}
 	return nil
 }
@@ -290,6 +284,14 @@ func (ti *typeInferer) checkLoop(sym ast.Symbol) []ast.Symbol {
 }
 
 func (ti *typeInferer) inferExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
+	x, err := ti.inferMultiValueExpr(x, typ)
+	if err != nil {
+		return nil, err
+	}
+	return x, ti.forceSingleValue(x)
+}
+
+func (ti *typeInferer) inferMultiValueExpr(x ast.Expr, typ ast.Type) (ast.Expr, error) {
 	typ, ti.TypeCtx = ti.TypeCtx, typ
 	x, err := x.TraverseExpr(ti)
 	typ, ti.TypeCtx = ti.TypeCtx, typ
@@ -671,7 +673,7 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 	// Check the special case `f(g(arguments-of-g))`.
 	if len(x.Xs) == 1 && !x.Ell {
 		if _, ok := x.Xs[0].(*ast.Call); ok {
-			y, err := ti.inferExpr(x.Xs[0], nil)
+			y, err := ti.inferMultiValueExpr(x.Xs[0], nil)
 			if err != nil {
 				return err
 			}
@@ -1477,6 +1479,32 @@ func (ti *typeInferer) isConst(x ast.Expr) bool {
 	default:
 		return false
 	}
+}
+
+func (ti *typeInferer) forceSingleValue(x ast.Expr) error {
+	var t ast.Type
+	if t = x.Type(); t == nil {
+		return nil
+	}
+	tp, ok := t.(*ast.TupleType)
+	if !ok {
+		return nil
+	}
+	if tp.Strict {
+		return &SingleValueContext{Off: x.Position(), File: ti.File}
+	}
+	t = tp.Types[0]
+	switch x := x.(type) {
+	case *ast.TypeAssertion:
+		x.Typ = t
+	case *ast.IndexExpr:
+		x.Typ = t
+	case *ast.UnaryExpr:
+		x.Typ = t
+	default:
+		panic("not reached")
+	}
+	return nil
 }
 
 func (ti *typeInferer) isConstCall(x *ast.Call) bool {

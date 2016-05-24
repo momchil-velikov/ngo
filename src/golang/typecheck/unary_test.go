@@ -590,14 +590,11 @@ func TestRecv(t *testing.T) {
 
 	T := p.Find("T").(*ast.TypeDecl)
 
-	A := p.Find("A").(*ast.Var)
-	if A.Type != T {
-		t.Error("`A` should have type `T`")
-	}
-
-	B := p.Find("B").(*ast.Var)
-	if B.Type != T {
-		t.Error("`B` should have type `T`")
+	for _, name := range []string{"A", "B", "C"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != T {
+			t.Errorf("`%s` should have type `T`\n", name)
+		}
 	}
 
 	ok := p.Find("ok").(*ast.Var)

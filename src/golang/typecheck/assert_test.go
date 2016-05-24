@@ -25,6 +25,7 @@ func TestAssert(t *testing.T) {
 		{"v", A},
 		{"w", S},
 		{"x", S},
+		{"q", ast.BuiltinInt},
 	} {
 		v := p.Find(cs.name).(*ast.Var)
 		if v.Type != cs.typ {

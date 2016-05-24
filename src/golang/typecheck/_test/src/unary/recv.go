@@ -8,4 +8,5 @@ var (
 
 	A     = <-in
 	B, ok = <-inout
+	C     = <-in + <-inout
 )

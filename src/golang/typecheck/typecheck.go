@@ -40,17 +40,6 @@ func isNamed(typ ast.Type) bool {
 	}
 }
 
-func singleValueType(typ ast.Type) ast.Type {
-	if t, ok := typ.(*ast.TupleType); ok {
-		if !t.Strict {
-			return t.Types[0]
-		} else {
-			return nil
-		}
-	}
-	return typ
-}
-
 func builtinType(typ ast.Type) *ast.BuiltinType {
 	t, _ := underlyingType(typ).(*ast.BuiltinType)
 	return t

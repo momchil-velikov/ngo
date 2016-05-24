@@ -29,4 +29,7 @@ var (
 	w, o2 = a.(S)
 	x, o3 = b.(S)
 	y, o4 = a.(*T)
+
+	p interface{}
+	q = p.(int) + 1
 )

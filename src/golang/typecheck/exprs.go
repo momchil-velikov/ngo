@@ -190,11 +190,10 @@ func (ev *exprVerifier) checkVarDecl(v *ast.Var) error {
 
 	// Check assignment compatibility of the initialization expression with
 	// the type.
-	t := singleValueType(x.Type())
-	if ok, err := ev.isAssignableType(v.Type, t); err != nil {
+	if ok, err := ev.isAssignableType(v.Type, x.Type()); err != nil {
 		return err
 	} else if !ok {
-		return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: t}
+		return &NotAssignable{Off: v.Off, File: v.File, DType: v.Type, SType: x.Type()}
 	}
 	v.Init.RHS[i] = x
 	return nil

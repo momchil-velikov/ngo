@@ -36,7 +36,13 @@ func TestIndexExpr(t *testing.T) {
 	ex := p.Find("ex").(*ast.Var)
 	d = ex.Type.(*ast.TypeDecl)
 	if d.Name != "F32" || underlyingType(d.Type) != ast.BuiltinFloat32 {
-		t.Error("the type of `dx` must be `F32`")
+		t.Error("the type of `ex` must be `F32`")
+	}
+
+	fx := p.Find("fx").(*ast.Var)
+	d = fx.Type.(*ast.TypeDecl)
+	if d.Name != "F32" || underlyingType(d.Type) != ast.BuiltinFloat32 {
+		t.Error("the type of `fx` must be `F32`")
 	}
 }
 
