@@ -73,6 +73,7 @@ func TestConstExpr(t *testing.T) {
 		{"RE2", false},
 
 		{"S0", true}, {"S1", false}, {"S2", false}, {"S3", false}, {"S4", false},
+		{"S5", true}, {"S6", false},
 
 		{"F0", false}, {"F1", false},
 	} {

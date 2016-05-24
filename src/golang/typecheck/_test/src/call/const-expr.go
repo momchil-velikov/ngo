@@ -5,6 +5,7 @@ const Z = 1
 // Not a const initializer, but the test does not perforrm all the semantic
 // checks
 const Ch chan int = make(chan int)
+const Str string = "xxx"
 
 func f() int
 
@@ -76,6 +77,8 @@ var (
 
 	ss string
 	S4 = len(ss)
+	S5 = len(Str)
+	S6 = cap(Str)
 
 	m  map[int]func() int
 	F0 = m[1]()

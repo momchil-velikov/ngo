@@ -1531,23 +1531,18 @@ func (ti *typeInferer) isConstCall(x *ast.Call) bool {
 			return false
 		}
 		t := underlyingType(y.Type())
-		if ptr, ok := t.(*ast.PtrType); ok {
-			a, ok := underlyingType(ptr.Base).(*ast.ArrayType)
-			if !ok {
-				return false
-			}
-			t = a
-		}
-		switch t := underlyingType(t).(type) {
-		case *ast.BuiltinType:
+		if t, ok := t.(*ast.BuiltinType); ok {
 			return d == ast.BuiltinLen &&
 				(t.Kind == ast.BUILTIN_STRING || t.Kind == ast.BUILTIN_UNTYPED_STRING) &&
 				ti.isConst(y)
-		case *ast.ArrayType:
-			return !ti.hasSideEffects(y)
-		default:
-			return false
 		}
+		if ptr, ok := t.(*ast.PtrType); ok {
+			t = underlyingType(ptr.Base)
+		}
+		if _, ok := t.(*ast.ArrayType); ok {
+			return !ti.hasSideEffects(y)
+		}
+		return false
 	case ast.BuiltinComplex:
 		return len(x.Xs) == 2 && ti.isConst(x.Xs[0]) && ti.isConst(x.Xs[1])
 	case ast.BuiltinImag, ast.BuiltinReal:
