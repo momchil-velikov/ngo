@@ -737,7 +737,7 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 
 	// Infer types of the fixed argument expressions.
 	for i := 0; i < nfix; i++ {
-		y, err := ti.inferExpr(x.Xs[0], ftyp.Params[i].Type)
+		y, err := ti.inferExpr(x.Xs[i], ftyp.Params[i].Type)
 		if err != nil {
 			return err
 		}

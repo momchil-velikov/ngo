@@ -304,6 +304,19 @@ func (e *BadVariadicCall) Error() string {
 		e.File.Name, ln, col)
 }
 
+// The BadVariadicArg error is returned for call expressions using `...` with
+// an argument og of non-slice type.
+type BadVariadicArg struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadVariadicArg) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: invalid use of `...` with a non-slice argument",
+		e.File.Name, ln, col)
+}
+
 // The TypeInferLoop error is returned for when an expression type depends
 // upon iself.
 type TypeInferLoop struct {

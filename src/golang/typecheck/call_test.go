@@ -83,3 +83,63 @@ func TestConstExpr(t *testing.T) {
 		}
 	}
 }
+
+func TestCall(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"call.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCallErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"call-err-01.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-03.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-04.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-05.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-06.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-07.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-08.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-09.go"},
+		"invalid use of `...` to call a non-variadic function")
+	expectError(t, "_test/src/call", []string{"call-err-10.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-11.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-12.go"},
+		"1.2 (`untyped float`) cannot be converted to `int`")
+	expectError(t, "_test/src/call", []string{"call-err-13.go"},
+		"`float32` is not assignable to `int`")
+	expectError(t, "_test/src/call", []string{"call-err-14.go"},
+		"128 (`untyped int`) cannot be converted to `int8`")
+	expectError(t, "_test/src/call", []string{"call-err-15.go"},
+		"`float32` is not assignable to `float64`")
+	expectError(t, "_test/src/call", []string{"call-err-16.go"},
+		"`float32` is not assignable to `float64`")
+	expectError(t, "_test/src/call", []string{"call-err-17.go"},
+		"`float32` is not assignable to `float64`")
+	expectError(t, "_test/src/call", []string{"call-err-18.go"},
+		"`float32` is not assignable to `float64`")
+	expectError(t, "_test/src/call", []string{"call-err-19.go"},
+		"`[]float32` is not assignable to `[]float64`")
+	expectError(t, "_test/src/call", []string{"call-err-20.go"},
+		"invalid use of `...` with a non-slice argument")
+	expectError(t, "_test/src/call", []string{"call-err-21.go"},
+		"called object is not a function")
+	expectError(t, "_test/src/call", []string{"call-err-22.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"call-err-23.go"},
+		"`void` is not assignable to `int`")
+	expectError(t, "_test/src/call", []string{"call-err-24.go"},
+		"multiple value expression in single-value context")
+	expectError(t, "_test/src/call", []string{"call-err-25.go"},
+		"argument count mismatch")
+}

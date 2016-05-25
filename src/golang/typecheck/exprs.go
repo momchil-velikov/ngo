@@ -861,8 +861,141 @@ func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Func = fn
-	// FIXME: check arguments match parameters
+	ftyp := fn.Type().(*ast.FuncType)
+
+	// Type "argument" is not applicable to ordinary calls.
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+
+	// Check the special case `f(g(arguments-of-g))`.
+	if len(x.Xs) == 1 && !x.Dots {
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			y, err := ev.checkExpr(x.Xs[0])
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[0] = y
+
+			if tp, ok := y.Type().(*ast.TupleType); ok {
+				err = ev.checkArgumentTypes(x.Off, ftyp, tp.Types...)
+			} else {
+				err = ev.checkArgumentTypes(x.Off, ftyp, y.Type())
+			}
+			if err != nil {
+				return nil, err
+			}
+			return x, nil
+		}
+	}
+
+	// General case of a function call.
+	for i := range x.Xs {
+		y, err := ev.checkExpr(x.Xs[i])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[i] = y
+	}
+	if err := ev.checkArgumentExprs(ftyp, x.Xs, x.Dots); err != nil {
+		return nil, err
+	}
 	return x, nil
+}
+
+func (ev *exprVerifier) checkArgumentTypes(
+	off int, ftyp *ast.FuncType, ts ...ast.Type) error {
+
+	nparm, narg := len(ftyp.Params), len(ts)
+	nfix := nparm
+	if !ftyp.Var && narg != nfix {
+		// In calls to non-variadic functions, the number of parameters and
+		// the number of arguments must be the same.
+		return &BadArgNumber{Off: off, File: ev.File}
+	}
+	if ftyp.Var {
+		nfix--
+	}
+	if narg < nfix {
+		// Not enough arguments for fixed parameters.
+		return &BadArgNumber{Off: off, File: ev.File}
+	}
+	// Check assignability to fixed parameter types.
+	for i := 0; i < nfix; i++ {
+		if ok, err := ev.isAssignableType(ftyp.Params[i].Type, ts[i]); err != nil {
+			return err
+		} else if !ok {
+			return &NotAssignable{Off: off, File: ev.File, DType: ftyp.Params[i].Type,
+				SType: ts[i]}
+
+		}
+	}
+	// Check assignability to the variadic parameter type.
+	for i := nfix; i < narg; i++ {
+		if ok, err := ev.isAssignableType(ftyp.Params[nfix].Type, ts[i]); err != nil {
+			return err
+		} else if !ok {
+			return &NotAssignable{Off: off, File: ev.File, DType: ftyp.Params[nfix].Type,
+				SType: ts[i]}
+		}
+	}
+
+	return nil
+}
+
+func (ev *exprVerifier) checkArgumentExprs(
+	ftyp *ast.FuncType, xs []ast.Expr, dots bool) error {
+
+	// Consistency between the number of parameters, number of arguments, use
+	// of the `...` notation, and the variadicity of the function was checked
+	// during type inference.
+	nparm, narg := len(ftyp.Params), len(xs)
+	nfix := nparm
+	if ftyp.Var {
+		nfix--
+	}
+	if dots {
+		narg--
+	}
+	// Check assignability of the fixed argument expressions.
+	for i := 0; i < nfix; i++ {
+		y, err := ev.isAssignable(ftyp.Params[i].Type, xs[i])
+		if err != nil {
+			return err
+		}
+		xs[i] = y
+	}
+	// An argument expression which uses the `...` notation must be assignable
+	// to `[]T`, where `T` is the variadic parameter type.
+	if dots {
+		if _, ok := underlyingType(xs[nfix].Type()).(*ast.SliceType); !ok {
+			return &BadVariadicArg{Off: xs[nfix].Position(), File: ev.File}
+		}
+		dst := &ast.SliceType{
+			Off: ftyp.Params[nfix].Type.Position(),
+			Elt: ftyp.Params[nfix].Type,
+		}
+		ok, err := ev.isAssignableType(dst, xs[nfix].Type())
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return &NotAssignable{Off: xs[nfix].Position(), File: ev.File,
+				DType: dst, SType: xs[nfix].Type()}
+		}
+	} else {
+		// Check assignability of the rest of the arguments with the variadic
+		// parameter type.
+		for i := nfix; i < narg; i++ {
+			y, err := ev.isAssignable(ftyp.Params[nfix].Type, xs[i])
+			if err != nil {
+				return err
+			}
+			xs[i] = y
+		}
+	}
+
+	return nil
 }
 
 func (*exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
