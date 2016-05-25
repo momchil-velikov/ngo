@@ -531,6 +531,14 @@ func Complement(cst *ast.ConstValue) (*ast.ConstValue, error) {
 	return &ast.ConstValue{Typ: cst.Typ, Value: res}, nil
 }
 
+func Not(cst *ast.ConstValue) (*ast.ConstValue, error) {
+	typ, val := builtinType(cst.Typ), cst.Value
+	if typ.Kind != ast.BUILTIN_BOOL && typ.Kind != ast.BUILTIN_UNTYPED_BOOL {
+		return nil, &badOperandType{Op: '!', Type: "boolean type", X: cst}
+	}
+	return &ast.ConstValue{Typ: cst.Typ, Value: ast.Bool(!val.(ast.Bool))}, nil
+}
+
 func Shift(
 	x *ast.ConstValue, y *ast.ConstValue, op ast.Operation) (*ast.ConstValue, error) {
 

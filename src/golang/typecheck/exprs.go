@@ -1337,29 +1337,24 @@ func (ev *exprVerifier) VisitUnaryExpr(x *ast.UnaryExpr) (ast.Expr, error) {
 		return x, nil
 	}
 
+	var d *ast.ConstValue
 	switch x.Op {
 	case '+':
 		return c, nil
 	case '-':
-		d, err := Minus(c)
-		if err != nil {
-			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
-		}
-		d.Off = x.Off
-		return d, nil
+		d, err = Minus(c)
 	case '!':
-		v := c.Value.(ast.Bool)
-		return &ast.ConstValue{Off: x.Off, Typ: c.Typ, Value: !v}, nil
+		d, err = Not(c)
 	case '^':
-		d, err := Complement(c)
-		if err != nil {
-			return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
-		}
-		d.Off = x.Off
-		return d, nil
+		d, err = Complement(c)
 	default:
 		panic("not reached")
 	}
+	if err != nil {
+		return nil, &ErrorPos{Off: c.Off, File: ev.File, Err: err}
+	}
+	d.Off = x.Off
+	return d, nil
 }
 
 func (ev *exprVerifier) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
