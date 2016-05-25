@@ -400,6 +400,19 @@ func (e *BadOperand) Error() string {
 	}
 }
 
+// The NotAddressable error is returned for expressions, required by the
+// context to have addressable values.
+type NotAddressable struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NotAddressable) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: the expression's value must be addresable",
+		e.File.Name, ln, col)
+}
+
 // The NegArrayLen error is returned when an array is declared of negetive
 // length.
 type NegArrayLen struct {

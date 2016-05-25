@@ -95,4 +95,6 @@ func TestSliceExprErr(t *testing.T) {
 		"index `-1` out of bounds")
 	expectError(t, "_test/src/slice", []string{"slice-err-27.go"},
 		"index `-1` out of bounds")
+	expectError(t, "_test/src/slice", []string{"slice-err-28.go"},
+		"the expression's value must be addresable")
 }

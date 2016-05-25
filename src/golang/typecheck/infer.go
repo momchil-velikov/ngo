@@ -1165,8 +1165,7 @@ func (ti *typeInferer) inferIndirection(x *ast.UnaryExpr) (ast.Expr, error) {
 
 func (ti *typeInferer) inferAddr(x *ast.UnaryExpr) (ast.Expr, error) {
 	if !isAddressable(x.X) {
-		return nil, &BadOperand{
-			Off: x.X.Position(), File: ti.File, Op: '&', Expected: "addressable"}
+		return nil, &NotAddressable{Off: x.X.Position(), File: ti.File}
 	}
 	x.Typ = &ast.PtrType{Off: x.Off, Base: x.X.Type()}
 	return x, nil
@@ -1188,7 +1187,6 @@ func (ti *typeInferer) VisitBinaryExpr(x *ast.BinaryExpr) (ast.Expr, error) {
 		return ti.inferShift(x)
 	}
 	if x.Op.IsComparison() {
-		// FIXME: infer operand types
 		x.Typ = ast.BuiltinUntypedBool
 		ti.delay(func() error { return ti.inferComparisonExprOperands(x) })
 		return x, nil

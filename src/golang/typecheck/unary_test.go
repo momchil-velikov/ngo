@@ -576,10 +576,14 @@ func TestAddr(t *testing.T) {
 }
 
 func TestAddrErr(t *testing.T) {
-	expectError(t, "_test/src/unary", []string{"addr-err-1.go"}, "invalid operand")
-	expectError(t, "_test/src/unary", []string{"addr-err-2.go"}, "invalid operand")
-	expectError(t, "_test/src/unary", []string{"addr-err-3.go"}, "invalid operand")
-	expectError(t, "_test/src/unary", []string{"addr-err-4.go"}, "invalid operand")
+	expectError(t, "_test/src/unary", []string{"addr-err-1.go"},
+		"value must be addresable")
+	expectError(t, "_test/src/unary", []string{"addr-err-2.go"},
+		"value must be addresable")
+	expectError(t, "_test/src/unary", []string{"addr-err-3.go"},
+		"value must be addresable")
+	expectError(t, "_test/src/unary", []string{"addr-err-4.go"},
+		"value must be addresable")
 }
 
 func TestRecv(t *testing.T) {

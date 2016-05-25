@@ -1282,6 +1282,10 @@ func (ev *exprVerifier) checkArraySliceExpr(
 	if capIsConst && cap > n {
 		return nil, &IndexOutOfBounds{Off: x.Hi.Position(), File: ev.File, Idx: cap}
 	}
+	// Check array operand is addressable.
+	if !isAddressable(x.X) {
+		return nil, &NotAddressable{Off: x.X.Position(), File: ev.File}
+	}
 	return x, nil
 }
 
