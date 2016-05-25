@@ -408,7 +408,7 @@ type Call struct {
 	Func Expr
 	ATyp Type // argument type, for some builtin functions
 	Xs   []Expr
-	Ell  bool
+	Dots bool
 	Typ  Type
 }
 

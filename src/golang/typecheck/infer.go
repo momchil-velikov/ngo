@@ -697,7 +697,7 @@ func (ti *typeInferer) VisitCall(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) inferArgs(x *ast.Call) error {
 	// Check the special case `f(g(arguments-of-g))`.
-	if len(x.Xs) == 1 && !x.Ell {
+	if len(x.Xs) == 1 && !x.Dots {
 		if _, ok := x.Xs[0].(*ast.Call); ok {
 			y, err := ti.inferMultiValueExpr(x.Xs[0], nil)
 			if err != nil {
@@ -713,12 +713,12 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 
 	// Figure out the number of fixed (non-variadic) parameters.
 	ftyp := x.Func.Type().(*ast.FuncType)
-	if x.Ell && !ftyp.Var {
+	if x.Dots && !ftyp.Var {
 		return &BadVariadicCall{Off: x.Off, File: ti.File}
 	}
 	nparm, narg := len(ftyp.Params), len(x.Xs)
 	nfix := nparm
-	if (x.Ell || !ftyp.Var) && narg != nfix {
+	if (x.Dots || !ftyp.Var) && narg != nfix {
 		// In call expressions using `...` or in calls to non-variadic
 		// functions, the number of parameters and the number of arguments
 		// must be the same.
@@ -727,7 +727,7 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 	if ftyp.Var {
 		nfix--
 	}
-	if x.Ell {
+	if x.Dots {
 		narg--
 	}
 	if narg < nfix {
@@ -746,7 +746,7 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 
 	// An argument expression which uses the `...` notation, cannot be of a
 	// type that needs a type context.
-	if x.Ell {
+	if x.Dots {
 		y, err := ti.inferExpr(x.Xs[narg], nil)
 		if err != nil {
 			return err

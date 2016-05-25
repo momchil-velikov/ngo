@@ -1426,7 +1426,7 @@ func (p *parser) parseArguments(f ast.Expr) ast.Expr {
 		}
 	}
 	p.match(')')
-	return &ast.Call{Off: f.Position(), Func: f, ATyp: t, Xs: xs, Ell: dots}
+	return &ast.Call{Off: f.Position(), Func: f, ATyp: t, Xs: xs, Dots: dots}
 }
 
 // FunctionLit = "func" Function .

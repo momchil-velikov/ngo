@@ -878,7 +878,7 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 		}
 		return x, nil
 	} else {
-		if x.ATyp != nil || len(x.Xs) != 1 || x.Ell {
+		if x.ATyp != nil || len(x.Xs) != 1 || x.Dots {
 			return nil, errors.New("invalid conversion argument")
 		}
 		y, err := r.resolveExpr(x.Xs[0])

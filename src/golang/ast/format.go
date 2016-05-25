@@ -589,7 +589,7 @@ func (e *Call) Format(ctx *FormatContext, n uint) {
 				e.Xs[i].Format(ctx, n)
 			}
 		}
-		if e.Ell {
+		if e.Dots {
 			ctx.WriteString("...")
 		}
 		ctx.WriteString(")")
