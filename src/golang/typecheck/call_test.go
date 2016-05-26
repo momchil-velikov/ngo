@@ -143,3 +143,65 @@ func TestCallErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"call-err-25.go"},
 		"argument count mismatch")
 }
+
+func TestBuiltinMake(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"make.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"a0", "a1", "a2"} {
+		v := p.Find(name).(*ast.Var)
+		if s, ok := v.Type.(*ast.SliceType); !ok || s.Elt != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `[]int`", name)
+		}
+	}
+
+	SInt := p.Find("SInt").(*ast.TypeDecl)
+	x := p.Find("x").(*ast.Var)
+	if x.Type != SInt {
+		t.Error("`x` should have type, `SInt`")
+	}
+
+	for _, name := range []string{"b0", "b1"} {
+		v := p.Find(name).(*ast.Var)
+		if s, ok := v.Type.(*ast.MapType); !ok || s.Key != ast.BuiltinString ||
+			s.Elt != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `map[string]int`", name)
+		}
+	}
+
+	for _, name := range []string{"c0", "c1"} {
+		v := p.Find(name).(*ast.Var)
+		if s, ok := v.Type.(*ast.ChanType); !ok || s.Elt != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `chan int`", name)
+		}
+	}
+}
+
+func TestBuiltinMakeErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"make-err-01.go"},
+		"the first argument to `make` must be a slice, map, or chan type")
+	expectError(t, "_test/src/call", []string{"make-err-02.go"},
+		"the first argument to `make` must be a slice, map, or chan type")
+	expectError(t, "_test/src/call", []string{"make-err-03.go"},
+		"1.1 (`untyped float`) cannot be converted to `int`")
+	expectError(t, "_test/src/call", []string{"make-err-04.go"},
+		"`make` argument must be of integer type (given `float32`)")
+	expectError(t, "_test/src/call", []string{"make-err-05.go"},
+		"`make` argument must be of integer type (given `float32`)")
+	expectError(t, "_test/src/call", []string{"make-err-06.go"},
+		"`make` argument must be of integer type (given `float32`)")
+	expectError(t, "_test/src/call", []string{"make-err-07.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"make-err-08.go"},
+		"length exceeds capacity in a call to `make`")
+	expectError(t, "_test/src/call", []string{"make-err-09.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"make-err-10.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"make-err-11.go"},
+		"1.2 (`untyped float`) cannot be converted to `int`")
+	expectError(t, "_test/src/call", []string{"make-err-12.go"},
+		"`make` argument must be non-negative")
+}

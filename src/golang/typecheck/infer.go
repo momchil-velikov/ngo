@@ -814,7 +814,33 @@ func (ti *typeInferer) inferBuiltinLenArg(x *ast.Call) error {
 	return nil
 }
 
-func (*typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+	// The `make` must have a type argument.
+	if x.ATyp == nil {
+		return nil, &BadMakeType{Off: x.Off, File: ti.File}
+	}
+	if err := ti.inferType(x.ATyp); err != nil {
+		return nil, err
+	}
+	// Check the type is either slice, map, or chan.
+	switch underlyingType(x.ATyp).(type) {
+	case *ast.SliceType, *ast.MapType, *ast.ChanType:
+		// Infer argument expression types.
+		ti.delay(func() error {
+			for i := range x.Xs {
+				y, err := ti.inferExpr(x.Xs[i], ast.BuiltinInt)
+				if err != nil {
+					return err
+				}
+				x.Xs[i] = y
+			}
+			return nil
+		})
+	default:
+		return nil, &BadMakeType{Off: x.Off, File: ti.File}
+	}
+	// The return type of the call is same as the argument type.
+	x.Typ = x.ATyp
 	return x, nil
 }
 

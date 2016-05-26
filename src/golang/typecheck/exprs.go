@@ -1037,7 +1037,7 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	x.Xs[0] = y
 	// FIXME: the length is a constant expression only if the parameter is an
 	// expression or a string or array type, and without side effects(channel
-	// receives and non-constatnt calls)
+	// receives and non-constatn calls)
 	if a, ok := underlyingType(y.Type()).(*ast.ArrayType); ok {
 		c, err := ev.checkArrayLength(a)
 		if err != nil {
@@ -1048,7 +1048,62 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+	// Regardless of the type argument, all the expression arguments must be
+	// integer or untyped. A constant argument must be non-negative and
+	// representable by `int`.
+	for i := range x.Xs {
+		y, err := ev.checkExpr(x.Xs[i])
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := y.(*ast.ConstValue); ok {
+			z, err := ev.isAssignable(ast.BuiltinInt, y)
+			if err != nil {
+				return nil, err
+			}
+			if d := z.(*ast.ConstValue); int64(d.Value.(ast.Int)) < 0 {
+				return nil, &NegMakeArg{Off: d.Off, File: ev.File}
+			}
+			x.Xs[i] = z
+		} else {
+			if t := builtinType(y.Type()); t == nil || !t.IsInteger() {
+				return nil, &NotInteger{
+					Off: y.Position(), File: ev.File, Type: y.Type(),
+					What: "`make` argument"}
+			}
+			x.Xs[i] = y
+		}
+	}
+	switch underlyingType(x.ATyp).(type) {
+	case *ast.SliceType:
+		// Making a slice should have at most two expression arguments.
+		if len(x.Xs) > 2 {
+			return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+		}
+		// If the arguments are constant expressions, then the first (length)
+		// must be no larger than the second(capacity).
+		if len(x.Xs) == 2 {
+			if c, ok := x.Xs[0].(*ast.ConstValue); ok {
+				if d, ok := x.Xs[1].(*ast.ConstValue); ok {
+					// The above assignability check converts constant values to `int`.
+					len := c.Value.(ast.Int)
+					cap := d.Value.(ast.Int)
+					if len > cap {
+						return nil, &LenExceedsCap{Off: x.Off, File: ev.File}
+					}
+				}
+			}
+		}
+	case *ast.MapType, *ast.ChanType:
+		// Making a map or a channel should have at most one expression
+		// argument.
+		if len(x.Xs) > 1 {
+			return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+		}
+	default:
+		panic("not reached")
+	}
 	return x, nil
 }
 
@@ -1207,7 +1262,8 @@ func (ev *exprVerifier) checkIndexValue(x ast.Expr) (int64, bool, error) {
 		// If the indexed expression is not of a map type, the index
 		// expression must be of integer type.
 		if t := builtinType(x.Type()); t == nil || !t.IsInteger() {
-			return 0, false, &NotInteger{Off: x.Position(), File: ev.File, Type: x.Type()}
+			return 0, false, &NotInteger{
+				Off: x.Position(), File: ev.File, Type: x.Type(), What: "index"}
 		}
 		return 0, false, nil
 	}

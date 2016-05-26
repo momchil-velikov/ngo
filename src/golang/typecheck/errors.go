@@ -637,12 +637,13 @@ type NotInteger struct {
 	Off  int
 	File *ast.File
 	Type ast.Type
+	What string
 }
 
 func (e *NotInteger) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf("%s:%d:%d: index must be of integer type (given `%s`)",
-		e.File.Name, ln, col, e.Type)
+	return fmt.Sprintf("%s:%d:%d: %s must be of integer type (given `%s`)",
+		e.File.Name, ln, col, e.What, e.Type)
 }
 
 // The BadShiftCount error is returned when the right operand of a shift
@@ -825,4 +826,44 @@ func (e *DoesNotImplement) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
 	return fmt.Sprintf("%s:%d:%d: type `%s` does not implement interface `%s`",
 		e.File.Name, ln, col, e.Type, e.Ifc)
+}
+
+// The BadMakeType is returned for calls to the builtin `make` function,
+// where the first argument is not a slice, map, or channel type.
+type BadMakeType struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadMakeType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf(
+		"%s:%d:%d: the first argument to `make` must be a slice, map, or chan type",
+		e.File.Name, ln, col)
+}
+
+// The LenExceedsCap error is returned for `make` calls, where slice length is
+// greater than the slice capacity.
+type LenExceedsCap struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *LenExceedsCap) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: length exceeds capacity in a call to `make`",
+		e.File.Name, ln, col)
+}
+
+// The NegMakeArg error is returned when a constant argument to `make` is has
+// negative value.
+type NegMakeArg struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *NegMakeArg) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: `make` argument must be non-negative",
+		e.File.Name, ln, col)
 }
