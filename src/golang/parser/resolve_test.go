@@ -517,6 +517,34 @@ func TestResolveExprCall(t *testing.T) {
 	if op, ok := x.Xs[1].(*ast.OperandName); !ok || op.Decl != Y {
 		t.Error("second argument to the call of `F` must be `Y`")
 	}
+
+	B := p.Find("B").(*ast.Var)
+	x = B.Init.RHS[0].(*ast.Call)
+	if x.ATyp != ast.BuiltinInt {
+		t.Error("in initializer call of `B`: first argment must be type `int`")
+	}
+	if len(x.Xs) != 1 {
+		t.Error("in initializer of `B`; call should have one expression argument")
+	}
+
+	T := p.Find("T").(*ast.TypeDecl)
+	C := p.Find("C").(*ast.Var)
+	x = C.Init.RHS[0].(*ast.Call)
+	if x.ATyp != T {
+		t.Error("in initializer `C`: first argment must be type `int`")
+	}
+	if len(x.Xs) != 0 {
+		t.Error("in initializer of `C`: call should have zero expression arguments")
+	}
+
+	D := p.Find("D").(*ast.Var)
+	x = D.Init.RHS[0].(*ast.Call)
+	if s, ok := x.ATyp.(*ast.SliceType); !ok || s.Elt != ast.BuiltinInt {
+		t.Error("in initializer `D`: first argment must be type `[]int`")
+	}
+	if len(x.Xs) != 2 {
+		t.Error("in initializer of `D`: call should have two expression arguments")
+	}
 }
 
 func TestResolveExprParens(t *testing.T) {

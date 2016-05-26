@@ -864,11 +864,26 @@ func (r *resolver) VisitCall(x *ast.Call) (ast.Expr, error) {
 			return nil, err
 		}
 		x.Func = fn
-		typ, err := r.resolveType(x.ATyp)
-		if err != nil {
-			return nil, err
+		// If we don't have a type, check if the first argument expression is
+		// actually a type of the form `T` or `*T`.
+		if x.ATyp == nil {
+			if len(x.Xs) > 0 {
+				typ, err := r.isType(x.Xs[0])
+				if err != nil {
+					return nil, err
+				}
+				if typ != nil {
+					x.ATyp = typ
+					x.Xs = x.Xs[1:]
+				}
+			}
+		} else {
+			typ, err := r.resolveType(x.ATyp)
+			if err != nil {
+				return nil, err
+			}
+			x.ATyp = typ
 		}
-		x.ATyp = typ
 		for i := range x.Xs {
 			y, err := r.resolveExpr(x.Xs[i])
 			if err != nil {
