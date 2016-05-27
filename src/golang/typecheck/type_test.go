@@ -184,7 +184,7 @@ func TestIfaceErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"method-dup-3.go"},
 		"in declaration of `K`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-4.go"},
-		"in declaration of `K`: duplicate method name `F`")
+		"in declaration of `L`: duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-5.go"},
 		": duplicate method name `F`")
 	expectError(t, "_test/src/typ", []string{"method-dup-6.go"},

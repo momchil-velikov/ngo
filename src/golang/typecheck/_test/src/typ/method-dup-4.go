@@ -5,10 +5,16 @@ type I interface {
 }
 
 type J interface {
-	F()
+	I
+	G()
 }
 
 type K interface {
 	I
+	H()
+}
+
+type L interface {
 	J
+	K
 }
