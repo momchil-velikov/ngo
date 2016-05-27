@@ -28,6 +28,20 @@ func underlyingType(typ ast.Type) ast.Type {
 	}
 }
 
+// Returns true if TYP is the empty interface type (`interface{}`).
+func isEmptyInterfaceType(typ ast.Type) bool {
+	t, ok := underlyingType(typ).(*ast.InterfaceType)
+	if !ok || len(t.Methods) != 0 {
+		return false
+	}
+	for i := range t.Embedded {
+		if !isEmptyInterfaceType(t.Embedded[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // Returns true if `TYP` is a TypeName.
 func isNamed(typ ast.Type) bool {
 	switch t := typ.(type) {

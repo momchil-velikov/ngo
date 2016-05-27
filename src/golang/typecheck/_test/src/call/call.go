@@ -60,3 +60,11 @@ var (
 	ch chan int8
 	x0 = f3(<-ch)
 )
+
+func print(...interface{}) int
+
+const C = 1
+
+var (
+	z0 = print(C, 1.1, float32(2.2)+C)
+)

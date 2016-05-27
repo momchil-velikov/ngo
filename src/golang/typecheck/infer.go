@@ -100,6 +100,10 @@ func (ti *typeInferer) inferConstDecl(c *ast.Const) error {
 	}
 	ti.Done[c] = struct{}{}
 
+	if c.Type != nil && builtinType(c.Type) == nil {
+		return &BadConstType{Off: c.Off, File: c.File, Type: c.Type}
+	}
+
 	ti.beginCheck(c, c.File)
 	defer func() { ti.endCheck() }()
 
@@ -434,11 +438,8 @@ func (ti *typeInferer) VisitConstValue(x *ast.ConstValue) (ast.Expr, error) {
 		return x, nil
 	}
 	dst := ti.TypeCtx
-	if dst == ast.BuiltinDefault {
+	if dst == ast.BuiltinDefault || isEmptyInterfaceType(dst) {
 		dst = defaultType(x.Type())
-	}
-	if t := builtinType(dst); t == nil {
-		return nil, &BadConstType{Off: x.Off, File: ti.File, Type: dst}
 	}
 	c, err := Convert(dst, x)
 	if err != nil {
@@ -603,11 +604,8 @@ func (ti *typeInferer) VisitOperandName(x *ast.OperandName) (ast.Expr, error) {
 		}
 		if src := builtinType(x.Typ); src.IsUntyped() && ti.TypeCtx != nil {
 			dst := ti.TypeCtx
-			if dst == ast.BuiltinDefault {
+			if dst == ast.BuiltinDefault || isEmptyInterfaceType(dst) {
 				dst = defaultType(x.Type())
-			}
-			if t := builtinType(dst); t == nil {
-				return nil, &BadConstType{Off: x.Off, File: ti.File, Type: dst}
 			}
 			x.Typ = dst
 		}

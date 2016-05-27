@@ -142,6 +142,10 @@ func TestCallErr(t *testing.T) {
 		"multiple value expression in single-value context")
 	expectError(t, "_test/src/call", []string{"call-err-25.go"},
 		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"call-err-26.go"},
+		"`float32` is not assignable to `J`")
+	expectError(t, "_test/src/call", []string{"call-err-27.go"},
+		"1.1i (`untyped complex`) cannot be converted to `J`")
 }
 
 func TestBuiltinMake(t *testing.T) {

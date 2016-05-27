@@ -233,9 +233,9 @@ func TestConvFloatErr(t *testing.T) {
 
 func TestConstErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"const-err-01.go"},
-		"`*int` is not a valid constant type")
+		"1 (`untyped int`) cannot be converted to `*int`")
 	expectError(t, "_test/src/conv", []string{"const-err-02.go"},
-		"`[]int` is not a valid constant type")
+		"2 (`untyped int`) cannot be converted to `[]int`")
 }
 
 func TestConvNonConst(t *testing.T) {
@@ -276,4 +276,6 @@ func TestConvNonConstErr(t *testing.T) {
 		"`complex128` is not convertible to `float64`")
 	expectError(t, "_test/src/conv", []string{"non-const-err-15.go"},
 		"`[]int16` is not convertible to `[]uint16`")
+	expectError(t, "_test/src/conv", []string{"non-const-err-16.go"},
+		"1 (`untyped int`) cannot be converted to `J`")
 }

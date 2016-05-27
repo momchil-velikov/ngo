@@ -5,6 +5,26 @@ type Byte byte
 type Rune rune
 type String string
 
+type I interface{}
+
+type J interface {
+	I
+}
+type K interface {
+	I
+}
+type EmptyIf interface {
+	J
+	K
+}
+
+type NonEmptyIf interface {
+	EmptyIf
+	F()
+}
+
+const C = 1
+
 var (
 	// "assignable"
 	a int
@@ -51,4 +71,8 @@ var (
 	v complex64
 	w = complex128(v)
 	x = complex64(w)
+
+	// constant value representable by `interface{}`
+	if0, if1         = EmptyIf(1), EmptyIf(C)
+	if2, if3 EmptyIf = 1.1, C + 1.1
 )

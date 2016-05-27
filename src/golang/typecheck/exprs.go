@@ -1141,10 +1141,7 @@ func (ev *exprVerifier) VisitConversion(x *ast.Conversion) (ast.Expr, error) {
 	}
 
 	// Check and perform constant conversion.
-	if c, ok := y.(*ast.ConstValue); ok {
-		if t := builtinType(x.Typ); t == nil {
-			return nil, &BadConstType{Off: x.Off, File: ev.File, Type: x.Typ}
-		}
+	if c, ok := y.(*ast.ConstValue); ok && !isEmptyInterfaceType(x.Typ) {
 		c, err := Convert(x.Typ, c)
 		if err != nil {
 			return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
@@ -1851,7 +1848,7 @@ func (ev *exprVerifier) implements(typ ast.Type, ifc *ast.InterfaceType) (bool, 
 	if !ok {
 		// If the given type is not a (pointer to a) type name, the only
 		// implemented interface is `interface{}`.
-		return len(ifc.Embedded) == 0 && len(ifc.Methods) == 0, nil
+		return isEmptyInterfaceType(ifc), nil
 	}
 
 	if impl, ok := dcl.Type.(*ast.InterfaceType); ok {
@@ -1934,9 +1931,9 @@ func (ev *exprVerifier) isAssignable(dst ast.Type, x ast.Expr) (ast.Expr, error)
 	src := x.Type()
 	if c, ok := x.(*ast.ConstValue); ok && isUntyped(src) {
 		// "x is an untyped constant representable by a value of type T."
-		if t := builtinType(dst); t == nil {
-			return nil, &NotAssignable{
-				Off: x.Position(), File: ev.File, DType: dst, SType: src}
+		// Every constant is representable by a value of type ``interface{}`.
+		if isEmptyInterfaceType(dst) {
+			return x, nil
 		}
 		c, err := Convert(dst, c)
 		if err != nil {

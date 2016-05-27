@@ -221,7 +221,8 @@ func identicalTypes(t *testing.T, styp ast.Type, ttyp ast.Type) bool {
 }
 
 func TestConstTypeErr(t *testing.T) {
-	expectError(t, "_test/src/typ", []string{"const-err.go"}, "`[]int` is not a valid constant type")
+	expectError(t, "_test/src/typ", []string{"const-err.go"},
+		"`[]int` is not a valid constant type")
 }
 
 func TestTypeIdentity(t *testing.T) {
@@ -640,5 +641,5 @@ func TestAssignableErr(t *testing.T) {
 	expectError(t, "_test/src/typ", []string{"assign-err-06.go"},
 		"`uint` is not assignable to `int`")
 	expectError(t, "_test/src/typ", []string{"assign-err-07.go"},
-		"`untyped int` is not assignable to `*int`")
+		"2 (`untyped int`) cannot be converted to `*int`")
 }
