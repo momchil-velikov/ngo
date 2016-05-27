@@ -867,3 +867,17 @@ func (e *NegMakeArg) Error() string {
 	return fmt.Sprintf("%s:%d:%d: `make` argument must be non-negative",
 		e.File.Name, ln, col)
 }
+
+// The BadAppendArg is returned for calls to the builtin `append` function,
+// where the first argument is not of a slice type.
+type BadAppendArg struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadAppendArg) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf(
+		"%s:%d:%d: the first argument to `append` must be of a slice type",
+		e.File.Name, ln, col)
+}

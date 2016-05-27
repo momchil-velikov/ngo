@@ -998,7 +998,55 @@ func (ev *exprVerifier) checkArgumentExprs(
 	return nil
 }
 
-func (*exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.ATyp.Position(), File: ev.File}
+	}
+	n := len(x.Xs)
+	if n < 2 || x.Dots && n != 2 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
+	st := underlyingType(x.Typ).(*ast.SliceType)
+	// Check the slice argument.
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	if x.Dots {
+		y, err := ev.checkExpr(x.Xs[1])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[1] = y
+		// As a special case, accept appending a string to a byte slice, using
+		// the `...` notation.
+		if st.Elt == ast.BuiltinUint8 {
+			if t := builtinType(x.Xs[1].Type()); t != nil &&
+				(t.Kind == ast.BUILTIN_STRING || t.Kind == ast.BUILTIN_UNTYPED_STRING) {
+				return x, nil
+			}
+		}
+		// Check the argument, passed via `...` is assignable to the slice type
+		y, err = ev.isAssignable(st, x.Xs[1])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[1] = y
+	} else {
+		// Check argument expressions are assignable to slice element type.
+		for i := 1; i < n; i++ {
+			y, err := ev.checkExpr(x.Xs[i])
+			if err != nil {
+				return nil, err
+			}
+			y, err = ev.isAssignable(st.Elt, y)
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[i] = y
+		}
+	}
 	return x, nil
 }
 

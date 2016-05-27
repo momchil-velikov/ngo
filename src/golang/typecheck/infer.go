@@ -765,7 +765,48 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 	return nil
 }
 
-func (*typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
+	// The first argument to append must be of a slice type.
+	if len(x.Xs) == 0 {
+		return nil, &BadArgNumber{Off: x.Off, File: ti.File}
+	}
+	y, err := ti.inferExpr(x.Xs[0], nil)
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	st, ok := underlyingType(y.Type()).(*ast.SliceType)
+	if !ok {
+		return nil, &BadAppendArg{Off: x.Off, File: ti.File}
+	}
+	// The type of the `append` call expression is the same as the type of the
+	// first argument.
+	x.Typ = y.Type()
+	// Lazily infer the types of the rest of the arguments.
+	ti.delay(func() error {
+		n := len(x.Xs)
+		if x.Dots {
+			n--
+		}
+		// Infer each argument with type context being the slice element type.
+		for i := 1; i < n; i++ {
+			y, err := ti.inferExpr(x.Xs[i], st.Elt)
+			if err != nil {
+				return err
+			}
+			x.Xs[i] = y
+		}
+		if x.Dots {
+			// If the call uses the `...` notation, the only possible constant
+			// argument could be a string (typed or untyped).
+			y, err := ti.inferExpr(x.Xs[n], ast.BuiltinDefault)
+			if err != nil {
+				return err
+			}
+			x.Xs[n] = y
+		}
+		return nil
+	})
 	return x, nil
 }
 

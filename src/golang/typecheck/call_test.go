@@ -209,3 +209,55 @@ func TestBuiltinMakeErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"make-err-12.go"},
 		"`make` argument must be non-negative")
 }
+
+func TestBuiltinAppend(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"append.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"a", "b"} {
+		v := p.Find(name).(*ast.Var)
+		if s, ok := v.Type.(*ast.SliceType); !ok || s.Elt != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `[]int`", name)
+		}
+	}
+
+	SInt := p.Find("SInt").(*ast.TypeDecl)
+	v := p.Find("c").(*ast.Var)
+	if v.Type != SInt {
+		t.Error("`c` should have type `SInt`")
+	}
+
+	for _, name := range []string{"d", "e", "f"} {
+		v := p.Find(name).(*ast.Var)
+		if s, ok := v.Type.(*ast.SliceType); !ok || s.Elt != ast.BuiltinUint8 {
+			t.Errorf("`%s` should have type `[]byte`", name)
+		}
+	}
+}
+
+func TestBuiltinAppendErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"append-err-01.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"append-err-02.go"},
+		"the first argument to `append` must be of a slice type")
+	expectError(t, "_test/src/call", []string{"append-err-03.go"},
+		"the first argument to `append` must be of a slice type")
+	expectError(t, "_test/src/call", []string{"append-err-04.go"},
+		"the first argument to `append` must be of a slice type")
+	expectError(t, "_test/src/call", []string{"append-err-05.go"},
+		"1.1 (`untyped float`) cannot be converted to `int`")
+	expectError(t, "_test/src/call", []string{"append-err-06.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"append-err-07.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"append-err-08.go"},
+		"1.2 (`untyped float`) cannot be converted to `int`")
+	expectError(t, "_test/src/call", []string{"append-err-09.go"},
+		"`[]uint` is not assignable to `[]int`")
+	expectError(t, "_test/src/call", []string{"append-err-10.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"append-err-11.go"},
+		"`string` is not assignable to `[]string`")
+}
