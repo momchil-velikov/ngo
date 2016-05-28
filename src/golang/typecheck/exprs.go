@@ -1050,7 +1050,38 @@ func (ev *exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) != 1 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	typ := underlyingType(y.Type())
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
+		if !ok {
+			return nil, &BadBuiltinArg{
+				Off: x.Off, File: ev.File, Type: y.Type(), Func: "cap"}
+		}
+		typ = b
+	}
+
+	switch t := typ.(type) {
+	case *ast.ArrayType:
+		if !hasSideEffects(y) {
+			return ev.checkArrayLength(t)
+		}
+	case *ast.SliceType, *ast.ChanType:
+	default:
+		return nil, &BadBuiltinArg{
+			Off: x.Off, File: ev.File, Type: y.Type(), Func: "cap"}
+	}
 	return x, nil
 }
 

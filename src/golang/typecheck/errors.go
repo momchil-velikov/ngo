@@ -881,3 +881,19 @@ func (e *BadAppendArg) Error() string {
 		"%s:%d:%d: the first argument to `append` must be of a slice type",
 		e.File.Name, ln, col)
 }
+
+// The BadBuiltinArg error is returned when a type of an argument is not
+// applicable as a parameter to some builtin function.
+type BadBuiltinArg struct {
+	Off  int
+	File *ast.File
+	Type ast.Type
+	Func string
+}
+
+func (e *BadBuiltinArg) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf(
+		"%s:%d:%d: `%s` is invalid parameter type to the builtin `%s` function",
+		e.File.Name, ln, col, e.Type, e.Func)
+}

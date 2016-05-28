@@ -261,3 +261,46 @@ func TestBuiltinAppendErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"append-err-11.go"},
 		"`string` is not assignable to `[]string`")
 }
+
+func TestBuiltinCap(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"cap.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"c0", "c1", "c4", "c5"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `int`", name)
+		}
+		c, ok := v.Init.RHS[0].(*ast.ConstValue)
+		if !ok {
+			t.Fatalf("initializer of `%s` should be a constant expression", name)
+		}
+		if i, ok := c.Value.(ast.Int); !ok || i != 3 {
+			t.Errorf("`%s` should ghave value `3`", name)
+		}
+	}
+
+	for _, name := range []string{"c2", "c3", "c6", "c7"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `int`", name)
+		}
+		_, ok := v.Init.RHS[0].(*ast.ConstValue)
+		if ok {
+			t.Fatalf("initializer of `%s` should not be a constant expression", name)
+		}
+	}
+}
+
+func TestBuiltinCapErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"cap-err-01.go"},
+		" type argument not allowed")
+	expectError(t, "_test/src/call", []string{"cap-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"cap-err-03.go"},
+		"`int` is invalid parameter type to the builtin `cap` function")
+	expectError(t, "_test/src/call", []string{"cap-err-04.go"},
+		"`*int` is invalid parameter type to the builtin `cap` function")
+}
