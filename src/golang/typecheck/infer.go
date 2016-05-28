@@ -1585,13 +1585,22 @@ func (ti *typeInferer) isConstCall(x *ast.Call) bool {
 		if len(x.Xs) != 1 {
 			return false
 		}
-		y, err := ti.inferExpr(x.Xs[0], nil)
-		if err != nil {
-			return false
-		}
-		x.Xs[0] = y
+		y := x.Xs[0]
 		if y.Type() == nil {
-			return false
+			if ti == nil {
+				// If we invoke this function from exprVerifier, all the types
+				// must already be known.
+				panic("not reached")
+			}
+			z, err := ti.inferExpr(y, nil)
+			if err != nil {
+				return false
+			}
+			x.Xs[0] = z
+			y = z
+			if y.Type() == nil {
+				return false
+			}
 		}
 		t := underlyingType(y.Type())
 		if t, ok := t.(*ast.BuiltinType); ok {

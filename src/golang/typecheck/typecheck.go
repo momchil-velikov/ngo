@@ -532,3 +532,18 @@ func promoteUntyped(u *ast.BuiltinType, v *ast.BuiltinType) *ast.BuiltinType {
 		ast.BuiltinUntypedComplex,
 	}[i]
 }
+
+// Returns true if the expression X is definitely a constant expression. If
+// any errors occur, the function returns false.
+// NOTE: must be called after type inference is complete.
+func isConst(x ast.Expr) bool {
+	return (*typeInferer).isConst(nil, x)
+}
+
+// Returns true if the expression X contains non-constant function calls or
+// channel receive expressions. If any errors occur, the function returns
+// false.
+// NOTE: must be called after type inference is complete.
+func hasSideEffects(x ast.Expr) bool {
+	return (*typeInferer).hasSideEffects(nil, x)
+}
