@@ -847,21 +847,17 @@ func (*typeInferer) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinInt
-
-	ti.delay(func() error { return ti.inferBuiltinLenArg(x) })
+	ti.delay(func() error {
+		for i := range x.Xs {
+			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
+			if err != nil {
+				return err
+			}
+			x.Xs[i] = y
+		}
+		return nil
+	})
 	return x, nil
-}
-
-func (ti *typeInferer) inferBuiltinLenArg(x *ast.Call) error {
-	if len(x.Xs) != 1 {
-		return &BadArgNumber{Off: x.Off, File: ti.File}
-	}
-	y, err := ti.inferExpr(x.Xs[0], nil)
-	if err != nil {
-		return err
-	}
-	x.Xs[0] = y
-	return nil
 }
 
 func (ti *typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {

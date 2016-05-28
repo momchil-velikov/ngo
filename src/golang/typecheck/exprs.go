@@ -1109,20 +1109,44 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+	if len(x.Xs) != 1 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err
 	}
 	x.Xs[0] = y
-	// FIXME: the length is a constant expression only if the parameter is an
-	// expression or a string or array type, and without side effects(channel
-	// receives and non-constatn calls)
-	if a, ok := underlyingType(y.Type()).(*ast.ArrayType); ok {
-		c, err := ev.checkArrayLength(a)
-		if err != nil {
-			return nil, err
+	typ := underlyingType(y.Type())
+	if ptr, ok := typ.(*ast.PtrType); ok {
+		b, ok := underlyingType(ptr.Base).(*ast.ArrayType)
+		if !ok {
+			return nil, &BadBuiltinArg{
+				Off: x.Off, File: ev.File, Type: y.Type(), Func: "len"}
 		}
-		return c, nil
+		typ = b
+	}
+	switch t := typ.(type) {
+	case *ast.BuiltinType:
+		if t.Kind != ast.BUILTIN_STRING && t.Kind != ast.BUILTIN_UNTYPED_STRING {
+			return nil, &BadBuiltinArg{
+				Off: x.Off, File: ev.File, Type: y.Type(), Func: "len"}
+		}
+		if c, ok := y.(*ast.ConstValue); ok {
+			return &ast.ConstValue{
+				Off:   x.Off,
+				Typ:   ast.BuiltinInt,
+				Value: ast.Int(len(c.Value.(ast.String))),
+			}, nil
+		}
+	case *ast.ArrayType:
+		if !hasSideEffects(y) {
+			return ev.checkArrayLength(t)
+		}
+	case *ast.SliceType, *ast.ChanType, *ast.MapType:
+	default:
+		return nil, &BadBuiltinArg{
+			Off: x.Off, File: ev.File, Type: y.Type(), Func: "len"}
 	}
 	return x, nil
 }
