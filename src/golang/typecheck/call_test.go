@@ -337,6 +337,13 @@ func TestBuiltinLen(t *testing.T) {
 	}
 }
 
+func TestBuiltinClose(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"close.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBuiltinLenErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"len-err-01.go"},
 		" type argument not allowed")
@@ -348,4 +355,19 @@ func TestBuiltinLenErr(t *testing.T) {
 		"`*int` is invalid parameter type to the builtin `len` function")
 	expectError(t, "_test/src/call", []string{"len-err-05.go"},
 		"`struct{...}` is invalid parameter type to the builtin `len` function")
+}
+
+func TestBuiltinCloseErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"close-err-01.go"},
+		" type argument not allowed")
+	expectError(t, "_test/src/call", []string{"close-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"close-err-03.go"},
+		"`int` is invalid parameter type to the builtin `close` function")
+	expectError(t, "_test/src/call", []string{"close-err-04.go"},
+		"`*int` is invalid parameter type to the builtin `close` function")
+	expectError(t, "_test/src/call", []string{"close-err-05.go"},
+		"`struct{...}` is invalid parameter type to the builtin `close` function")
+	expectError(t, "_test/src/call", []string{"close-err-06.go"},
+		"`<-chan int` is invalid parameter type to the builtin `close` function")
 }

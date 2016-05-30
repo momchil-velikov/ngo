@@ -1085,7 +1085,22 @@ func (ev *exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) != 1 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	if ch, ok := underlyingType(y.Type()).(*ast.ChanType); !ok || !ch.Send {
+		return nil, &BadBuiltinArg{
+			Off: y.Position(), File: ev.File, Type: y.Type(), Func: "close"}
+	}
 	return x, nil
 }
 
