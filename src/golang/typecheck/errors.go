@@ -897,3 +897,16 @@ func (e *BadBuiltinArg) Error() string {
 		"%s:%d:%d: `%s` is invalid parameter type to the builtin `%s` function",
 		e.File.Name, ln, col, e.Type, e.Func)
 }
+
+// The BadNewType is returned for calls to the builtin `new` function,
+// where the argument is not a type.
+type BadNewType struct {
+	Off  int
+	File *ast.File
+}
+
+func (e *BadNewType) Error() string {
+	ln, col := e.File.SrcMap.Position(e.Off)
+	return fmt.Sprintf("%s:%d:%d: the argument to `new` must be a type",
+		e.File.Name, ln, col)
+}

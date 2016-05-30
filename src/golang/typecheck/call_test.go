@@ -406,3 +406,25 @@ func TestBuiltinCopyErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"copy-err-09.go"},
 		"`SA` is not assignable to `[]B`")
 }
+
+func TestBuiltinNew(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"new.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v := p.Find("a").(*ast.Var)
+	ptr, ok := v.Type.(*ast.PtrType)
+	if !ok || ptr.Base != ast.BuiltinInt {
+		t.Error("`a` should have type `*int`")
+	}
+}
+
+func TestBuiltinNewErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"new-err-01.go"},
+		"the argument to `new` must be a type")
+	expectError(t, "_test/src/call", []string{"new-err-02.go"},
+		"the argument to `new` must be a type")
+	expectError(t, "_test/src/call", []string{"new-err-03.go"},
+		"argument count mismatch")
+}

@@ -912,7 +912,25 @@ func (ti *typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
+	// The `new` must have a type argument.
+	if x.ATyp == nil {
+		return nil, &BadNewType{Off: x.Off, File: ti.File}
+	}
+	if err := ti.inferType(x.ATyp); err != nil {
+		return nil, err
+	}
+	x.Typ = &ast.PtrType{Off: x.Off, Base: x.ATyp}
+	ti.delay(func() error {
+		for i := range x.Xs {
+			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
+			if err != nil {
+				return err
+			}
+			x.Xs[i] = y
+		}
+		return nil
+	})
 	return x, nil
 }
 

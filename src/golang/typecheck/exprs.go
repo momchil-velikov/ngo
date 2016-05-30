@@ -1267,7 +1267,13 @@ func (ev *exprVerifier) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
+	if err := ev.checkType(x.ATyp); err != nil {
+		return nil, err
+	}
+	if len(x.Xs) > 0 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
 	return x, nil
 }
 
