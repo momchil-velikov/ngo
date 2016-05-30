@@ -371,3 +371,38 @@ func TestBuiltinCloseErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"close-err-06.go"},
 		"`<-chan int` is invalid parameter type to the builtin `close` function")
 }
+
+func TestBuiltinCopy(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"copy.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"a", "b", "c", "d", "e"} {
+		v := p.Find(name).(*ast.Var)
+		if v.Type != ast.BuiltinInt {
+			t.Errorf("`%s` should have type `int`", name)
+		}
+	}
+}
+
+func TestBuiltinCopyErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"copy-err-01.go"},
+		" type argument not allowed")
+	expectError(t, "_test/src/call", []string{"copy-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"copy-err-03.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"copy-err-04.go"},
+		"`*int` is invalid parameter type to the builtin `copy` function")
+	expectError(t, "_test/src/call", []string{"copy-err-05.go"},
+		"`*int` is invalid parameter type to the builtin `copy` function")
+	expectError(t, "_test/src/call", []string{"copy-err-06.go"},
+		"`Buf32` is not assignable to `[]int`")
+	expectError(t, "_test/src/call", []string{"copy-err-07.go"},
+		"`Buf` is not assignable to `[]int32`")
+	expectError(t, "_test/src/call", []string{"copy-err-08.go"},
+		"`SB` is not assignable to `[]A`")
+	expectError(t, "_test/src/call", []string{"copy-err-09.go"},
+		"`SA` is not assignable to `[]B`")
+}

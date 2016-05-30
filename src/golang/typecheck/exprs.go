@@ -1108,7 +1108,49 @@ func (*exprVerifier) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) != 2 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
+	dst, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = dst
+	src, err := ev.checkExpr(x.Xs[1])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[1] = src
+
+	// The destination musy be a slice type.
+	dt, ok := underlyingType(dst.Type()).(*ast.SliceType)
+	if !ok {
+		return nil, &BadBuiltinArg{
+			Off: dst.Position(), File: ev.File, Type: dst.Type(), Func: "copy"}
+
+	}
+	if dt.Elt == ast.BuiltinUint8 {
+		// As a special case, allow copying a string into a byte slice.
+		if t := builtinType(src.Type()); t != nil &&
+			(t.Kind == ast.BUILTIN_STRING || t.Kind == ast.BUILTIN_UNTYPED_STRING) {
+			return x, nil
+		}
+	}
+	st, ok := underlyingType(src.Type()).(*ast.SliceType)
+	if !ok {
+		return nil, &BadBuiltinArg{
+			Off: src.Position(), File: ev.File, Type: src.Type(), Func: "copy"}
+	}
+	if ok, err := ev.identicalTypes(dt.Elt, st.Elt); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, &NotAssignable{
+			Off: src.Position(), File: ev.File, DType: dt, SType: src.Type()}
+	}
 	return x, nil
 }
 

@@ -844,7 +844,18 @@ func (*typeInferer) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
+	x.Typ = ast.BuiltinInt
+	ti.delay(func() error {
+		for i := range x.Xs {
+			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
+			if err != nil {
+				return err
+			}
+			x.Xs[i] = y
+		}
+		return nil
+	})
 	return x, nil
 }
 
