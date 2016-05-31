@@ -313,8 +313,9 @@ const (
 	GE   = scanner.GE
 
 	// Used in diagnostics, not present as operations in the AST
-	REAL = 'r' // builtin `real` function
-	IMAG = 'i' // builtin `imag` function
+	REAL  = 'r' // builtin `real` function
+	IMAG  = 'i' // builtin `imag` function
+	CMPLX = 'c' // builtin `complex` function
 )
 
 type Operation uint

@@ -523,3 +523,94 @@ func TestBuiltinImagErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"imag-err-08.go"},
 		"type argument not allowed")
 }
+
+func TestBuiltinComplex(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"complex.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"a", "b", "c", "ff"} {
+		v := p.Find(name).(*ast.Const)
+		if v.Type != ast.BuiltinUntypedComplex {
+			t.Errorf("`%s` should be `untyped complex`", name)
+		}
+		c := v.Init.(*ast.ConstValue)
+		x, a := c.Value.(ast.UntypedComplex).Re.Float64()
+		if a != big.Exact || x != 1.0 {
+			t.Errorf("`%s` should have real 1.0", name)
+		}
+		x, a = c.Value.(ast.UntypedComplex).Im.Float64()
+		if a != big.Exact || x != 2.0 {
+			t.Errorf("`%s` should have imag 2.0", name)
+		}
+	}
+
+	v := p.Find("d").(*ast.Const)
+	if v.Type != ast.BuiltinComplex64 {
+		t.Error("`d` should have type `complex64`", v.Type)
+	}
+	c := v.Init.(*ast.ConstValue)
+	if real(c.Value.(ast.Complex)) != 1.0 {
+		t.Error("`d` should have real 1.0")
+	}
+	if imag(c.Value.(ast.Complex)) != 2.0 {
+		t.Error("`d` should have imag 2.0")
+	}
+
+	v = p.Find("e").(*ast.Const)
+	if v.Type != ast.BuiltinComplex128 {
+		t.Error("`e` should have type `complex128`", v.Type)
+	}
+	c = v.Init.(*ast.ConstValue)
+	if real(c.Value.(ast.Complex)) != 1.0 {
+		t.Error("`e` should have real 1.0")
+	}
+	if imag(c.Value.(ast.Complex)) != 2.0 {
+		t.Error("`e` should have imag 2.0")
+	}
+
+	for _, cs := range []struct {
+		name string
+		typ  ast.Type
+	}{
+		{"f", ast.BuiltinComplex64},
+		{"g", ast.BuiltinComplex64},
+		{"h", ast.BuiltinComplex64},
+		{"x", ast.BuiltinComplex128},
+		{"y", ast.BuiltinComplex128},
+		{"z", ast.BuiltinComplex128},
+	} {
+		v := p.Find(cs.name).(*ast.Var)
+		if v.Type != cs.typ {
+			t.Errorf("`%s` should have type `%s`", cs.name, cs.typ)
+		}
+	}
+}
+
+func TestBuiltinComplexErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"complex-err-01.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"complex-err-02.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"complex-err-03.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"complex-err-04.go"},
+		"`[]int` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-05.go"},
+		"`*int` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-06.go"},
+		"`int` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-07.go"},
+		"`int32` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-08.go"},
+		"invalid operation `complex`: mismatched types `float64` and `float32`")
+	expectError(t, "_test/src/call", []string{"complex-err-09.go"},
+		"invalid operand to `<<`: operand must have integer type (`float64` given)")
+	expectError(t, "_test/src/call", []string{"complex-err-10.go"},
+		"invalid operand to `>>`: operand must have integer type (`float64` given)")
+	expectError(t, "_test/src/call", []string{"complex-err-11.go"},
+		"invalid operand to `complex`: `(1.0 + 1.0i)`")
+	expectError(t, "_test/src/call", []string{"complex-err-12.go"},
+		"invalid operand to `complex`: `(1.0 + 1.1i)`")
+}

@@ -314,6 +314,8 @@ func (op Operation) String() string {
 		return "real"
 	case IMAG:
 		return "imag"
+	case CMPLX:
+		return "complex"
 	default:
 		panic("not reached")
 	}

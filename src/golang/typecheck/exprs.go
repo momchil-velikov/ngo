@@ -1104,7 +1104,30 @@ func (ev *exprVerifier) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	u, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	v, err := ev.checkExpr(x.Xs[1])
+	if err != nil {
+		return nil, err
+	}
+	if u, ok := u.(*ast.ConstValue); ok {
+		if v, ok := v.(*ast.ConstValue); ok {
+			c, err := Complex(u, v)
+			if err != nil {
+				return nil, &ErrorPos{Off: x.Off, File: ev.File, Err: err}
+			}
+			c.Off = x.Off
+			return c, nil
+		}
+	}
+	x.Xs[0] = u
+	x.Xs[1] = v
 	return x, nil
 }
 

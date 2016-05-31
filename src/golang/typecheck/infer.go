@@ -840,7 +840,100 @@ func (ti *typeInferer) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
+	if len(x.Xs) != 2 {
+		return nil, &BadArgNumber{Off: x.Off, File: ti.File}
+	}
+	u, err := ti.inferExpr(x.Xs[0], nil)
+	if err != nil {
+		return nil, err
+	}
+	v, err := ti.inferExpr(x.Xs[1], nil)
+	if err != nil {
+		return nil, err
+	}
+	// If one argument is untyped, convert it to the type of the other
+	// argument.
+	switch t0, t1 := u.Type(), v.Type(); {
+	case isUntyped(t0) && !isUntyped(t1):
+		if t0 != nil {
+			u = &ast.Conversion{Off: u.Position(), Typ: t1, X: u}
+		}
+		if u, err = ti.inferExpr(u, t1); err != nil {
+			return nil, err
+		}
+		if isUntyped(u.Type()) {
+			panic("not reached")
+		}
+	case !isUntyped(t0) && isUntyped(t1):
+		if t1 != nil {
+			v = &ast.Conversion{Off: v.Position(), Typ: t0, X: v}
+		}
+		if v, err = ti.inferExpr(v, t0); err != nil {
+			return nil, err
+		}
+		if isUntyped(v.Type()) {
+			panic("not reached")
+		}
+	case isUntyped(t0) && isUntyped(t1):
+		// Force `float64`, if the arguments have no type and are
+		// non-constant.
+		if !ti.isConst(u) || !ti.isConst(v) {
+			if u, err = ti.inferExpr(u, ast.BuiltinFloat64); err != nil {
+				return nil, err
+			}
+			if v, err = ti.inferExpr(v, ast.BuiltinFloat64); err != nil {
+				return nil, err
+			}
+			// One of the above conditional statements must exit with an
+			// error. If an argument is non-consant and has no type, then it
+			// must involve bit-shift operation], which is illegal for
+			// `float32` or `float64`.
+			panic("not reached")
+		}
+	}
+	// Only builtin types make sense as asrguments to `complex`.
+	utyp := builtinType(u.Type())
+	if utyp == nil {
+		return nil, &BadBuiltinArg{
+			Off: u.Position(), File: ti.File, Type: u.Type(), Func: "complex"}
+	}
+	vtyp := builtinType(v.Type())
+	if vtyp == nil {
+		return nil, &BadBuiltinArg{
+			Off: v.Position(), File: ti.File, Type: v.Type(), Func: "complex"}
+	}
+	// If both arguments are untyped, the result is an `untyped complex`.
+	if utyp.IsUntyped() || vtyp.IsUntyped() {
+		// Both argument ought to be untyped here, or else we would have
+		// already converted the untyped one to the type of the other.
+		if !(utyp.IsUntyped() && vtyp.IsUntyped()) {
+			panic("not reached")
+		}
+		x.Typ = ast.BuiltinUntypedComplex
+	} else {
+		// If the arguments are typed, they should both be either `float32` or
+		// `float64`.
+		if utyp != ast.BuiltinFloat32 && utyp != ast.BuiltinFloat64 {
+			return nil, &BadBuiltinArg{
+				Off: u.Position(), File: ti.File, Type: u.Type(), Func: "complex"}
+		}
+		if vtyp != ast.BuiltinFloat32 && vtyp != ast.BuiltinFloat64 {
+			return nil, &BadBuiltinArg{
+				Off: v.Position(), File: ti.File, Type: v.Type(), Func: "complex"}
+		}
+		if utyp != vtyp {
+			return nil, &BadBinaryOperands{
+				Off: x.Off, File: ti.File, Op: ast.CMPLX, XType: u.Type(), YType: v.Type()}
+		}
+		if utyp == ast.BuiltinFloat32 {
+			x.Typ = ast.BuiltinComplex64
+		} else {
+			x.Typ = ast.BuiltinComplex128
+		}
+	}
+	x.Xs[0] = u
+	x.Xs[1] = v
 	return x, nil
 }
 

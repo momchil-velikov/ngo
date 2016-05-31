@@ -1554,6 +1554,68 @@ func Imag(x *ast.ConstValue) (*ast.ConstValue, error) {
 	}
 }
 
+func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
+	tx, ty := builtinType(x.Typ), builtinType(y.Typ)
+	if !tx.IsUntyped() {
+		// If the operands are typed, they should be of the same type, and
+		// either `float32` or `float64`
+		if tx != ast.BuiltinFloat32 && tx != ast.BuiltinFloat64 {
+			return nil, &invalidOperation{Op: ast.CMPLX, Type: tx}
+		}
+		if ty != ast.BuiltinFloat32 && ty != ast.BuiltinFloat64 {
+			return nil, &invalidOperation{Op: ast.CMPLX, Type: ty}
+		}
+		if tx != ty {
+			return nil, &mismatchedTypes{Op: ast.CMPLX, X: x, Y: y}
+		}
+		u, v := x.Value.(ast.Float), y.Value.(ast.Float)
+		typ := ast.BuiltinComplex128
+		if tx == ast.BuiltinFloat32 {
+			typ = ast.BuiltinComplex64
+		}
+		return &ast.ConstValue{Typ: typ, Value: ast.Complex(complex(u, v))}, nil
+	}
+
+	// If the operands are untyped, they should be of a numeric type, and, if
+	// complex, the imaginary part must be zero.
+	var u *big.Float
+	switch tx.Kind {
+	case ast.BUILTIN_UNTYPED_INT:
+		u = bigIntToFloat(x.Value.(ast.UntypedInt).Int)
+	case ast.BUILTIN_UNTYPED_RUNE:
+		u = bigIntToFloat(x.Value.(ast.Rune).Int)
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		u = new(big.Float).Copy(x.Value.(ast.UntypedFloat).Float)
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		c := x.Value.(ast.UntypedComplex)
+		if c.Im.Cmp(&ZeroFloat) != 0 {
+			return nil, &badOperandValue{Op: ast.CMPLX, X: x}
+		}
+		u = new(big.Float).Copy(c.Re)
+	default:
+		return nil, &invalidOperation{Op: ast.CMPLX, Type: tx}
+	}
+	var v *big.Float
+	switch ty.Kind {
+	case ast.BUILTIN_UNTYPED_INT:
+		v = bigIntToFloat(y.Value.(ast.UntypedInt).Int)
+	case ast.BUILTIN_UNTYPED_RUNE:
+		v = bigIntToFloat(y.Value.(ast.Rune).Int)
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		v = new(big.Float).Copy(y.Value.(ast.UntypedFloat).Float)
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		c := y.Value.(ast.UntypedComplex)
+		if c.Im.Cmp(&ZeroFloat) != 0 {
+			return nil, &badOperandValue{Op: ast.CMPLX, X: y}
+		}
+		v = new(big.Float).Copy(c.Re)
+	default:
+		return nil, &invalidOperation{Op: ast.CMPLX, Type: ty}
+	}
+	return &ast.ConstValue{
+		Typ: ast.BuiltinUntypedComplex, Value: ast.UntypedComplex{Re: u, Im: v}}, nil
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType
