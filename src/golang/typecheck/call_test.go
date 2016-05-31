@@ -473,6 +473,8 @@ func TestBuiltinRealErr(t *testing.T) {
 		"`float32` is invalid parameter type to the builtin `real` function")
 	expectError(t, "_test/src/call", []string{"real-err-07.go"},
 		"`int` is invalid parameter type to the builtin `real` function")
+	expectError(t, "_test/src/call", []string{"real-err-08.go"},
+		"type argument not allowed")
 }
 
 func TestBuiltinImag(t *testing.T) {
@@ -518,4 +520,6 @@ func TestBuiltinImagErr(t *testing.T) {
 		"`float32` is invalid parameter type to the builtin `imag` function")
 	expectError(t, "_test/src/call", []string{"imag-err-07.go"},
 		"`int` is invalid parameter type to the builtin `imag` function")
+	expectError(t, "_test/src/call", []string{"imag-err-08.go"},
+		"type argument not allowed")
 }

@@ -1159,6 +1159,9 @@ func (*exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err
@@ -1305,6 +1308,9 @@ func (*exprVerifier) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err
