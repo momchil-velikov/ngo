@@ -946,7 +946,39 @@ func (*typeInferer) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
+	if len(x.Xs) != 1 {
+		return nil, &BadArgNumber{Off: x.Off, File: ti.File}
+	}
+	y, err := ti.inferExpr(x.Xs[0], nil)
+	if err != nil {
+		return nil, err
+	}
+	if y.Type() == nil {
+		y, err = ti.inferExpr(x.Xs[0], ast.BuiltinDefault)
+		if err != nil {
+			return nil, err
+		}
+		if y.Type() == nil {
+			panic("not reached")
+		}
+	}
+	x.Xs[0] = y
+	t := builtinType(y.Type())
+	if t == nil {
+		return nil, &BadBuiltinArg{
+			Off: y.Position(), File: ti.File, Type: y.Type(), Func: "real"}
+	}
+	if t == ast.BuiltinComplex128 {
+		x.Typ = ast.BuiltinFloat64
+	} else if t == ast.BuiltinComplex64 {
+		x.Typ = ast.BuiltinFloat32
+	} else if t.IsArith() && t.IsUntyped() {
+		x.Typ = ast.BuiltinUntypedFloat
+	} else {
+		return nil, &BadBuiltinArg{
+			Off: y.Position(), File: ti.File, Type: y.Type(), Func: "real"}
+	}
 	return x, nil
 }
 

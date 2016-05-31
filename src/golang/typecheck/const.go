@@ -1480,6 +1480,40 @@ func Logical(
 	return &ast.ConstValue{Typ: x.Typ, Value: ast.Bool(v)}, nil
 }
 
+func Real(x *ast.ConstValue) (*ast.ConstValue, error) {
+	tx := builtinType(x.Typ)
+	switch tx.Kind {
+	case ast.BUILTIN_COMPLEX64:
+		v := float32(real(x.Value.(ast.Complex)))
+		return &ast.ConstValue{Typ: ast.BuiltinFloat32, Value: ast.Float(v)}, nil
+	case ast.BUILTIN_COMPLEX128:
+		v := real(x.Value.(ast.Complex))
+		return &ast.ConstValue{Typ: ast.BuiltinFloat64, Value: ast.Float(v)}, nil
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		re := new(big.Float).Copy(x.Value.(ast.UntypedComplex).Re)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: re}}, nil
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		re := x.Value.(ast.UntypedFloat).Float
+		return &ast.ConstValue{
+			Typ:   tx,
+			Value: ast.UntypedFloat{Float: re}}, nil
+	case ast.BUILTIN_UNTYPED_INT:
+		re := bigIntToFloat(x.Value.(ast.UntypedInt).Int)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: re}}, nil
+	case ast.BUILTIN_UNTYPED_RUNE:
+		re := bigIntToFloat(x.Value.(ast.Rune).Int)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: re}}, nil
+	default:
+		return nil, &invalidOperation{Op: ast.REAL, Type: tx}
+	}
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

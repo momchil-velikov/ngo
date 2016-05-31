@@ -3,6 +3,7 @@ package typecheck
 import (
 	"golang/ast"
 	"golang/parser"
+	"math/big"
 	"testing"
 )
 
@@ -427,4 +428,49 @@ func TestBuiltinNewErr(t *testing.T) {
 		"the argument to `new` must be a type")
 	expectError(t, "_test/src/call", []string{"new-err-03.go"},
 		"argument count mismatch")
+}
+
+func TestBuiltinReal(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"real.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"a", "b", "c", "d"} {
+		v := p.Find(name).(*ast.Const)
+		if v.Type != ast.BuiltinUntypedFloat {
+			t.Errorf("`%s` should be `untyped float`", name)
+		}
+		c := v.Init.(*ast.ConstValue)
+		x, a := c.Value.(ast.UntypedFloat).Float64()
+		if a != big.Exact || x != 1.0 {
+			t.Errorf("`%s` should have value 1.0", name)
+		}
+	}
+
+	x := p.Find("x").(*ast.Var)
+	if x.Type != ast.BuiltinFloat32 {
+		t.Error("`x` should have type `float32`")
+	}
+	y := p.Find("y").(*ast.Var)
+	if y.Type != ast.BuiltinFloat64 {
+		t.Error("`y` should have type `float64`")
+	}
+}
+
+func TestBuiltinRealErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"real-err-01.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"real-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"real-err-03.go"},
+		"`untyped bool` is invalid parameter type to the builtin `real` function")
+	expectError(t, "_test/src/call", []string{"real-err-04.go"},
+		"`string` is invalid parameter type to the builtin `real` function")
+	expectError(t, "_test/src/call", []string{"real-err-05.go"},
+		"`S` is invalid parameter type to the builtin `real` function")
+	expectError(t, "_test/src/call", []string{"real-err-06.go"},
+		"`float32` is invalid parameter type to the builtin `real` function")
+	expectError(t, "_test/src/call", []string{"real-err-07.go"},
+		"`int` is invalid parameter type to the builtin `real` function")
 }

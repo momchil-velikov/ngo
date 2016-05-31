@@ -311,6 +311,10 @@ const (
 	NE   = scanner.NE
 	LE   = scanner.LE
 	GE   = scanner.GE
+
+	// Used in diagnostics, not present as operations in the AST
+	REAL = 'r' // builtin `real` function
+	IMAG = 'i' // builtin `imag` function
 )
 
 type Operation uint

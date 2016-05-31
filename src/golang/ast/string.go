@@ -310,6 +310,10 @@ func (op Operation) String() string {
 		return "<="
 	case GE:
 		return "=>"
+	case REAL:
+		return "real"
+	case IMAG:
+		return "imag"
 	default:
 		panic("not reached")
 	}
