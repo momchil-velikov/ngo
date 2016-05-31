@@ -1514,6 +1514,46 @@ func Real(x *ast.ConstValue) (*ast.ConstValue, error) {
 	}
 }
 
+func Imag(x *ast.ConstValue) (*ast.ConstValue, error) {
+	tx := builtinType(x.Typ)
+	switch tx.Kind {
+	case ast.BUILTIN_COMPLEX64:
+		v := float32(imag(x.Value.(ast.Complex)))
+		return &ast.ConstValue{Typ: ast.BuiltinFloat32, Value: ast.Float(v)}, nil
+	case ast.BUILTIN_COMPLEX128:
+		v := imag(x.Value.(ast.Complex))
+		return &ast.ConstValue{Typ: ast.BuiltinFloat64, Value: ast.Float(v)}, nil
+	case ast.BUILTIN_UNTYPED_COMPLEX:
+		im := new(big.Float).Copy(x.Value.(ast.UntypedComplex).Im)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: im}}, nil
+	case ast.BUILTIN_UNTYPED_FLOAT:
+		zero := new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven)
+		return &ast.ConstValue{
+			Typ:   tx,
+			Value: ast.UntypedFloat{Float: zero}}, nil
+	case ast.BUILTIN_UNTYPED_INT:
+		zero := new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: zero}}, nil
+	case ast.BUILTIN_UNTYPED_RUNE:
+		zero := new(big.Float).
+			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
+			SetMode(big.ToNearestEven)
+		return &ast.ConstValue{
+			Typ:   ast.BuiltinUntypedFloat,
+			Value: ast.UntypedFloat{Float: zero}}, nil
+	default:
+		return nil, &invalidOperation{Op: ast.IMAG, Type: tx}
+	}
+}
+
 type invalidOperation struct {
 	Op   ast.Operation
 	Type *ast.BuiltinType

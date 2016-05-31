@@ -1158,7 +1158,22 @@ func (*exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	if c, ok := y.(*ast.ConstValue); ok {
+		d, err := Imag(c)
+		if err != nil {
+			// Impossible to happen due to argument type checks during type
+			// inference.
+			panic("not reached")
+		}
+		d.Off = c.Off
+		return d, nil
+	}
 	return x, nil
 }
 
