@@ -435,18 +435,6 @@ func ToString(c *ast.ConstValue) (string, error) {
 	return string(v.(ast.String)), nil
 }
 
-// The badConversion error is returned when the destination type cannot
-// represent the value of the converted constant.
-type badConstConversion struct {
-	Dst ast.Type
-	Src *ast.ConstValue
-}
-
-func (e *badConstConversion) Error() string {
-	return fmt.Sprintf("%s (`%s`) cannot be converted to `%s`",
-		e.Src, e.Src.TypeString(), e.Dst)
-}
-
 func Minus(cst *ast.ConstValue) (*ast.ConstValue, error) {
 	typ, val := builtinType(cst.Typ), cst.Value
 	var res ast.Value
@@ -612,42 +600,6 @@ func Shift(
 		return &ast.ConstValue{Off: x.Off, Typ: x.Typ, Value: res}, nil
 
 	}
-}
-
-type badShiftCount struct {
-	X *ast.ConstValue
-}
-
-func (e *badShiftCount) Error() string {
-	return fmt.Sprintf("invalid shift count `%s` (`%s`)", e.X, e.X.Typ)
-}
-
-type bigShiftCount struct {
-	X uint64
-}
-
-func (e *bigShiftCount) Error() string {
-	return fmt.Sprintf("shift count too big: %d", e.X)
-}
-
-type badOperandValue struct {
-	Op ast.Operation
-	X  *ast.ConstValue
-}
-
-func (e *badOperandValue) Error() string {
-	return fmt.Sprintf("invalid operand to `%s`: `%s`", e.Op, e.X)
-}
-
-type badOperandType struct {
-	Op   ast.Operation
-	Type string
-	X    *ast.ConstValue
-}
-
-func (e *badOperandType) Error() string {
-	return fmt.Sprintf("invalid operand to `%s`: operand must have %s (`%s` given)",
-		e.Op, e.Type, e.X.TypeString())
 }
 
 func untypedConvPanic(ast.Value) ast.Value { panic("not reached") }
@@ -1614,6 +1566,54 @@ func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	}
 	return &ast.ConstValue{
 		Typ: ast.BuiltinUntypedComplex, Value: ast.UntypedComplex{Re: u, Im: v}}, nil
+}
+
+// The badConversion error is returned when the destination type cannot
+// represent the value of the converted constant.
+type badConstConversion struct {
+	Dst ast.Type
+	Src *ast.ConstValue
+}
+
+func (e *badConstConversion) Error() string {
+	return fmt.Sprintf("%s (`%s`) cannot be converted to `%s`",
+		e.Src, e.Src.TypeString(), e.Dst)
+}
+
+type badShiftCount struct {
+	X *ast.ConstValue
+}
+
+func (e *badShiftCount) Error() string {
+	return fmt.Sprintf("invalid shift count `%s` (`%s`)", e.X, e.X.Typ)
+}
+
+type bigShiftCount struct {
+	X uint64
+}
+
+func (e *bigShiftCount) Error() string {
+	return fmt.Sprintf("shift count too big: %d", e.X)
+}
+
+type badOperandValue struct {
+	Op ast.Operation
+	X  *ast.ConstValue
+}
+
+func (e *badOperandValue) Error() string {
+	return fmt.Sprintf("invalid operand to `%s`: `%s`", e.Op, e.X)
+}
+
+type badOperandType struct {
+	Op   ast.Operation
+	Type string
+	X    *ast.ConstValue
+}
+
+func (e *badOperandType) Error() string {
+	return fmt.Sprintf("invalid operand to `%s`: operand must have %s (`%s` given)",
+		e.Op, e.Type, e.X.TypeString())
 }
 
 type invalidOperation struct {
