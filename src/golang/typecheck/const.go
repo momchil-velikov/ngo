@@ -246,6 +246,11 @@ func floatToInt64(x float64) (int64, bool) {
 	}
 }
 
+func float64To32(x float64) (float64, bool) {
+	v := float64(float32(x))
+	return v, !math.IsInf(v, 0)
+}
+
 func convertFloat(dst *ast.BuiltinType, val float64) ast.Value {
 	if dst.IsInteger() {
 		if val != math.Floor(val) {
@@ -269,7 +274,11 @@ func convertFloat(dst *ast.BuiltinType, val float64) ast.Value {
 	case ast.BUILTIN_BOOL:
 		return nil
 	case ast.BUILTIN_FLOAT32:
-		val = float64(float32(val))
+		u, ok := float64To32(val)
+		if !ok {
+			return nil
+		}
+		val = u
 		fallthrough
 	case ast.BUILTIN_FLOAT64:
 		return ast.Float(val)
@@ -297,8 +306,16 @@ func convertComplex(dst *ast.BuiltinType, re float64, im float64) ast.Value {
 	case ast.BUILTIN_BOOL:
 		return nil
 	case ast.BUILTIN_COMPLEX64:
-		re = float64(float32(re))
-		im = float64(float32(im))
+		u, ok := float64To32(re)
+		if !ok {
+			return nil
+		}
+		v, ok := float64To32(im)
+		if !ok {
+			return nil
+		}
+		re = u
+		im = v
 		fallthrough
 	case ast.BUILTIN_COMPLEX128:
 		return ast.Complex(complex(re, im))

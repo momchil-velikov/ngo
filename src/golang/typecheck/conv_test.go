@@ -279,3 +279,46 @@ func TestConvNonConstErr(t *testing.T) {
 	expectError(t, "_test/src/conv", []string{"non-const-err-16.go"},
 		"1 (`untyped int`) cannot be converted to `J`")
 }
+
+func TestConvComplex(t *testing.T) {
+	p, err := compilePackage("_test/src/conv", []string{"complex.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range []struct{ name, typ, val string }{
+		{"a", "int", "1"},
+		{"b", "float32", "1.0"},
+		{"c", "float64", "1.0"},
+	} {
+		n := p.Find(c.name).(*ast.Const)
+		x := n.Init.(*ast.ConstValue)
+
+		if name := x.Typ.String(); name != c.typ {
+			t.Errorf("unexpected type `%s` for `%s`\n", name, n.Name)
+		}
+
+		if s := x.String(); s != c.val {
+			t.Errorf("unexpected value `%s` for `%s`\n", s, n.Name)
+		}
+	}
+}
+
+func TestConvComplexErr(t *testing.T) {
+	expectError(t, "_test/src/conv", []string{"complex-err-01.go"},
+		"(1.0 + 1.1i) (`untyped complex`) cannot be converted to `bool`")
+	expectError(t, "_test/src/conv", []string{"complex-err-02.go"},
+		"(1.0 + 1.1i) (`untyped complex`) cannot be converted to `string`")
+	expectError(t, "_test/src/conv", []string{"complex-err-03.go"},
+		"(1.0 + 1.1i) (`untyped complex`) cannot be converted to `int16`")
+	expectError(t, "_test/src/conv", []string{"complex-err-04.go"},
+		"(1.0 + 1.1i) (`untyped complex`) cannot be converted to `float32`")
+	expectError(t, "_test/src/conv", []string{"complex-err-05.go"},
+		"(340282360000000000000000000000000000000.0 + 0.0i) (`untyped complex`) cannot be converted to `float32`")
+	expectError(t, "_test/src/conv", []string{"complex-err-06.go"},
+		"(340282359999999991113723490719674400768.0 + 0.0i) (`complex128`) cannot be converted to `float32`")
+	expectError(t, "_test/src/conv", []string{"complex-err-07.go"},
+		"(340282359999999991113723490719674400768.0 + 0.0i) (`complex128`) cannot be converted to `complex64`")
+	expectError(t, "_test/src/conv", []string{"complex-err-08.go"},
+		"340282359999999991113723490719674400768.0i (`complex128`) cannot be converted to `complex64`")
+}
