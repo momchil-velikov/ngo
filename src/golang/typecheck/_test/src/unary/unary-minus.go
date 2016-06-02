@@ -7,6 +7,8 @@ const (
 	D = -C
 	E = 1.1
 	F = -E
+	G = complex(1.1, 2.2)
+	H = -G
 )
 
 const (
@@ -16,6 +18,8 @@ const (
 	cD = -cC
 	cE = float32(1.125)
 	cF = -cE
+	cG = complex(float32(1.125), 2.25)
+	cH = -cG
 )
 
 var (

@@ -156,6 +156,25 @@ func TestUnaryMinus(t *testing.T) {
 		t.Error("`F` should have value -1.1")
 	}
 
+	H := p.Find("H").(*ast.Const)
+	c = H.Init.(*ast.ConstValue)
+	if !isUntyped(c.Typ) {
+		t.Error("`H` should be untyped")
+	}
+	if _, ok := c.Value.(ast.UntypedComplex); !ok {
+		t.Error("`H` should be untyped complex")
+	}
+	z, err := ToComplex(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if real(z) != -1.1 {
+		t.Error("`real(H)` should have value -1.1")
+	}
+	if imag(z) != -2.2 {
+		t.Error("`imag(H)` should have value -1.1")
+	}
+
 	cB := p.Find("cB").(*ast.Const)
 	c = cB.Init.(*ast.ConstValue)
 	if c.Typ != ast.BuiltinInt {
@@ -183,7 +202,21 @@ func TestUnaryMinus(t *testing.T) {
 		t.Error("`cF` should have value -1.125")
 	}
 
-	// FIXME: check complex constants
+	cH := p.Find("cH").(*ast.Const)
+	c = cH.Init.(*ast.ConstValue)
+	if c.Typ != ast.BuiltinComplex64 {
+		t.Error("`cH` should have type `complex64`")
+	}
+	z, err = ToComplex(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if real(z) != -1.125 {
+		t.Error("`real(cH)` should have value -1.125")
+	}
+	if imag(z) != -2.25 {
+		t.Error("`imag(cH)` should have value -2.25")
+	}
 
 	vB := p.Find("vB").(*ast.Var)
 	if vB.Type != ast.BuiltinInt {
