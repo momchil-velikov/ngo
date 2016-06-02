@@ -1108,6 +1108,16 @@ func (ev *exprVerifier) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+	// Special case of `complex(g(<arguments-of-g>))`.
+	if len(x.Xs) == 1 {
+		y, err := ev.checkExpr(x.Xs[0])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[0] = y
+		return x, nil
+	}
+	// Generic case.
 	u, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err

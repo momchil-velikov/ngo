@@ -11,6 +11,9 @@ const (
 	ff = complex(complex(1.0, 0.0), complex(2.0, 0.0))
 )
 
+func g32() (float32, float32)
+func g64() (float64, float64)
+
 var (
 	s, t float32
 	u, v float64
@@ -21,4 +24,7 @@ var (
 	x = complex(u, 2.0)
 	y = complex(1.0, v)
 	z = complex(u, v)
+
+	p = complex(g32())
+	q = complex(g64())
 )

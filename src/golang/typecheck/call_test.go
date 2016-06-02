@@ -577,9 +577,11 @@ func TestBuiltinComplex(t *testing.T) {
 		{"f", ast.BuiltinComplex64},
 		{"g", ast.BuiltinComplex64},
 		{"h", ast.BuiltinComplex64},
+		{"p", ast.BuiltinComplex64},
 		{"x", ast.BuiltinComplex128},
 		{"y", ast.BuiltinComplex128},
 		{"z", ast.BuiltinComplex128},
+		{"q", ast.BuiltinComplex128},
 	} {
 		v := p.Find(cs.name).(*ast.Var)
 		if v.Type != cs.typ {
@@ -613,4 +615,16 @@ func TestBuiltinComplexErr(t *testing.T) {
 		"invalid operand to `complex`: `(1.0 + 1.0i)`")
 	expectError(t, "_test/src/call", []string{"complex-err-12.go"},
 		"invalid operand to `complex`: `(1.0 + 1.1i)`")
+	expectError(t, "_test/src/call", []string{"complex-err-13.go"},
+		"invalid use of `...` to call a non-variadic function")
+	expectError(t, "_test/src/call", []string{"complex-err-14.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"complex-err-15.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"complex-err-16.go"},
+		"`*int` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-17.go"},
+		"`[]int` is invalid parameter type to the builtin `complex` function")
+	expectError(t, "_test/src/call", []string{"complex-err-18.go"},
+		"invalid operation `complex`: mismatched types `float32` and `float64`")
 }
