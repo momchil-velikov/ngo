@@ -134,12 +134,16 @@ func convertInt(dst *ast.BuiltinType, src *ast.BuiltinType, val uint64) ast.Valu
 }
 
 var (
-	MinInt64  = big.NewInt(math.MinInt64)
-	MaxInt64  = big.NewInt(math.MaxInt64)
-	MaxUint64 = new(big.Int).SetUint64(math.MaxUint64)
-	ZeroInt   = big.Int{}
-	ZeroFloat = big.Float{}
+	minInt64, maxInt64, maxUint64, zeroInt big.Int
+	zeroFloat                              big.Float
 )
+
+func init() {
+	minInt64.SetInt64(math.MinInt64)
+	maxInt64.SetInt64(math.MaxInt64)
+	maxUint64.SetUint64(math.MaxUint64)
+	zeroFloat.SetPrec(ast.UNTYPED_FLOAT_PRECISION).SetMode(big.ToNearestEven)
+}
 
 const MaxShift = 511
 
@@ -147,7 +151,7 @@ func convertUntypedInt(dst *ast.BuiltinType, val *big.Int) ast.Value {
 	if dst.IsInteger() || dst.Kind == ast.BUILTIN_STRING {
 		// If the destination type is integral, a successful conversion it not
 		// possible if the untyped constant is outside the range of (u)int64.
-		if val.Cmp(MinInt64) < 0 || val.Cmp(MaxUint64) > 0 {
+		if val.Cmp(&minInt64) < 0 || val.Cmp(&maxUint64) > 0 {
 			if dst.Kind == ast.BUILTIN_STRING {
 				return ast.String(0xfffd)
 			} else {
@@ -1242,19 +1246,19 @@ func divUntyped(t untypedKind, x ast.Value, y ast.Value) (ast.Value, error) {
 	switch t {
 	case _UNTYPED_INT:
 		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
-		if y.Int.Cmp(&ZeroInt) == 0 {
+		if y.Int.Cmp(&zeroInt) == 0 {
 			return nil, &divisionByZero{}
 		}
 		return ast.UntypedInt{Int: new(big.Int).Div(x.Int, y.Int)}, nil
 	case _UNTYPED_RUNE:
 		x, y := x.(ast.Rune), y.(ast.Rune)
-		if y.Int.Cmp(&ZeroInt) == 0 {
+		if y.Int.Cmp(&zeroInt) == 0 {
 			return nil, &divisionByZero{}
 		}
 		return ast.Rune{Int: new(big.Int).Div(x.Int, y.Int)}, nil
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
-		if y.Float.Cmp(&ZeroFloat) == 0 {
+		if y.Float.Cmp(&zeroFloat) == 0 {
 			return nil, &divisionByZero{}
 		}
 		return ast.UntypedFloat{Float: new(big.Float).Quo(x.Float, y.Float)}, nil
@@ -1264,7 +1268,7 @@ func divUntyped(t untypedKind, x ast.Value, y ast.Value) (ast.Value, error) {
 		t0 := new(big.Float).Mul(c, c)
 		t1 := new(big.Float).Mul(d, d)
 		z := new(big.Float).Add(t0, t1)
-		if z.Cmp(&ZeroFloat) == 0 {
+		if z.Cmp(&zeroFloat) == 0 {
 			return nil, &divisionByZero{}
 		}
 		t0.Mul(a, c)
@@ -1322,7 +1326,7 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	default:
 		return nil, &invalidOperation{Op: '%', Type: ty}
 	}
-	if v.Cmp(&ZeroInt) == 0 {
+	if v.Cmp(&zeroInt) == 0 {
 		return nil, &divisionByZero{}
 	}
 	var res ast.Value
@@ -1540,7 +1544,7 @@ func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 		u = new(big.Float).Copy(x.Value.(ast.UntypedFloat).Float)
 	case ast.BUILTIN_UNTYPED_COMPLEX:
 		c := x.Value.(ast.UntypedComplex)
-		if c.Im.Cmp(&ZeroFloat) != 0 {
+		if c.Im.Cmp(&zeroFloat) != 0 {
 			return nil, &badOperandValue{Op: ast.CMPLX, X: x}
 		}
 		u = new(big.Float).Copy(c.Re)
@@ -1557,7 +1561,7 @@ func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 		v = new(big.Float).Copy(y.Value.(ast.UntypedFloat).Float)
 	case ast.BUILTIN_UNTYPED_COMPLEX:
 		c := y.Value.(ast.UntypedComplex)
-		if c.Im.Cmp(&ZeroFloat) != 0 {
+		if c.Im.Cmp(&zeroFloat) != 0 {
 			return nil, &badOperandValue{Op: ast.CMPLX, X: y}
 		}
 		v = new(big.Float).Copy(c.Re)
