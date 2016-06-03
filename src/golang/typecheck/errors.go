@@ -868,34 +868,25 @@ func (e *NegMakeArg) Error() string {
 		e.File.Name, ln, col)
 }
 
-// The BadAppendArg is returned for calls to the builtin `append` function,
-// where the first argument is not of a slice type.
-type BadAppendArg struct {
-	Off  int
-	File *ast.File
-}
-
-func (e *BadAppendArg) Error() string {
-	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf(
-		"%s:%d:%d: the first argument to `append` must be of a slice type",
-		e.File.Name, ln, col)
-}
-
 // The BadBuiltinArg error is returned when a type of an argument is not
 // applicable as a parameter to some builtin function.
 type BadBuiltinArg struct {
-	Off  int
-	File *ast.File
-	Type ast.Type
-	Func string
+	Off      int
+	File     *ast.File
+	Type     ast.Type
+	Func     string
+	Expected string
 }
 
 func (e *BadBuiltinArg) Error() string {
 	ln, col := e.File.SrcMap.Position(e.Off)
-	return fmt.Sprintf(
+	s := fmt.Sprintf(
 		"%s:%d:%d: `%s` is invalid parameter type to the builtin `%s` function",
 		e.File.Name, ln, col, e.Type, e.Func)
+	if len(e.Expected) > 0 {
+		s += fmt.Sprintf(";\n\texpected %s", e.Expected)
+	}
+	return s
 }
 
 // The BadNewType is returned for calls to the builtin `new` function,

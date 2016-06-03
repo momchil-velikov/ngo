@@ -188,7 +188,7 @@ func TestBuiltinMakeErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"make-err-01.go"},
 		"the first argument to `make` must be a slice, map, or chan type")
 	expectError(t, "_test/src/call", []string{"make-err-02.go"},
-		"the first argument to `make` must be a slice, map, or chan type")
+		"expected a slice, map, or chan type argument")
 	expectError(t, "_test/src/call", []string{"make-err-03.go"},
 		"1.1 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/call", []string{"make-err-04.go"},
@@ -242,11 +242,11 @@ func TestBuiltinAppendErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"append-err-01.go"},
 		"argument count mismatch")
 	expectError(t, "_test/src/call", []string{"append-err-02.go"},
-		"the first argument to `append` must be of a slice type")
+		"expected argument of a slice type")
 	expectError(t, "_test/src/call", []string{"append-err-03.go"},
-		"the first argument to `append` must be of a slice type")
+		"expected argument of a slice type")
 	expectError(t, "_test/src/call", []string{"append-err-04.go"},
-		"the first argument to `append` must be of a slice type")
+		"expected argument of a slice type")
 	expectError(t, "_test/src/call", []string{"append-err-05.go"},
 		"1.1 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/call", []string{"append-err-06.go"},

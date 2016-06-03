@@ -788,7 +788,9 @@ func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 	x.Xs[0] = y
 	st, ok := underlyingType(y.Type()).(*ast.SliceType)
 	if !ok {
-		return nil, &BadAppendArg{Off: x.Off, File: ti.File}
+		return nil, &BadBuiltinArg{
+			Off: y.Position(), File: ti.File, Type: y.Type(),
+			Func: "append", Expected: "argument of a slice type"}
 	}
 	// The type of the `append` call expression is the same as the type of the
 	// first argument.
@@ -1014,7 +1016,9 @@ func (ti *typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
 	// Check the type is either slice, map, or chan.
 	switch underlyingType(x.ATyp).(type) {
 	default:
-		return nil, &BadMakeType{Off: x.Off, File: ti.File}
+		return nil, &BadBuiltinArg{
+			Off: x.Off, File: ti.File, Type: x.ATyp,
+			Func: "make", Expected: "a slice, map, or chan type argument"}
 	case *ast.SliceType, *ast.MapType, *ast.ChanType:
 	}
 	// Infer argument expression types.
