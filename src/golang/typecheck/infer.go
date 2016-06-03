@@ -765,6 +765,17 @@ func (ti *typeInferer) inferArgs(x *ast.Call) error {
 	return nil
 }
 
+func (ti *typeInferer) inferBuiltinArgs(x *ast.Call) error {
+	for i := range x.Xs {
+		y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
+		if err != nil {
+			return err
+		}
+		x.Xs[i] = y
+	}
+	return nil
+}
+
 func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 	// The first argument to append must be of a slice type.
 	if len(x.Xs) == 0 {
@@ -812,31 +823,13 @@ func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinInt
-	ti.delay(func() error {
-		for i := range x.Xs {
-			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
-			if err != nil {
-				return err
-			}
-			x.Xs[i] = y
-		}
-		return nil
-	})
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
 func (ti *typeInferer) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinVoidType
-	ti.delay(func() error {
-		for i := range x.Xs {
-			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
-			if err != nil {
-				return err
-			}
-			x.Xs[i] = y
-		}
-		return nil
-	})
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
@@ -960,16 +953,7 @@ func (ti *typeInferer) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinInt
-	ti.delay(func() error {
-		for i := range x.Xs {
-			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
-			if err != nil {
-				return err
-			}
-			x.Xs[i] = y
-		}
-		return nil
-	})
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
@@ -1015,16 +999,7 @@ func (ti *typeInferer) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinInt
-	ti.delay(func() error {
-		for i := range x.Xs {
-			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
-			if err != nil {
-				return err
-			}
-			x.Xs[i] = y
-		}
-		return nil
-	})
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
@@ -1038,21 +1013,21 @@ func (ti *typeInferer) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
 	}
 	// Check the type is either slice, map, or chan.
 	switch underlyingType(x.ATyp).(type) {
-	case *ast.SliceType, *ast.MapType, *ast.ChanType:
-		// Infer argument expression types.
-		ti.delay(func() error {
-			for i := range x.Xs {
-				y, err := ti.inferExpr(x.Xs[i], ast.BuiltinInt)
-				if err != nil {
-					return err
-				}
-				x.Xs[i] = y
-			}
-			return nil
-		})
 	default:
 		return nil, &BadMakeType{Off: x.Off, File: ti.File}
+	case *ast.SliceType, *ast.MapType, *ast.ChanType:
 	}
+	// Infer argument expression types.
+	ti.delay(func() error {
+		for i := range x.Xs {
+			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinInt)
+			if err != nil {
+				return err
+			}
+			x.Xs[i] = y
+		}
+		return nil
+	})
 	// The return type of the call is same as the argument type.
 	x.Typ = x.ATyp
 	return x, nil
@@ -1067,16 +1042,7 @@ func (ti *typeInferer) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Typ = &ast.PtrType{Off: x.Off, Base: x.ATyp}
-	ti.delay(func() error {
-		for i := range x.Xs {
-			y, err := ti.inferExpr(x.Xs[i], ast.BuiltinDefault)
-			if err != nil {
-				return err
-			}
-			x.Xs[i] = y
-		}
-		return nil
-	})
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
