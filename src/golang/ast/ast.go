@@ -519,7 +519,7 @@ func (t *QualifiedId) Position() int { return t.Off }
 func (*QualifiedId) Type() Type      { panic("not reached") }
 
 const (
-	BUILTIN_VOID_TYPE = iota
+	BUILTIN_VOID = iota
 	BUILTIN_NIL_TYPE
 	BUILTIN_BOOL
 	BUILTIN_UINT8

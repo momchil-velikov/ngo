@@ -115,7 +115,7 @@ func (dcl *TypeDecl) String() string { return dcl.Name }
 
 func (typ *BuiltinType) String() string {
 	switch typ.Kind {
-	case BUILTIN_VOID_TYPE:
+	case BUILTIN_VOID:
 		return "void"
 	case BUILTIN_NIL_TYPE:
 		return "nil"

@@ -327,7 +327,7 @@ func convertComplex(dst *ast.BuiltinType, re float64, im float64) ast.Value {
 }
 
 func convert(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
-	if dst.Kind == ast.BUILTIN_NIL_TYPE || dst.Kind == ast.BUILTIN_VOID_TYPE {
+	if dst.Kind == ast.BUILTIN_NIL_TYPE || dst.Kind == ast.BUILTIN_VOID {
 		panic("not reached")
 	}
 

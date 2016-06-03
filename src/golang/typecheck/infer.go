@@ -672,7 +672,7 @@ func (ti *typeInferer) VisitCall(x *ast.Call) (ast.Expr, error) {
 	case 0:
 		// If the function has no returns, set the call expression type to
 		// `void`.
-		x.Typ = ast.BuiltinVoidType
+		x.Typ = ast.BuiltinVoid
 	case 1:
 		// If the function has a single return, set the type of the call
 		// expression to that return's type.
@@ -828,7 +828,7 @@ func (ti *typeInferer) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ti *typeInferer) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
-	x.Typ = ast.BuiltinVoidType
+	x.Typ = ast.BuiltinVoid
 	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
