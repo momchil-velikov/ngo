@@ -6,7 +6,11 @@ const (
 	c = real(1.0 + 1.1i)
 	d = real('b' - 'a')
 
-	// FIXME: add more tests after implementing `complex``
+	c32 = complex(float32(1.0), 1.1)
+	c64 = complex(1.0, float64(1.1))
+
+	e = real(c32)
+	f = real(c64)
 )
 
 var (

@@ -6,7 +6,11 @@ const (
 	c = imag(1.0 + 0.0i)
 	d = imag('b' - 'a')
 
-	// FIXME: add more tests after implementing `complex``
+	c32 = complex(float32(1.0), 1.125)
+	c64 = complex(1.0, float64(1.125))
+
+	e = imag(c32)
+	f = imag(c64)
 )
 
 var (

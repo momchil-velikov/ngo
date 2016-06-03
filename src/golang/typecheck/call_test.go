@@ -448,6 +448,23 @@ func TestBuiltinReal(t *testing.T) {
 		}
 	}
 
+	v := p.Find("e").(*ast.Const)
+	if v.Type != ast.BuiltinFloat32 {
+		t.Error("`e` should have type `float32`")
+	}
+	c := v.Init.(*ast.ConstValue)
+	if c.Value.(ast.Float) != 1.0 {
+		t.Error("`e` should have value 1.0")
+	}
+	v = p.Find("f").(*ast.Const)
+	if v.Type != ast.BuiltinFloat64 {
+		t.Error("`f` should have type `float64`")
+	}
+	c = v.Init.(*ast.ConstValue)
+	if c.Value.(ast.Float) != 1.0 {
+		t.Error("`f` should have value 1.0")
+	}
+
 	x := p.Find("x").(*ast.Var)
 	if x.Type != ast.BuiltinFloat32 {
 		t.Error("`x` should have type `float32`")
@@ -493,6 +510,23 @@ func TestBuiltinImag(t *testing.T) {
 		if a != big.Exact || x != 0.0 {
 			t.Errorf("`%s` should have value 0.0", name)
 		}
+	}
+
+	v := p.Find("e").(*ast.Const)
+	if v.Type != ast.BuiltinFloat32 {
+		t.Error("`e` should have type `float32`")
+	}
+	c := v.Init.(*ast.ConstValue)
+	if c.Value.(ast.Float) != 1.125 {
+		t.Error("`e` should have value 1.125")
+	}
+	v = p.Find("f").(*ast.Const)
+	if v.Type != ast.BuiltinFloat64 {
+		t.Error("`f` should have type `float64`")
+	}
+	c = v.Init.(*ast.ConstValue)
+	if c.Value.(ast.Float) != 1.125 {
+		t.Error("`f` should have value 1.125")
 	}
 
 	x := p.Find("x").(*ast.Var)
