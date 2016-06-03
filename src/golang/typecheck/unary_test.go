@@ -28,7 +28,7 @@ func TestUnaryPlus(t *testing.T) {
 	if !isUntyped(c.Typ) {
 		t.Error("`D` should be untyped")
 	}
-	if _, ok := c.Value.(ast.Rune); !ok {
+	if _, ok := c.Value.(ast.UntypedRune); !ok {
 		t.Error("`D` should be untyped rune")
 	}
 	if v, err := ToInt(c); err != nil || v != 'a' {
@@ -137,7 +137,7 @@ func TestUnaryMinus(t *testing.T) {
 	if !isUntyped(c.Typ) {
 		t.Error("`D` should be untyped")
 	}
-	if _, ok := c.Value.(ast.Rune); !ok {
+	if _, ok := c.Value.(ast.UntypedRune); !ok {
 		t.Error("`D` should be untyped rune")
 	}
 	if v, err := ToInt(c); err != nil || v != -97 {
@@ -483,7 +483,7 @@ func TestCompl(t *testing.T) {
 	if !isUntyped(c.Typ) {
 		t.Error("`cr0` should be untyped")
 	}
-	if _, ok := c.Value.(ast.Rune); !ok {
+	if _, ok := c.Value.(ast.UntypedRune); !ok {
 		t.Error("`cr0` should be untyped rune")
 	}
 	if v, err := ToInt(c); err != nil || v != -98 {

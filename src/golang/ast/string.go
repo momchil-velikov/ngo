@@ -72,7 +72,7 @@ func (c *ConstValue) String() string {
 		} else {
 			return "false"
 		}
-	case Rune:
+	case UntypedRune:
 		return strconv.QuoteRune(rune(v.Int64()))
 	case UntypedInt:
 		return v.String()

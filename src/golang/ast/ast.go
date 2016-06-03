@@ -111,7 +111,7 @@ type Value interface {
 }
 
 func (Bool) value()           {}
-func (Rune) value()           {}
+func (UntypedRune) value()    {}
 func (UntypedInt) value()     {}
 func (Int) value()            {}
 func (UntypedFloat) value()   {}
@@ -358,7 +358,7 @@ func (c *ConstValue) Type() Type    { return c.Typ }
 
 type Bool bool
 
-type Rune struct {
+type UntypedRune struct {
 	*big.Int
 }
 

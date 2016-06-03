@@ -336,7 +336,7 @@ func convert(dst, src *ast.BuiltinType, val ast.Value) ast.Value {
 	case ast.BUILTIN_BOOL, ast.BUILTIN_UNTYPED_BOOL:
 		res = convertBool(dst, val.(ast.Bool))
 	case ast.BUILTIN_UNTYPED_RUNE:
-		res = convertUntypedInt(dst, val.(ast.Rune).Int)
+		res = convertUntypedInt(dst, val.(ast.UntypedRune).Int)
 	case ast.BUILTIN_UNTYPED_INT:
 		res = convertUntypedInt(dst, val.(ast.UntypedInt).Int)
 	case ast.BUILTIN_UNTYPED_FLOAT:
@@ -463,7 +463,7 @@ func Minus(cst *ast.ConstValue) (*ast.ConstValue, error) {
 	case ast.BUILTIN_BOOL, ast.BUILTIN_UNTYPED_BOOL:
 		res = nil
 	case ast.BUILTIN_UNTYPED_RUNE:
-		res = ast.Rune{Int: new(big.Int).Neg(val.(ast.Rune).Int)}
+		res = ast.UntypedRune{Int: new(big.Int).Neg(val.(ast.UntypedRune).Int)}
 	case ast.BUILTIN_UNTYPED_INT:
 		res = ast.UntypedInt{Int: new(big.Int).Neg(val.(ast.UntypedInt).Int)}
 	case ast.BUILTIN_UNTYPED_FLOAT:
@@ -505,8 +505,8 @@ func Complement(cst *ast.ConstValue) (*ast.ConstValue, error) {
 		v := val.(ast.UntypedInt)
 		res = ast.UntypedInt{Int: new(big.Int).Not(v.Int)}
 	case ast.BUILTIN_UNTYPED_RUNE:
-		v := val.(ast.Rune)
-		res = ast.Rune{Int: new(big.Int).Not(v.Int)}
+		v := val.(ast.UntypedRune)
+		res = ast.UntypedRune{Int: new(big.Int).Not(v.Int)}
 	default:
 		if !typ.IsInteger() {
 			res = nil
@@ -599,11 +599,11 @@ func Shift(
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedInt, Value: res}, nil
 	case ast.BUILTIN_UNTYPED_RUNE:
-		v := x.Value.(ast.Rune)
+		v := x.Value.(ast.UntypedRune)
 		if op == ast.SHL {
-			res = ast.Rune{Int: new(big.Int).Lsh(v.Int, uint(s))}
+			res = ast.UntypedRune{Int: new(big.Int).Lsh(v.Int, uint(s))}
 		} else {
-			res = ast.Rune{Int: new(big.Int).Rsh(v.Int, uint(s))}
+			res = ast.UntypedRune{Int: new(big.Int).Rsh(v.Int, uint(s))}
 		}
 		return &ast.ConstValue{Off: x.Off, Typ: ast.BuiltinUntypedRune, Value: res}, nil
 	default:
@@ -626,7 +626,7 @@ func Shift(
 func untypedConvPanic(ast.Value) ast.Value { panic("not reached") }
 
 func untypedConvIntToRune(x ast.Value) ast.Value {
-	return ast.Rune{Int: new(big.Int).Set(x.(ast.UntypedInt).Int)}
+	return ast.UntypedRune{Int: new(big.Int).Set(x.(ast.UntypedInt).Int)}
 }
 
 func bigIntToFloat(x *big.Int) *big.Float {
@@ -648,12 +648,12 @@ func untypedConvIntToComplex(x ast.Value) ast.Value {
 }
 
 func untypedConvRuneToFloat(x ast.Value) ast.Value {
-	return ast.UntypedFloat{Float: bigIntToFloat(x.(ast.Rune).Int)}
+	return ast.UntypedFloat{Float: bigIntToFloat(x.(ast.UntypedRune).Int)}
 }
 
 func untypedConvRuneToComplex(x ast.Value) ast.Value {
 	return ast.UntypedComplex{
-		Re: bigIntToFloat(x.(ast.Rune).Int),
+		Re: bigIntToFloat(x.(ast.UntypedRune).Int),
 		Im: new(big.Float).
 			SetPrec(ast.UNTYPED_FLOAT_PRECISION).
 			SetMode(big.ToNearestEven),
@@ -685,7 +685,7 @@ func untypedToKind(x ast.Value) untypedKind {
 	switch x.(type) {
 	case ast.UntypedInt:
 		return _UNTYPED_INT
-	case ast.Rune:
+	case ast.UntypedRune:
 		return _UNTYPED_RUNE
 	case ast.UntypedFloat:
 		return _UNTYPED_FLOAT
@@ -851,7 +851,7 @@ func compareUntyped(
 		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
 		c = x.Cmp(y.Int)
 	case _UNTYPED_RUNE:
-		x, y := x.(ast.Rune), y.(ast.Rune)
+		x, y := x.(ast.UntypedRune), y.(ast.UntypedRune)
 		c = x.Cmp(y.Int)
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
@@ -988,8 +988,8 @@ func addUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
 		return ast.UntypedInt{Int: new(big.Int).Add(x.Int, y.Int)}
 	case _UNTYPED_RUNE:
-		x, y := x.(ast.Rune), y.(ast.Rune)
-		return ast.Rune{Int: new(big.Int).Add(x.Int, y.Int)}
+		x, y := x.(ast.UntypedRune), y.(ast.UntypedRune)
+		return ast.UntypedRune{Int: new(big.Int).Add(x.Int, y.Int)}
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
 		return ast.UntypedFloat{Float: new(big.Float).Add(x.Float, y.Float)}
@@ -1071,8 +1071,8 @@ func subUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
 		return ast.UntypedInt{Int: new(big.Int).Sub(x.Int, y.Int)}
 	case _UNTYPED_RUNE:
-		x, y := x.(ast.Rune), y.(ast.Rune)
-		return ast.Rune{Int: new(big.Int).Sub(x.Int, y.Int)}
+		x, y := x.(ast.UntypedRune), y.(ast.UntypedRune)
+		return ast.UntypedRune{Int: new(big.Int).Sub(x.Int, y.Int)}
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
 		return ast.UntypedFloat{Float: new(big.Float).Sub(x.Float, y.Float)}
@@ -1151,8 +1151,8 @@ func mulUntyped(t untypedKind, x ast.Value, y ast.Value) ast.Value {
 		x, y := x.(ast.UntypedInt), y.(ast.UntypedInt)
 		return ast.UntypedInt{Int: new(big.Int).Mul(x.Int, y.Int)}
 	case _UNTYPED_RUNE:
-		x, y := x.(ast.Rune), y.(ast.Rune)
-		return ast.Rune{Int: new(big.Int).Mul(x.Int, y.Int)}
+		x, y := x.(ast.UntypedRune), y.(ast.UntypedRune)
+		return ast.UntypedRune{Int: new(big.Int).Mul(x.Int, y.Int)}
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
 		return ast.UntypedFloat{Float: new(big.Float).Mul(x.Float, y.Float)}
@@ -1268,11 +1268,11 @@ func divUntyped(t untypedKind, x ast.Value, y ast.Value) (ast.Value, error) {
 		}
 		return ast.UntypedInt{Int: new(big.Int).Div(x.Int, y.Int)}, nil
 	case _UNTYPED_RUNE:
-		x, y := x.(ast.Rune), y.(ast.Rune)
+		x, y := x.(ast.UntypedRune), y.(ast.UntypedRune)
 		if y.Int.Cmp(&zeroInt) == 0 {
 			return nil, &divisionByZero{}
 		}
-		return ast.Rune{Int: new(big.Int).Div(x.Int, y.Int)}, nil
+		return ast.UntypedRune{Int: new(big.Int).Div(x.Int, y.Int)}, nil
 	case _UNTYPED_FLOAT:
 		x, y := x.(ast.UntypedFloat), y.(ast.UntypedFloat)
 		if y.Float.Cmp(&zeroFloat) == 0 {
@@ -1329,7 +1329,7 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	case tx == ast.BuiltinUntypedInt:
 		u = x.Value.(ast.UntypedInt).Int
 	case tx == ast.BuiltinUntypedRune:
-		u = x.Value.(ast.Rune).Int
+		u = x.Value.(ast.UntypedRune).Int
 	default:
 		return nil, &invalidOperation{Op: '%', Type: tx}
 	}
@@ -1338,7 +1338,7 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	case ty == ast.BuiltinUntypedInt:
 		v = y.Value.(ast.UntypedInt).Int
 	case ty == ast.BuiltinUntypedRune:
-		v = y.Value.(ast.Rune).Int
+		v = y.Value.(ast.UntypedRune).Int
 		tx = ast.BuiltinUntypedRune
 	default:
 		return nil, &invalidOperation{Op: '%', Type: ty}
@@ -1349,7 +1349,7 @@ func Rem(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	var res ast.Value
 	r := new(big.Int).Rem(u, v)
 	if tx == ast.BuiltinUntypedRune {
-		res = ast.Rune{Int: r}
+		res = ast.UntypedRune{Int: r}
 	} else {
 		res = ast.UntypedInt{Int: r}
 	}
@@ -1377,7 +1377,7 @@ func Bit(op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValu
 	case tx == ast.BuiltinUntypedInt:
 		u = x.Value.(ast.UntypedInt).Int
 	case tx == ast.BuiltinUntypedRune:
-		u = x.Value.(ast.Rune).Int
+		u = x.Value.(ast.UntypedRune).Int
 	default:
 		return nil, &invalidOperation{Op: op, Type: tx}
 	}
@@ -1386,7 +1386,7 @@ func Bit(op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValu
 	case ty == ast.BuiltinUntypedInt:
 		v = y.Value.(ast.UntypedInt).Int
 	case ty == ast.BuiltinUntypedRune:
-		v = y.Value.(ast.Rune).Int
+		v = y.Value.(ast.UntypedRune).Int
 		tx = ast.BuiltinUntypedRune
 	default:
 		return nil, &invalidOperation{Op: op, Type: ty}
@@ -1394,7 +1394,7 @@ func Bit(op ast.Operation, x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValu
 	r := bitUntyped(op, u, v)
 	var res ast.Value
 	if tx == ast.BuiltinUntypedRune {
-		res = ast.Rune{Int: r}
+		res = ast.UntypedRune{Int: r}
 	} else {
 		res = ast.UntypedInt{Int: r}
 	}
@@ -1478,7 +1478,7 @@ func Real(x *ast.ConstValue) (*ast.ConstValue, error) {
 			Typ:   ast.BuiltinUntypedFloat,
 			Value: ast.UntypedFloat{Float: re}}, nil
 	case ast.BUILTIN_UNTYPED_RUNE:
-		re := bigIntToFloat(x.Value.(ast.Rune).Int)
+		re := bigIntToFloat(x.Value.(ast.UntypedRune).Int)
 		return &ast.ConstValue{
 			Typ:   ast.BuiltinUntypedFloat,
 			Value: ast.UntypedFloat{Float: re}}, nil
@@ -1556,7 +1556,7 @@ func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	case ast.BUILTIN_UNTYPED_INT:
 		u = bigIntToFloat(x.Value.(ast.UntypedInt).Int)
 	case ast.BUILTIN_UNTYPED_RUNE:
-		u = bigIntToFloat(x.Value.(ast.Rune).Int)
+		u = bigIntToFloat(x.Value.(ast.UntypedRune).Int)
 	case ast.BUILTIN_UNTYPED_FLOAT:
 		u = new(big.Float).Copy(x.Value.(ast.UntypedFloat).Float)
 	case ast.BUILTIN_UNTYPED_COMPLEX:
@@ -1573,7 +1573,7 @@ func Complex(x *ast.ConstValue, y *ast.ConstValue) (*ast.ConstValue, error) {
 	case ast.BUILTIN_UNTYPED_INT:
 		v = bigIntToFloat(y.Value.(ast.UntypedInt).Int)
 	case ast.BUILTIN_UNTYPED_RUNE:
-		v = bigIntToFloat(y.Value.(ast.Rune).Int)
+		v = bigIntToFloat(y.Value.(ast.UntypedRune).Int)
 	case ast.BUILTIN_UNTYPED_FLOAT:
 		v = new(big.Float).Copy(y.Value.(ast.UntypedFloat).Float)
 	case ast.BUILTIN_UNTYPED_COMPLEX:

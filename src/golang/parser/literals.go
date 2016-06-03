@@ -143,14 +143,14 @@ func readRawString(lit []byte) string {
 // Converts the bytes of a rune literal to a Go `rune` value. The
 // literal value must have been obtained from and checked for correctness by
 // the scanner.
-func Rune(b []byte) ast.Rune {
+func Rune(b []byte) ast.UntypedRune {
 	var r rune
 	if b[0] == '\\' {
 		r, _, _ = readEscape(b[1:], false)
 	} else {
 		r, _ = utf8.DecodeRune(b)
 	}
-	return ast.Rune{Int: big.NewInt(int64(r))}
+	return ast.UntypedRune{Int: big.NewInt(int64(r))}
 }
 
 var bigDigit = [...]*big.Int{

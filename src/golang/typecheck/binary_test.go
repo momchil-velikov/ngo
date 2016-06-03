@@ -425,7 +425,7 @@ func TestAdd(t *testing.T) {
 			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
@@ -601,7 +601,7 @@ func TestSub(t *testing.T) {
 			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
@@ -736,7 +736,7 @@ func TestMul(t *testing.T) {
 			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
@@ -933,7 +933,7 @@ func TestDiv(t *testing.T) {
 			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
@@ -1112,7 +1112,7 @@ func TestRem(t *testing.T) {
 			t.Errorf("`%s` must have type `%s`\n", c.Name, ast.BuiltinUntypedRune)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
@@ -1226,7 +1226,7 @@ func TestBit(t *testing.T) {
 			t.Errorf("`%s` must have type `untyped rune`\n", c.Name)
 		}
 		v := c.Init.(*ast.ConstValue).Value
-		if v, ok := v.(ast.Rune); !ok || v.Int64() != cs.value {
+		if v, ok := v.(ast.UntypedRune); !ok || v.Int64() != cs.value {
 			t.Errorf("`%s` must have value `%v`\n", c.Name, cs.value)
 		}
 	}
