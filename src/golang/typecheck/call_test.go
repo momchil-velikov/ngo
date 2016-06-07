@@ -230,7 +230,7 @@ func TestBuiltinAppend(t *testing.T) {
 		t.Error("`c` should have type `SInt`")
 	}
 
-	for _, name := range []string{"d", "e", "f"} {
+	for _, name := range []string{"d", "e", "f", "g", "h", "i"} {
 		v := p.Find(name).(*ast.Var)
 		if s, ok := v.Type.(*ast.SliceType); !ok || s.Elt != ast.BuiltinUint8 {
 			t.Errorf("`%s` should have type `[]byte`", name)
@@ -261,6 +261,10 @@ func TestBuiltinAppendErr(t *testing.T) {
 		"type argument not allowed")
 	expectError(t, "_test/src/call", []string{"append-err-11.go"},
 		"`string` is not assignable to `[]string`")
+	expectError(t, "_test/src/call", []string{"append-err-12.go"},
+		"`int` is invalid parameter type to the builtin `append` function")
+	expectError(t, "_test/src/call", []string{"append-err-13.go"},
+		"`float32` is not assignable to `int`")
 }
 
 func TestBuiltinCap(t *testing.T) {

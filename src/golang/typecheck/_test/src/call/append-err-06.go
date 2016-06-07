@@ -1,3 +1,6 @@
 package call
 
-var a = append([]int{})
+var (
+	s []int
+	a = append(s...)
+)

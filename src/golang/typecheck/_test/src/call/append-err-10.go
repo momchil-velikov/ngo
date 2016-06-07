@@ -1,4 +1,4 @@
 package call
 
 var s []uint
-var a = append([]int, s...)
+var a = append([]int, s)

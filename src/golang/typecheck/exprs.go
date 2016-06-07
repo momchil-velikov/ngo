@@ -1002,11 +1002,40 @@ func (ev *exprVerifier) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.ATyp.Position(), File: ev.File}
 	}
+
+	st := underlyingType(x.Typ).(*ast.SliceType)
+
+	// Check the special case `append(f(<args>))`.
+	if !x.Dots && len(x.Xs) == 1 {
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			y, err := ev.checkExpr(x.Xs[0])
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[0] = y
+			typ := y.Type()
+			if t, ok := typ.(*ast.TupleType); ok {
+				// Check all the types, except the first in the tuple, are
+				// assignable to slice element type.
+				for i, n := 1, len(t.Types); i < n; i++ {
+					ok, err := ev.isAssignableType(st.Elt, t.Types[i])
+					if err != nil {
+						return nil, err
+					} else if !ok {
+						return nil, &NotAssignable{
+							Off: y.Position(), File: ev.File, DType: st.Elt,
+							SType: t.Types[i]}
+					}
+				}
+			}
+			return x, nil
+		}
+	}
+
 	n := len(x.Xs)
-	if n < 2 || x.Dots && n != 2 {
+	if n == 0 || x.Dots && n != 2 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
 	}
-	st := underlyingType(x.Typ).(*ast.SliceType)
 	// Check the slice argument.
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {

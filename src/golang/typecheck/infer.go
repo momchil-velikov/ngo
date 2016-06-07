@@ -777,8 +777,39 @@ func (ti *typeInferer) inferBuiltinArgs(x *ast.Call) error {
 }
 
 func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
-	// The first argument to append must be of a slice type.
 	if len(x.Xs) == 0 {
+		return nil, &BadArgNumber{Off: x.Off, File: ti.File}
+	}
+
+	// Check the special case `append(f(<args>))`.
+	if !x.Dots && len(x.Xs) == 1 {
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			y, err := ti.inferMultiValueExpr(x.Xs[0], nil)
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[0] = y
+			// The type of the `append` call expression is the same as the
+			// type of the first return of the argument call expression, which
+			// type must be a slice.
+			typ := y.Type()
+			if t, ok := typ.(*ast.TupleType); ok {
+				typ = t.Types[0]
+			}
+			if _, ok := underlyingType(typ).(*ast.SliceType); !ok {
+				return nil, &BadBuiltinArg{
+					Off: y.Position(), File: ti.File, Type: typ,
+					Func: "append", Expected: "argument of a slice type"}
+			}
+			x.Typ = typ
+			return x, nil
+		}
+	}
+
+	// Ordinary call.
+
+	// The first argument can not be variadic.
+	if x.Dots && len(x.Xs) == 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ti.File}
 	}
 	y, err := ti.inferExpr(x.Xs[0], nil)
@@ -786,6 +817,7 @@ func (ti *typeInferer) visitBuiltinAppend(x *ast.Call) (ast.Expr, error) {
 		return nil, err
 	}
 	x.Xs[0] = y
+	// The first argument to `append` must be of a slice type.
 	st, ok := underlyingType(y.Type()).(*ast.SliceType)
 	if !ok {
 		return nil, &BadBuiltinArg{

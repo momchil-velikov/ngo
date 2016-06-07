@@ -15,4 +15,13 @@ var (
 	d   = append(buf, "abc"...)
 	e   = append(buf, d...)
 	f   = append(buf, (P + "abc")...)
+	g   = append(buf)
+)
+
+func fn() []byte
+func gn() ([]byte, byte, byte)
+
+var (
+	h = append(fn())
+	i = append(gn())
 )
