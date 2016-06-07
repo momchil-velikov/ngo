@@ -383,7 +383,7 @@ func TestBuiltinCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"a", "b", "c", "d", "e"} {
+	for _, name := range []string{"a", "b", "c", "d", "e", "h", "i"} {
 		v := p.Find(name).(*ast.Var)
 		if v.Type != ast.BuiltinInt {
 			t.Errorf("`%s` should have type `int`", name)
@@ -410,6 +410,16 @@ func TestBuiltinCopyErr(t *testing.T) {
 		"`SB` is not assignable to `[]A`")
 	expectError(t, "_test/src/call", []string{"copy-err-09.go"},
 		"`SA` is not assignable to `[]B`")
+	expectError(t, "_test/src/call", []string{"copy-err-10.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"copy-err-11.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"copy-err-12.go"},
+		"`int` is invalid parameter type to the builtin `copy` function")
+	expectError(t, "_test/src/call", []string{"copy-err-13.go"},
+		"`int` is invalid parameter type to the builtin `copy` function")
+	expectError(t, "_test/src/call", []string{"copy-err-14.go"},
+		"`[]B` is not assignable to `[]A`")
 }
 
 func TestBuiltinNew(t *testing.T) {

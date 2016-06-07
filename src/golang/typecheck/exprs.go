@@ -1174,6 +1174,52 @@ func (ev *exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+
+	if !x.Dots && len(x.Xs) == 1 {
+		// Check the special case `copy(f(<args>))`.
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			y, err := ev.checkExpr(x.Xs[0])
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[0] = y
+			typ, ok := y.Type().(*ast.TupleType)
+			if !ok || len(typ.Types) != 2 {
+				return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+			}
+			// The destination must be a slice type. FIXME: a bit of code
+			// duplication here.
+			dt, ok := underlyingType(typ.Types[0]).(*ast.SliceType)
+			if !ok {
+				return nil, &BadBuiltinArg{
+					Off: y.Position(), File: ev.File, Type: typ.Types[0], Func: "copy",
+					Expected: "argument of a slice type"}
+			}
+			if dt.Elt == ast.BuiltinUint8 {
+				// As a special case, allow copying a string into a byte slice.
+				if t := builtinType(typ.Types[1]); t != nil &&
+					t.Kind == ast.BUILTIN_STRING {
+					return x, nil
+				}
+			}
+			st, ok := underlyingType(typ.Types[1]).(*ast.SliceType)
+			if !ok {
+				return nil, &BadBuiltinArg{
+					Off: y.Position(), File: ev.File, Type: typ.Types[1], Func: "copy",
+					Expected: "argument of a slice type"}
+			}
+			if ok, err := ev.identicalTypes(dt.Elt, st.Elt); err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &NotAssignable{
+					Off: y.Position(), File: ev.File, DType: typ.Types[0],
+					SType: typ.Types[1]}
+			}
+			return x, nil
+		}
+	}
+
+	// Ordinary `copy` call.
 	if len(x.Xs) != 2 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
 	}
@@ -1188,7 +1234,7 @@ func (ev *exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	}
 	x.Xs[1] = src
 
-	// The destination musy be a slice type.
+	// The destination must be a slice type.
 	dt, ok := underlyingType(dst.Type()).(*ast.SliceType)
 	if !ok {
 		return nil, &BadBuiltinArg{

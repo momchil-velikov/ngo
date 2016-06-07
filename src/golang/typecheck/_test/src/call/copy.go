@@ -17,3 +17,16 @@ var (
 	buf1     BufZ
 	e        = copy(buf1, buf0)
 )
+
+func f(a []byte) ([]byte, []byte) {
+	return a, []byte("abc")
+}
+
+func g(a []byte) ([]byte, string) {
+	return a, "abc"
+}
+
+var (
+	h = copy(f(dst))
+	i = copy(g(dst))
+)

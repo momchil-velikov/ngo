@@ -987,6 +987,22 @@ func (ti *typeInferer) visitBuiltinComplex(x *ast.Call) (ast.Expr, error) {
 
 func (ti *typeInferer) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	x.Typ = ast.BuiltinInt
+	// Check the special case `f(g(arguments-of-g))`, where a multi-valued
+	// expression is allowed.
+	if len(x.Xs) == 1 && !x.Dots {
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			ti.delay(func() error {
+				y, err := ti.inferMultiValueExpr(x.Xs[0], nil)
+				if err != nil {
+					return err
+				}
+				x.Xs[0] = y
+				return nil
+			})
+			return x, nil
+		}
+	}
+	// Otherwise proceed with the type inference of single-valued arguments.
 	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
