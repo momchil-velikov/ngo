@@ -720,3 +720,21 @@ func TestBuiltinPanicErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"panic-err-02.go"},
 		"argument count mismatch")
 }
+
+func TestBuiltinRecover(t *testing.T) {
+	p, err := compilePackage("_test/src/call", []string{"recover.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := p.Find("a").(*ast.Var)
+	if !isEmptyInterfaceType(v.Type) {
+		t.Error("`a` must have type `interface{}`")
+	}
+}
+
+func TestBuiltinRecoverErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"recover-err-01.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"recover-err-02.go"},
+		"argument count mismatch")
+}

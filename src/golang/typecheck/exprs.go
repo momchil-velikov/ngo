@@ -1494,7 +1494,13 @@ func (ev *exprVerifier) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) > 0 {
+		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+	}
 	return x, nil
 }
 

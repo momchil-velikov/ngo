@@ -1184,6 +1184,7 @@ func (ti *typeInferer) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
 }
 
 func (*typeInferer) visitBuiltinRecover(x *ast.Call) (ast.Expr, error) {
+	x.Typ = &ast.InterfaceType{}
 	return x, nil
 }
 
