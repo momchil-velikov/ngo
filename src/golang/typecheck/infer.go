@@ -1133,7 +1133,9 @@ func (ti *typeInferer) visitBuiltinNew(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
+	x.Typ = ast.BuiltinVoid
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 

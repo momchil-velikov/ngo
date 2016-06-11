@@ -706,3 +706,17 @@ func TestBuiltinDeleteErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"delete-err-10.go"},
 		"`int` is not assignable to `Int8`")
 }
+
+func TestBuiltinPanic(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"panic.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuiltinPanicErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"panic-err-01.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"panic-err-02.go"},
+		"argument count mismatch")
+}
