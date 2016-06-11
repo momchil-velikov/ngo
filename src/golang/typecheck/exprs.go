@@ -1262,7 +1262,53 @@ func (ev *exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) == 1 && !x.Dots {
+		if _, ok := x.Xs[0].(*ast.Call); ok {
+			y, err := ev.checkExpr(x.Xs[0])
+			if err != nil {
+				return nil, err
+			}
+			x.Xs[0] = y
+			t, ok := y.Type().(*ast.TupleType)
+			if !ok || len(t.Types) != 2 {
+				return nil, &BadArgNumber{Off: x.Off, File: ev.File}
+			}
+			m, ok := underlyingType(t.Types[0]).(*ast.MapType)
+			if !ok {
+				return nil, &BadBuiltinArg{
+					Off: y.Position(), File: ev.File, Type: t.Types[0],
+					Func: "delete", Expected: "argument of a map type"}
+			}
+			ok, err = ev.isAssignableType(m.Key, t.Types[1])
+			if err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, &NotAssignable{
+					Off: x.Off, File: ev.File, DType: m.Key, SType: t.Types[1]}
+			}
+			return x, nil
+		}
+	}
+
+	y, err := ev.checkExpr(x.Xs[0])
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[0] = y
+	y, err = ev.checkExpr(x.Xs[1])
+	if err != nil {
+		return nil, err
+	}
+	m := underlyingType(x.Xs[0].Type()).(*ast.MapType)
+	y, err = ev.isAssignable(m.Key, y)
+	if err != nil {
+		return nil, err
+	}
+	x.Xs[1] = y
 	return x, nil
 }
 

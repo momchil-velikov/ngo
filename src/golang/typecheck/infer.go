@@ -1007,7 +1007,42 @@ func (ti *typeInferer) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
+	x.Typ = ast.BuiltinVoid
+	ti.delay(func() error {
+		// Special case of return values "forwarding".
+		if len(x.Xs) == 1 && !x.Dots {
+			if _, ok := x.Xs[0].(*ast.Call); ok {
+				y, err := ti.inferMultiValueExpr(x.Xs[0], nil)
+				if err != nil {
+					return err
+				}
+				x.Xs[0] = y
+				return nil
+			}
+		}
+		// General case.
+		if len(x.Xs) != 2 {
+			return &BadArgNumber{Off: x.Off, File: ti.File}
+		}
+		y, err := ti.inferExpr(x.Xs[0], nil)
+		if err != nil {
+			return err
+		}
+		x.Xs[0] = y
+		m, ok := underlyingType(y.Type()).(*ast.MapType)
+		if !ok {
+			return &BadBuiltinArg{
+				Off: y.Position(), File: ti.File, Type: y.Type(),
+				Func: "delete", Expected: "argument of a map type"}
+		}
+		y, err = ti.inferExpr(x.Xs[1], m.Key)
+		if err != nil {
+			return err
+		}
+		x.Xs[1] = y
+		return nil
+	})
 	return x, nil
 }
 

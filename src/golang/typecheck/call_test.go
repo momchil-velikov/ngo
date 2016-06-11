@@ -676,3 +676,33 @@ func TestBuiltinComplexErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"complex-err-18.go"},
 		"invalid operation `complex`: mismatched types `float32` and `float64`")
 }
+
+func TestBuiltinDelete(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"delete.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuiltinDeleteErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"delete-err-01.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"delete-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"delete-err-03.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"delete-err-04.go"},
+		"`int` is invalid parameter type to the builtin `delete` function")
+	expectError(t, "_test/src/call", []string{"delete-err-05.go"},
+		"128 (`untyped int`) cannot be converted to `int8`")
+	expectError(t, "_test/src/call", []string{"delete-err-06.go"},
+		"`uint` is not assignable to `uint8`")
+	expectError(t, "_test/src/call", []string{"delete-err-07.go"},
+		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"delete-err-08.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"delete-err-09.go"},
+		"`Int8` is invalid parameter type to the builtin `delete` function")
+	expectError(t, "_test/src/call", []string{"delete-err-10.go"},
+		"`int` is not assignable to `Int8`")
+}
