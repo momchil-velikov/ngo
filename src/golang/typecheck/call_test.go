@@ -738,3 +738,15 @@ func TestBuiltinRecoverErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"recover-err-02.go"},
 		"argument count mismatch")
 }
+
+func TestBuiltinPrint(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"print.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuiltinPrintErr(t *testing.T) {
+	expectError(t, "_test/src/call", []string{"print-err-01.go"},
+		"type argument not allowed")
+}

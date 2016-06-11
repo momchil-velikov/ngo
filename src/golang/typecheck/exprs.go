@@ -844,10 +844,8 @@ func (ev *exprVerifier) VisitCall(x *ast.Call) (ast.Expr, error) {
 				return ev.visitBuiltinNew(x)
 			case ast.BuiltinPanic:
 				return ev.visitBuiltinPanic(x)
-			case ast.BuiltinPrint:
+			case ast.BuiltinPrint, ast.BuiltinPrintln:
 				return ev.visitBuiltinPrint(x)
-			case ast.BuiltinPrintln:
-				return ev.visitBuiltinPrintln(x)
 			case ast.BuiltinReal:
 				return ev.visitBuiltinReal(x)
 			case ast.BuiltinRecover:
@@ -1464,11 +1462,17 @@ func (ev *exprVerifier) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*exprVerifier) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*exprVerifier) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
+func (ev *exprVerifier) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
+	if x.ATyp != nil {
+		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	for i := range x.Xs {
+		y, err := ev.checkExpr(x.Xs[i])
+		if err != nil {
+			return nil, err
+		}
+		x.Xs[i] = y
+	}
 	return x, nil
 }
 

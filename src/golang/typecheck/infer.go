@@ -647,10 +647,8 @@ func (ti *typeInferer) VisitCall(x *ast.Call) (ast.Expr, error) {
 				return ti.visitBuiltinNew(x)
 			case ast.BuiltinPanic:
 				return ti.visitBuiltinPanic(x)
-			case ast.BuiltinPrint:
+			case ast.BuiltinPrint, ast.BuiltinPrintln:
 				return ti.visitBuiltinPrint(x)
-			case ast.BuiltinPrintln:
-				return ti.visitBuiltinPrintln(x)
 			case ast.BuiltinReal:
 				return ti.visitBuiltinReal(x)
 			case ast.BuiltinRecover:
@@ -1139,11 +1137,9 @@ func (ti *typeInferer) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
 	return x, nil
 }
 
-func (*typeInferer) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
-	return x, nil
-}
-
-func (*typeInferer) visitBuiltinPrintln(x *ast.Call) (ast.Expr, error) {
+func (ti *typeInferer) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
+	x.Typ = ast.BuiltinVoid
+	ti.delay(func() error { return ti.inferBuiltinArgs(x) })
 	return x, nil
 }
 
