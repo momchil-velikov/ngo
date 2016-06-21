@@ -1081,6 +1081,9 @@ func (ev *exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
 	if len(x.Xs) != 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
 	}
@@ -1115,6 +1118,9 @@ func (ev *exprVerifier) visitBuiltinCap(x *ast.Call) (ast.Expr, error) {
 func (ev *exprVerifier) visitBuiltinClose(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
 	}
 	if len(x.Xs) != 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
@@ -1172,8 +1178,10 @@ func (ev *exprVerifier) visitBuiltinCopy(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
-
-	if !x.Dots && len(x.Xs) == 1 {
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) == 1 {
 		// Check the special case `copy(f(<args>))`.
 		if _, ok := x.Xs[0].(*ast.Call); ok {
 			y, err := ev.checkExpr(x.Xs[0])
@@ -1264,7 +1272,10 @@ func (ev *exprVerifier) visitBuiltinDelete(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
-	if len(x.Xs) == 1 && !x.Dots {
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
+	if len(x.Xs) == 1 {
 		if _, ok := x.Xs[0].(*ast.Call); ok {
 			y, err := ev.checkExpr(x.Xs[0])
 			if err != nil {
@@ -1314,6 +1325,9 @@ func (ev *exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {
 		return nil, err
@@ -1335,6 +1349,9 @@ func (ev *exprVerifier) visitBuiltinImag(x *ast.Call) (ast.Expr, error) {
 func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
 	}
 	if len(x.Xs) != 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
@@ -1379,6 +1396,9 @@ func (ev *exprVerifier) visitBuiltinLen(x *ast.Call) (ast.Expr, error) {
 }
 
 func (ev *exprVerifier) visitBuiltinMake(x *ast.Call) (ast.Expr, error) {
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
 	// Regardless of the type argument, all the expression arguments must be
 	// integer or untyped. A constant argument must be non-negative and
 	// representable by `int`.
@@ -1451,6 +1471,9 @@ func (ev *exprVerifier) visitBuiltinPanic(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
 	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
+	}
 	if len(x.Xs) != 1 {
 		return nil, &BadArgNumber{Off: x.Off, File: ev.File}
 	}
@@ -1479,6 +1502,9 @@ func (ev *exprVerifier) visitBuiltinPrint(x *ast.Call) (ast.Expr, error) {
 func (ev *exprVerifier) visitBuiltinReal(x *ast.Call) (ast.Expr, error) {
 	if x.ATyp != nil {
 		return nil, &BadTypeArg{Off: x.Off, File: ev.File}
+	}
+	if x.Dots {
+		return nil, &BadVariadicCall{Off: x.Off, File: ev.File}
 	}
 	y, err := ev.checkExpr(x.Xs[0])
 	if err != nil {

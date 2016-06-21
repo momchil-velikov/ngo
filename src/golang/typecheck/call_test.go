@@ -209,6 +209,8 @@ func TestBuiltinMakeErr(t *testing.T) {
 		"1.2 (`untyped float`) cannot be converted to `int`")
 	expectError(t, "_test/src/call", []string{"make-err-12.go"},
 		"`make` argument must be non-negative")
+	expectError(t, "_test/src/call", []string{"make-err-13.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinAppend(t *testing.T) {
@@ -308,6 +310,8 @@ func TestBuiltinCapErr(t *testing.T) {
 		"`int` is invalid parameter type to the builtin `cap` function")
 	expectError(t, "_test/src/call", []string{"cap-err-04.go"},
 		"`*int` is invalid parameter type to the builtin `cap` function")
+	expectError(t, "_test/src/call", []string{"cap-err-05.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinLen(t *testing.T) {
@@ -342,13 +346,6 @@ func TestBuiltinLen(t *testing.T) {
 	}
 }
 
-func TestBuiltinClose(t *testing.T) {
-	_, err := compilePackage("_test/src/call", []string{"close.go"}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestBuiltinLenErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"len-err-01.go"},
 		" type argument not allowed")
@@ -360,8 +357,16 @@ func TestBuiltinLenErr(t *testing.T) {
 		"`*int` is invalid parameter type to the builtin `len` function")
 	expectError(t, "_test/src/call", []string{"len-err-05.go"},
 		"`struct{...}` is invalid parameter type to the builtin `len` function")
+	expectError(t, "_test/src/call", []string{"len-err-06.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
+func TestBuiltinClose(t *testing.T) {
+	_, err := compilePackage("_test/src/call", []string{"close.go"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 func TestBuiltinCloseErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"close-err-01.go"},
 		" type argument not allowed")
@@ -375,6 +380,8 @@ func TestBuiltinCloseErr(t *testing.T) {
 		"`struct{...}` is invalid parameter type to the builtin `close` function")
 	expectError(t, "_test/src/call", []string{"close-err-06.go"},
 		"`<-chan int` is invalid parameter type to the builtin `close` function")
+	expectError(t, "_test/src/call", []string{"close-err-07.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinCopy(t *testing.T) {
@@ -420,6 +427,8 @@ func TestBuiltinCopyErr(t *testing.T) {
 		"`int` is invalid parameter type to the builtin `copy` function")
 	expectError(t, "_test/src/call", []string{"copy-err-14.go"},
 		"`[]B` is not assignable to `[]A`")
+	expectError(t, "_test/src/call", []string{"copy-err-15.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinNew(t *testing.T) {
@@ -506,6 +515,8 @@ func TestBuiltinRealErr(t *testing.T) {
 		"`int` is invalid parameter type to the builtin `real` function")
 	expectError(t, "_test/src/call", []string{"real-err-08.go"},
 		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"real-err-09.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinImag(t *testing.T) {
@@ -570,6 +581,8 @@ func TestBuiltinImagErr(t *testing.T) {
 		"`int` is invalid parameter type to the builtin `imag` function")
 	expectError(t, "_test/src/call", []string{"imag-err-08.go"},
 		"type argument not allowed")
+	expectError(t, "_test/src/call", []string{"imag-err-09.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinComplex(t *testing.T) {
@@ -705,6 +718,8 @@ func TestBuiltinDeleteErr(t *testing.T) {
 		"`Int8` is invalid parameter type to the builtin `delete` function")
 	expectError(t, "_test/src/call", []string{"delete-err-10.go"},
 		"`int` is not assignable to `Int8`")
+	expectError(t, "_test/src/call", []string{"delete-err-11.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinPanic(t *testing.T) {
@@ -719,6 +734,8 @@ func TestBuiltinPanicErr(t *testing.T) {
 		"type argument not allowed")
 	expectError(t, "_test/src/call", []string{"panic-err-02.go"},
 		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"panic-err-03.go"},
+		"invalid use of `...` to call a non-variadic function")
 }
 
 func TestBuiltinRecover(t *testing.T) {
@@ -736,6 +753,8 @@ func TestBuiltinRecoverErr(t *testing.T) {
 	expectError(t, "_test/src/call", []string{"recover-err-01.go"},
 		"type argument not allowed")
 	expectError(t, "_test/src/call", []string{"recover-err-02.go"},
+		"argument count mismatch")
+	expectError(t, "_test/src/call", []string{"recover-err-03.go"},
 		"argument count mismatch")
 }
 

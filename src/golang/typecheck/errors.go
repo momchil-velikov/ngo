@@ -305,7 +305,7 @@ func (e *BadVariadicCall) Error() string {
 }
 
 // The BadVariadicArg error is returned for call expressions using `...` with
-// an argument og of non-slice type.
+// an argument of a non-slice type.
 type BadVariadicArg struct {
 	Off  int
 	File *ast.File
