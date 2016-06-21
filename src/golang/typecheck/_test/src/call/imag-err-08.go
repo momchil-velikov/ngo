@@ -1,3 +1,3 @@
 package call
 
-var a = real(int, 1)
+var a = imag(int, 1)
